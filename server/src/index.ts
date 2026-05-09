@@ -2,15 +2,18 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import { errorHandler, notFound } from './middleware/error';
 import { prisma } from './lib/prisma';
+import authRouter from './routes/auth';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+app.use(cookieParser());
 
 // Stripe webhooks need the raw body, so register that route before express.json().
 // app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookHandler);
@@ -30,11 +33,7 @@ app.get('/health/db', async (_req: Request, res: Response, next) => {
   }
 });
 
-// Mount feature routes here as phases progress.
-// app.use('/api/auth', authRouter);
-// app.use('/api/companies', companiesRouter);
-// app.use('/api/diagnostics', diagnosticsRouter);
-// ...
+app.use('/api/auth', authRouter);
 
 app.use(notFound);
 app.use(errorHandler);

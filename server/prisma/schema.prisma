@@ -13,19 +13,23 @@ datasource db {
 // ─── Group A: Users & Authentication ─────────────────────────────────────────
 
 model User {
-  id            String       @id @default(uuid())
-  email         String       @unique
-  passwordHash  String
-  userType      UserType
-  managerType   ManagerType?
-  name          String
-  phone         String?
-  avatarUrl     String?
-  plan          PlanTier     @default(BASIC)
-  planExpiresAt DateTime?
-  isVerified    Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                         String       @id @default(uuid())
+  email                      String       @unique
+  passwordHash               String
+  userType                   UserType
+  managerType                ManagerType?
+  name                       String
+  phone                      String?
+  avatarUrl                  String?
+  plan                       PlanTier     @default(BASIC)
+  planExpiresAt              DateTime?
+  isVerified                 Boolean      @default(false)
+  emailVerificationToken     String?      @unique
+  emailVerificationExpiresAt DateTime?
+  passwordResetToken         String?      @unique
+  passwordResetExpiresAt     DateTime?
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
 
   companies      CompanyUser[]
   diagnostics    Diagnostic[]

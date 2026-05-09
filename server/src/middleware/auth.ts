@@ -16,12 +16,18 @@ declare global {
   }
 }
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
+function readToken(req: Parameters<RequestHandler>[0]): string | null {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    return next(new HttpError(401, 'Missing bearer token'));
+  if (header?.startsWith('Bearer ')) {
+    return header.slice('Bearer '.length);
   }
-  const token = header.slice('Bearer '.length);
+  const cookieToken = (req as { cookies?: Record<string, string> }).cookies?.access_token;
+  return cookieToken ?? null;
+}
+
+export const requireAuth: RequestHandler = (req, _res, next) => {
+  const token = readToken(req);
+  if (!token) return next(new HttpError(401, 'Missing access token'));
   const secret = process.env.JWT_SECRET;
   if (!secret) return next(new HttpError(500, 'JWT_SECRET not configured'));
 
@@ -34,7 +40,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   }
 };
 
-export function signAuthToken(payload: AuthPayload, expiresIn: string = '7d'): string {
+export function signAuthToken(payload: AuthPayload, expiresIn: string = '15m'): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new HttpError(500, 'JWT_SECRET not configured');
   return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
