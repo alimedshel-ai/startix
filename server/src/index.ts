@@ -8,6 +8,8 @@ import { errorHandler, notFound } from './middleware/error';
 import { prisma } from './lib/prisma';
 import authRouter from './routes/auth';
 import diagnosticRouter from './routes/diagnostic';
+import departmentsRouter from './routes/departments';
+import complianceRouter from './routes/compliance';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -36,6 +38,8 @@ app.get('/health/db', async (_req: Request, res: Response, next) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/diagnostic', diagnosticRouter);
+app.use('/api/departments', departmentsRouter);
+app.use('/api/compliance', complianceRouter);
 
 app.use(notFound);
 app.use(errorHandler);

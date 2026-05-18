@@ -1,5 +1,5 @@
-import { StubPage } from '@/components/StubPage'
+import { DeptAuditPage } from '@/components/dept/DeptAuditPage'
 
 export function FinanceAuditPage() {
-  return <StubPage title="Finance audit" description="Finance-specific audit module." phase={5} />
+  return <DeptAuditPage deptCode="FINANCE" />
 }

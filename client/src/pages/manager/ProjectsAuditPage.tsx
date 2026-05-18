@@ -1,5 +1,19 @@
-import { StubPage } from '@/components/StubPage'
+import { Link } from 'react-router-dom'
+
+import { DeptAuditPage } from '@/components/dept/DeptAuditPage'
+import { buttonVariants } from '@/components/ui/button'
 
 export function ProjectsAuditPage() {
-  return <StubPage title="Projects audit" description="Projects department audit module." phase={5} />
+  return (
+    <DeptAuditPage
+      deptCode="PROJECTS"
+      afterResult={() => (
+        <div className="flex justify-end">
+          <Link to="/gantt-chart" className={buttonVariants({ variant: 'outline' })}>
+            View Gantt chart →
+          </Link>
+        </div>
+      )}
+    />
+  )
 }

@@ -1,5 +1,19 @@
-import { StubPage } from '@/components/StubPage'
+import { Link } from 'react-router-dom'
+
+import { DeptAuditPage } from '@/components/dept/DeptAuditPage'
+import { buttonVariants } from '@/components/ui/button'
 
 export function LogisticsAuditPage() {
-  return <StubPage title="Logistics audit" description="Logistics-specific audit module." phase={5} />
+  return (
+    <DeptAuditPage
+      deptCode="LOGISTICS"
+      afterResult={() => (
+        <div className="flex justify-end">
+          <Link to="/manager/logistics/reform" className={buttonVariants({ variant: 'outline' })}>
+            Generate reform plan →
+          </Link>
+        </div>
+      )}
+    />
+  )
 }
