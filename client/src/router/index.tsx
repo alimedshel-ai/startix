@@ -40,6 +40,8 @@ import { SPACEMatrixPage } from '@/pages/owner/SPACEMatrixPage'
 import { QSPMPage } from '@/pages/owner/QSPMPage'
 import { ThreeHorizonsPage } from '@/pages/owner/ThreeHorizonsPage'
 import { ObjectivesPage } from '@/pages/owner/ObjectivesPage'
+import { OGSMPage } from '@/pages/owner/OGSMPage'
+import { AnnualPlanPage } from '@/pages/owner/AnnualPlanPage'
 import { KPIsPage } from '@/pages/owner/KPIsPage'
 import { OKRsPage } from '@/pages/owner/OKRsPage'
 import { PriorityMatrixPage } from '@/pages/owner/PriorityMatrixPage'
@@ -137,6 +139,8 @@ export const router = createBrowserRouter([
               { path: '/qspm', element: <QSPMPage /> },
               { path: '/three-horizons', element: <ThreeHorizonsPage /> },
               { path: '/objectives', element: <ObjectivesPage /> },
+              { path: '/ogsm', element: <OGSMPage /> },
+              { path: '/annual-plan', element: <AnnualPlanPage /> },
               { path: '/kpis', element: <KPIsPage /> },
               { path: '/okrs', element: <OKRsPage /> },
               { path: '/priority-matrix', element: <PriorityMatrixPage /> },
