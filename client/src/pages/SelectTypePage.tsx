@@ -5,21 +5,24 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuthStore } from '@/store/authStore'
 import type { UserType } from '@/types/user'
 
-const OPTIONS: { type: UserType; title: string; blurb: string }[] = [
+const OPTIONS: { type: UserType; title: string; blurb: string; icon: string }[] = [
   {
     type: 'OWNER',
-    title: 'Business Owner',
-    blurb: 'Run the strategy of your own company across all 13 departments.',
+    title: 'صاحب أعمال',
+    blurb: 'تدير استراتيجية شركتك عبر ١٣ إدارة، مع تشخيص ومسار استراتيجي مخصّص.',
+    icon: '👔',
   },
   {
     type: 'MANAGER',
-    title: 'Manager / Consultant',
-    blurb: 'Manage strategy on behalf of clients or as an internal department head.',
+    title: 'مدير / مستشار',
+    blurb: 'تدير الاستراتيجية لعملاء أو لإدارة داخل المنشأة، مع أدوات تدقيق متقدمة.',
+    icon: '📋',
   },
   {
     type: 'INVESTOR',
-    title: 'Investor',
-    blurb: 'Evaluate strategic and operational health of companies in your portfolio.',
+    title: 'مستثمر',
+    blurb: 'تقيّم الصحة الاستراتيجية والتشغيلية للشركات في محفظتك.',
+    icon: '📈',
   },
 ]
 
@@ -35,21 +38,29 @@ export function SelectTypePage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center gap-10 px-6 py-16">
       <div className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">How will you use Startix?</h1>
-        <p className="mt-2 text-muted-foreground">Pick the role that fits — you can switch later.</p>
+        <Link to="/" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <span>← العودة للصفحة الرئيسية</span>
+        </Link>
+        <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          كيف ستستخدم ستارتكس؟
+        </h1>
+        <p className="mt-3 text-muted-foreground">
+          اختر الدور الذي يناسبك — تقدر تغيّره لاحقاً.
+        </p>
       </div>
 
       <div className="grid w-full gap-4 md:grid-cols-3">
         {OPTIONS.map((o) => (
-          <Card key={o.type} className="flex flex-col">
+          <Card key={o.type} className="group flex flex-col transition hover:-translate-y-1 hover:shadow-md">
             <CardHeader>
-              <CardTitle>{o.title}</CardTitle>
-              <CardDescription>{o.blurb}</CardDescription>
+              <div className="mb-2 text-3xl">{o.icon}</div>
+              <CardTitle className="text-lg">{o.title}</CardTitle>
+              <CardDescription className="leading-relaxed">{o.blurb}</CardDescription>
             </CardHeader>
             <CardContent className="flex-1" />
             <CardFooter>
               <Button className="w-full" onClick={() => choose(o.type)}>
-                Continue as {o.title}
+                المتابعة كـ{o.title}
               </Button>
             </CardFooter>
           </Card>
@@ -57,7 +68,7 @@ export function SelectTypePage() {
       </div>
 
       <Link to="/login" className={buttonVariants({ variant: 'ghost' })}>
-        Already have an account? Sign in
+        لديك حساب؟ تسجيل الدخول
       </Link>
     </div>
   )

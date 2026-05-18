@@ -14,7 +14,7 @@ import strategicRouter from './routes/strategic';
 import companiesRouter from './routes/companies';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 5001;
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));

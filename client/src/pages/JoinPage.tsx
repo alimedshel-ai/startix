@@ -13,14 +13,20 @@ import { useAuthStore } from '@/store/authStore'
 import type { UserType } from '@/types/user'
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required').max(120),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  name: z.string().min(1, 'الاسم مطلوب').max(120),
+  email: z.string().email('بريد إلكتروني غير صالح'),
+  password: z.string().min(8, 'كلمة المرور يجب ألا تقل عن ٨ أحرف').max(128),
   phone: z.string().max(40).optional().or(z.literal('')),
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
 })
 
 type Form = z.infer<typeof schema>
+
+const TYPE_LABEL: Record<UserType, string> = {
+  OWNER: 'صاحب أعمال',
+  MANAGER: 'مدير / مستشار',
+  INVESTOR: 'مستثمر',
+}
 
 export function JoinPage() {
   const navigate = useNavigate()
@@ -47,27 +53,32 @@ export function JoinPage() {
         phone: values.phone || undefined,
       })
       await login(values.email, values.password)
-      toast.success('Account created — check your email to verify')
+      toast.success('تم إنشاء الحساب — تحقق من بريدك لإكمال التحقق')
       navigate('/onboarding')
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Registration failed'
+        'فشل إنشاء الحساب'
       toast.error(message)
     } finally {
       setSubmitting(false)
     }
   })
 
+  const roleLabel = TYPE_LABEL[(selectedType as UserType | null) ?? 'OWNER']
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <Card>
+      <Link to="/" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        ← العودة للصفحة الرئيسية
+      </Link>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Create your Startix account</CardTitle>
+          <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
           <CardDescription>
-            Joining as <span className="font-medium text-foreground">{selectedType ?? 'OWNER'}</span>.
-            <Link to="/select-type" className="ml-1 underline-offset-4 hover:underline">
-              Change
+            انضمام كـ <span className="font-medium text-foreground">{roleLabel}</span>.
+            <Link to="/select-type" className="mr-1 underline-offset-4 hover:underline">
+              تغيير
             </Link>
           </CardDescription>
         </CardHeader>
@@ -75,21 +86,23 @@ export function JoinPage() {
           <CardContent className="grid gap-4">
             <input type="hidden" {...register('userType')} />
             <div className="grid gap-2">
-              <Label htmlFor="name">Full name</Label>
+              <Label htmlFor="name">الاسم الكامل</Label>
               <Input id="name" autoComplete="name" {...register('name')} />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register('email')} />
+              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Input id="email" type="email" autoComplete="email" dir="ltr" className="text-left" {...register('email')} />
               {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="new-password"
+                dir="ltr"
+                className="text-left"
                 {...register('password')}
               />
               {errors.password && (
@@ -97,18 +110,18 @@ export function JoinPage() {
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone (optional)</Label>
-              <Input id="phone" autoComplete="tel" placeholder="+966…" {...register('phone')} />
+              <Label htmlFor="phone">رقم الجوال (اختياري)</Label>
+              <Input id="phone" autoComplete="tel" dir="ltr" className="text-left" placeholder="+966…" {...register('phone')} />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button className="w-full" type="submit" disabled={submitting}>
-              {submitting ? 'Creating account…' : 'Create account'}
+              {submitting ? 'جاري إنشاء الحساب…' : 'إنشاء الحساب'}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link to="/login" className="underline-offset-4 hover:underline">
-                Sign in
+              لديك حساب؟{' '}
+              <Link to="/login" className="text-primary underline-offset-4 hover:underline">
+                تسجيل الدخول
               </Link>
             </p>
           </CardFooter>

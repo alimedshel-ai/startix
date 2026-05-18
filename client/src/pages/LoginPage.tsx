@@ -12,8 +12,8 @@ import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/store/authStore'
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('بريد إلكتروني غير صالح'),
+  password: z.string().min(1, 'كلمة المرور مطلوبة'),
 })
 
 type Form = z.infer<typeof schema>
@@ -30,12 +30,12 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(values.email, values.password)
-      toast.success('Welcome back')
+      toast.success('مرحباً بعودتك')
       navigate('/onboarding')
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Login failed'
+        'فشل تسجيل الدخول'
       toast.error(message)
     } finally {
       setSubmitting(false)
@@ -44,26 +44,31 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <Card>
+      <Link to="/" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        ← العودة للصفحة الرئيسية
+      </Link>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Sign in to Startix</CardTitle>
-          <CardDescription>Continue with your email and password.</CardDescription>
+          <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
+          <CardDescription>أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register('email')} />
+              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Input id="email" type="email" autoComplete="email" dir="ltr" className="text-left" {...register('email')} />
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="current-password"
+                dir="ltr"
+                className="text-left"
                 {...register('password')}
               />
               {errors.password && (
@@ -73,14 +78,14 @@ export function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button className="w-full" type="submit" disabled={submitting}>
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting ? 'جاري تسجيل الدخول…' : 'تسجيل الدخول'}
             </Button>
             <div className="flex w-full justify-between text-sm text-muted-foreground">
               <Link to="/select-type" className="hover:text-foreground">
-                Create account
+                إنشاء حساب
               </Link>
               <Link to="/forgot-password" className="hover:text-foreground">
-                Forgot password?
+                نسيت كلمة المرور؟
               </Link>
             </div>
           </CardFooter>
