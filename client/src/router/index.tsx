@@ -29,6 +29,8 @@ import { SWOTPage } from '@/pages/owner/SWOTPage'
 import { TOWSPage } from '@/pages/owner/TOWSPage'
 import { GapAnalysisPage } from '@/pages/owner/GapAnalysisPage'
 import { RiskMapPage } from '@/pages/owner/RiskMapPage'
+import { AmbitionGapPage } from '@/pages/owner/AmbitionGapPage'
+import { StrategicTensionsPage } from '@/pages/owner/StrategicTensionsPage'
 import { DirectionsPage } from '@/pages/owner/DirectionsPage'
 import { ScenariosPage } from '@/pages/owner/ScenariosPage'
 import { ChoicesPage } from '@/pages/owner/ChoicesPage'
@@ -119,6 +121,8 @@ export const router = createBrowserRouter([
               { path: '/tows', element: <TOWSPage /> },
               { path: '/gap-analysis', element: <GapAnalysisPage /> },
               { path: '/risk-map', element: <RiskMapPage /> },
+              { path: '/ambition-gap', element: <AmbitionGapPage /> },
+              { path: '/strategic-tensions', element: <StrategicTensionsPage /> },
               { path: '/directions', element: <DirectionsPage /> },
               { path: '/scenarios', element: <ScenariosPage /> },
               { path: '/choices', element: <ChoicesPage /> },

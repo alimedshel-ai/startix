@@ -61,10 +61,12 @@ const ownerNav: NavSection[] = [
     title: 'التوليف',
     accent: 'rose',
     items: [
-      { to: '/swot',         label: 'تحليل SWOT',     icon: '🧭' },
-      { to: '/tows',         label: 'مصفوفة TOWS',     icon: '🔄' },
-      { to: '/gap-analysis', label: 'تحليل الفجوة',    icon: '📐' },
-      { to: '/risk-map',     label: 'خريطة المخاطر',   icon: '⚠️' },
+      { to: '/swot',                 label: 'تحليل SWOT',         icon: '🧭' },
+      { to: '/tows',                 label: 'مصفوفة TOWS',         icon: '🔄' },
+      { to: '/gap-analysis',         label: 'تحليل الفجوة',        icon: '📐' },
+      { to: '/risk-map',             label: 'خريطة المخاطر',       icon: '⚠️' },
+      { to: '/ambition-gap',         label: 'فجوة الطموح',         icon: '🎯' },
+      { to: '/strategic-tensions',   label: 'التوترات الاستراتيجية', icon: '⚖️' },
     ],
   },
   {

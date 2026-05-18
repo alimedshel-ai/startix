@@ -11,6 +11,7 @@ export type ArtifactType =
   | 'VALUE_CHAIN'
   | 'CORE_CAPABILITIES'
   | 'GAP_ANALYSIS'
+  | 'RISK_REGISTER'
   | 'AMBITION_GAP'
   | 'STRATEGIC_TENSIONS'
   | 'DIRECTIONS'
