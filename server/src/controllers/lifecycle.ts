@@ -1,0 +1,561 @@
+import { RequestHandler } from 'express';
+import { z } from 'zod';
+
+import { prisma } from '../lib/prisma';
+import { HttpError } from '../middleware/error';
+import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
+
+// ─── Objectives ─────────────────────────────────────────────────────────────
+const objectiveCreate = z.object({
+  companyId: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  type: z.string().min(1).max(80),
+  status: z.string().optional(),
+  dueDate: z.string().datetime().nullish(),
+});
+const objectiveUpdate = objectiveCreate.partial().omit({ companyId: true });
+
+export const listObjectives: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.objective.findMany({ where: { companyId }, include: { okrs: true } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createObjective: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = objectiveCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.objective.create({
+      data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : null },
+    });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateObjective: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = objectiveUpdate.parse(req.body);
+    const found = await prisma.objective.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Objective not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const row = await prisma.objective.update({
+      where: { id },
+      data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : undefined },
+    });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteObjective: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.objective.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Objective not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.objective.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── OKRs (nested under Objective) ──────────────────────────────────────────
+const okrCreate = z.object({
+  objectiveId: z.string().uuid(),
+  keyResult: z.string().min(1).max(200),
+  targetValue: z.number(),
+  currentValue: z.number().optional(),
+  unit: z.string().optional(),
+  dueDate: z.string().datetime().nullish(),
+});
+const okrUpdate = okrCreate.partial().omit({ objectiveId: true });
+
+export const createOKR: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = okrCreate.parse(req.body);
+    const obj = await prisma.objective.findUnique({ where: { id: body.objectiveId } });
+    if (!obj) throw new HttpError(404, 'Objective not found');
+    await assertCompanyAccess(req.auth.sub, obj.companyId);
+    const row = await prisma.oKR.create({
+      data: { ...body, currentValue: body.currentValue ?? 0, dueDate: body.dueDate ? new Date(body.dueDate) : null },
+    });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateOKR: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = okrUpdate.parse(req.body);
+    const found = await prisma.oKR.findUnique({ where: { id }, include: { objective: true } });
+    if (!found) throw new HttpError(404, 'OKR not found');
+    await assertCompanyAccess(req.auth.sub, found.objective.companyId);
+    const row = await prisma.oKR.update({
+      where: { id },
+      data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : undefined },
+    });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteOKR: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.oKR.findUnique({ where: { id }, include: { objective: true } });
+    if (!found) throw new HttpError(404, 'OKR not found');
+    await assertCompanyAccess(req.auth.sub, found.objective.companyId);
+    await prisma.oKR.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── KPIs ───────────────────────────────────────────────────────────────────
+const kpiCreate = z.object({
+  companyId: z.string().uuid(),
+  departmentId: z.string().uuid().optional(),
+  objectiveId: z.string().uuid().optional(),
+  name: z.string().min(1).max(200),
+  unit: z.string().min(1).max(40),
+  targetValue: z.number(),
+  currentValue: z.number().optional(),
+  frequency: z.string().min(1).max(40),
+});
+const kpiUpdate = kpiCreate.partial().omit({ companyId: true });
+
+export const listKPIs: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.kPI.findMany({ where: { companyId } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createKPI: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = kpiCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.kPI.create({ data: { ...body, currentValue: body.currentValue ?? 0 } });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateKPI: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = kpiUpdate.parse(req.body);
+    const found = await prisma.kPI.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'KPI not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const row = await prisma.kPI.update({ where: { id }, data: body });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteKPI: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.kPI.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'KPI not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.kPI.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── KPI entries (history) ──────────────────────────────────────────────────
+const entryCreate = z.object({
+  kpiId: z.string().uuid(),
+  value: z.number(),
+  notes: z.string().max(500).optional(),
+});
+
+export const listKPIEntries: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const kpiId = paramOf(req, 'kpiId');
+    const kpi = await prisma.kPI.findUnique({ where: { id: kpiId } });
+    if (!kpi) throw new HttpError(404, 'KPI not found');
+    await assertCompanyAccess(req.auth.sub, kpi.companyId);
+    const rows = await prisma.kPIEntry.findMany({ where: { kpiId }, orderBy: { enteredAt: 'desc' } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createKPIEntry: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = entryCreate.parse(req.body);
+    const kpi = await prisma.kPI.findUnique({ where: { id: body.kpiId } });
+    if (!kpi) throw new HttpError(404, 'KPI not found');
+    await assertCompanyAccess(req.auth.sub, kpi.companyId);
+    const [, entry] = await prisma.$transaction([
+      prisma.kPI.update({ where: { id: kpi.id }, data: { currentValue: body.value } }),
+      prisma.kPIEntry.create({ data: body }),
+    ]);
+    res.status(201).json(entry);
+  } catch (err) { next(err); }
+};
+
+// ─── Initiatives ────────────────────────────────────────────────────────────
+const initiativeCreate = z.object({
+  companyId: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  status: z.string().optional(),
+  priority: z.string().min(1).max(40),
+});
+const initiativeUpdate = initiativeCreate.partial().omit({ companyId: true });
+
+export const listInitiatives: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.initiative.findMany({ where: { companyId }, include: { projects: true } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createInitiative: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = initiativeCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.initiative.create({ data: body });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateInitiative: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = initiativeUpdate.parse(req.body);
+    const found = await prisma.initiative.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Initiative not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const row = await prisma.initiative.update({ where: { id }, data: body });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteInitiative: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.initiative.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Initiative not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.initiative.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── Projects ───────────────────────────────────────────────────────────────
+const projectCreate = z.object({
+  companyId: z.string().uuid(),
+  initiativeId: z.string().uuid().optional(),
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  status: z.string().optional(),
+  startDate: z.string().datetime().nullish(),
+  endDate: z.string().datetime().nullish(),
+});
+const projectUpdate = projectCreate.partial().omit({ companyId: true });
+
+export const listProjects: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.project.findMany({ where: { companyId }, include: { tasks: true } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createProject: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = projectCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.project.create({
+      data: {
+        ...body,
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        endDate: body.endDate ? new Date(body.endDate) : null,
+      },
+    });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateProject: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = projectUpdate.parse(req.body);
+    const found = await prisma.project.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Project not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const row = await prisma.project.update({
+      where: { id },
+      data: {
+        ...body,
+        startDate: body.startDate ? new Date(body.startDate) : undefined,
+        endDate: body.endDate ? new Date(body.endDate) : undefined,
+      },
+    });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteProject: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.project.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Project not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.project.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── Tasks ──────────────────────────────────────────────────────────────────
+const taskCreate = z.object({
+  companyId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
+  assigneeId: z.string().uuid().optional(),
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  dueDate: z.string().datetime().nullish(),
+});
+const taskUpdate = taskCreate.partial().omit({ companyId: true });
+
+export const listTasks: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.task.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createTask: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = taskCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.task.create({
+      data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : null },
+    });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const updateTask: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = taskUpdate.parse(req.body);
+    const found = await prisma.task.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Task not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const completedAt = body.status === 'done' && !found.completedAt ? new Date() : undefined;
+    const row = await prisma.task.update({
+      where: { id },
+      data: {
+        ...body,
+        dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+        completedAt: completedAt ?? (body.status && body.status !== 'done' ? null : undefined),
+      },
+    });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteTask: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.task.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Task not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.task.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── Scenarios ──────────────────────────────────────────────────────────────
+const scenarioCreate = z.object({
+  companyId: z.string().uuid(),
+  name: z.string().min(1).max(80),
+  assumptions: z.array(z.string()),
+  projections: z.array(z.object({ year: z.number(), revenue: z.number(), profit: z.number() })),
+});
+
+export const listScenarios: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.scenario.findMany({ where: { companyId }, orderBy: { createdAt: 'asc' } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createScenario: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = scenarioCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const row = await prisma.scenario.create({
+      data: {
+        companyId: body.companyId,
+        name: body.name,
+        assumptions: body.assumptions as unknown as object,
+        projections: body.projections as unknown as object,
+      },
+    });
+    res.status(201).json(row);
+  } catch (err) { next(err); }
+};
+
+export const deleteScenario: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const found = await prisma.scenario.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Scenario not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    await prisma.scenario.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) { next(err); }
+};
+
+// ─── Reviews & Corrections ─────────────────────────────────────────────────
+const reviewCreate = z.object({
+  companyId: z.string().uuid(),
+  type: z.string().min(1).max(40),
+  outcome: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+  corrections: z.array(z.object({
+    title: z.string().min(1),
+    description: z.string().optional(),
+    owner: z.string().optional(),
+    dueDate: z.string().datetime().nullish(),
+  })).optional(),
+});
+
+export const listReviews: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.review.findMany({ where: { companyId }, orderBy: { reviewedAt: 'desc' } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const createReview: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = reviewCreate.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const review = await prisma.review.create({
+      data: {
+        companyId: body.companyId,
+        type: body.type,
+        outcome: body.outcome,
+        notes: body.notes,
+        corrections: (body.corrections ?? []) as unknown as object,
+      },
+    });
+    if (body.corrections?.length) {
+      await prisma.correction.createMany({
+        data: body.corrections.map((c) => ({
+          companyId: body.companyId,
+          reviewId: review.id,
+          title: c.title,
+          description: c.description,
+          owner: c.owner,
+          dueDate: c.dueDate ? new Date(c.dueDate) : null,
+        })),
+      });
+    }
+    res.status(201).json(review);
+  } catch (err) { next(err); }
+};
+
+const correctionUpdate = z.object({
+  status: z.string().optional(),
+  owner: z.string().optional(),
+  dueDate: z.string().datetime().nullish(),
+  description: z.string().optional(),
+});
+
+export const listCorrections: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const rows = await prisma.correction.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } });
+    res.json(rows);
+  } catch (err) { next(err); }
+};
+
+export const updateCorrection: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const body = correctionUpdate.parse(req.body);
+    const found = await prisma.correction.findUnique({ where: { id } });
+    if (!found) throw new HttpError(404, 'Correction not found');
+    await assertCompanyAccess(req.auth.sub, found.companyId);
+    const row = await prisma.correction.update({
+      where: { id },
+      data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : undefined },
+    });
+    res.json(row);
+  } catch (err) { next(err); }
+};
+
+// ─── Activity feed — aggregated stream ──────────────────────────────────────
+export const activityFeed: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const [tasks, kpiEntries, reviews, corrections] = await Promise.all([
+      prisma.task.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' }, take: 25 }),
+      prisma.kPIEntry.findMany({ where: { kpi: { companyId } }, orderBy: { enteredAt: 'desc' }, take: 25, include: { kpi: true } }),
+      prisma.review.findMany({ where: { companyId }, orderBy: { reviewedAt: 'desc' }, take: 10 }),
+      prisma.correction.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' }, take: 25 }),
+    ]);
+    const stream = [
+      ...tasks.map((t) => ({ type: 'task' as const, at: t.createdAt, title: t.title, status: t.status, id: t.id })),
+      ...kpiEntries.map((e) => ({ type: 'kpi_entry' as const, at: e.enteredAt, title: e.kpi.name, value: e.value, id: e.id })),
+      ...reviews.map((r) => ({ type: 'review' as const, at: r.reviewedAt, title: `${r.type} review`, outcome: r.outcome, id: r.id })),
+      ...corrections.map((c) => ({ type: 'correction' as const, at: c.createdAt, title: c.title, status: c.status, id: c.id })),
+    ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 60);
+    res.json(stream);
+  } catch (err) { next(err); }
+};

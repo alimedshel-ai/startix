@@ -92,6 +92,8 @@ model Company {
   swots            SWOT[]
   complianceAudits ComplianceAudit[]
   reports          Report[]
+  artifacts        StrategicArtifact[]
+  corrections      Correction[]
 }
 
 model CompanyUser {
@@ -391,4 +393,43 @@ model Report {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+// ─── Group I: Strategic lifecycle (Phase 6) ─────────────────────────────────
+
+// Generic container for the analysis artefacts whose data is mostly free-form
+// JSON: PESTEL, Porter, benchmarking, stakeholders, org DNA, value chain, core
+// capabilities, gap analysis, ambition gap, strategic tensions, directions,
+// scenarios overlay, Ansoff/BCG/SPACE/QSPM/Three Horizons matrices, priority
+// matrix, OGSM, annual plan, company health snapshot. One row per
+// (companyId, type) — the controller upserts.
+model StrategicArtifact {
+  id        String   @id @default(uuid())
+  companyId String
+  type      String
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, type])
+  @@index([companyId])
+}
+
+model Correction {
+  id          String    @id @default(uuid())
+  companyId   String
+  reviewId    String?
+  title       String
+  description String?
+  owner       String?
+  status      String    @default("open")
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([reviewId])
 }
