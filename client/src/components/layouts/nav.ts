@@ -106,6 +106,7 @@ const ownerNav: NavSection[] = [
     items: [
       { to: '/strategic-calendar', label: 'التقويم الاستراتيجي', icon: '🗓️' },
       { to: '/reviews',            label: 'المراجعات',           icon: '🔁' },
+      { to: '/corrections',        label: 'الإجراءات التصحيحية', icon: '🔧' },
       { to: '/reports',            label: 'التقارير',            icon: '📑' },
     ],
   },

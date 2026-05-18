@@ -54,6 +54,7 @@ import { LiveBoardPage } from '@/pages/owner/LiveBoardPage'
 import { ActivityFeedPage } from '@/pages/owner/ActivityFeedPage'
 import { StrategicCalendarPage } from '@/pages/owner/StrategicCalendarPage'
 import { ReviewsPage } from '@/pages/owner/ReviewsPage'
+import { CorrectionsPage } from '@/pages/owner/CorrectionsPage'
 import { ReportsPage } from '@/pages/owner/ReportsPage'
 import { AICenterPage } from '@/pages/owner/AICenterPage'
 import { AnalyticsDashboardPage } from '@/pages/owner/AnalyticsDashboardPage'
@@ -153,6 +154,7 @@ export const router = createBrowserRouter([
               { path: '/activity-feed', element: <ActivityFeedPage /> },
               { path: '/strategic-calendar', element: <StrategicCalendarPage /> },
               { path: '/reviews', element: <ReviewsPage /> },
+              { path: '/corrections', element: <CorrectionsPage /> },
               { path: '/reports', element: <ReportsPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
               { path: '/analytics-dashboard', element: <AnalyticsDashboardPage /> },
