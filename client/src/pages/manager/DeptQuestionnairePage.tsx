@@ -1,5 +1,7 @@
-import { StubPage } from '@/components/StubPage'
+import { Navigate } from 'react-router-dom'
 
+// The 12-question audit lives behind /manager/<dept>/audit pages now (one per
+// department). This route stays as a friendly redirect for older links.
 export function DeptQuestionnairePage() {
-  return <StubPage title="Department questionnaire" description="10-question department audit questionnaire." phase={5} />
+  return <Navigate to="/manager/select-dept" replace />
 }
