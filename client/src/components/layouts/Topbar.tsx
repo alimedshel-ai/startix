@@ -12,8 +12,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/store/authStore'
 
+const PLAN_LABEL: Record<string, string> = {
+  BASIC: 'أساسي',
+  PROFESSIONAL: 'احترافي',
+  ENTERPRISE: 'مؤسسي',
+}
+
 function initials(name?: string | null) {
-  if (!name) return '??'
+  if (!name) return '؟؟'
   return name
     .split(' ')
     .filter(Boolean)
@@ -28,32 +34,40 @@ export function Topbar() {
   const logout = useAuthStore((s) => s.logout)
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-6">
-      <Link to="/" className="text-lg font-semibold tracking-tight">
-        Startix
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <Link to="/" className="flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-primary/70 font-bold text-primary-foreground shadow-sm">
+          س
+        </span>
+        <span className="text-lg font-bold tracking-tight">ستارتكس</span>
       </Link>
 
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" aria-label="Notifications">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" aria-label="إشعارات" className="relative">
           <span aria-hidden>🔔</span>
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 hover:bg-muted">
-            <Avatar className="size-8">
-              <AvatarFallback>{initials(user?.name)}</AvatarFallback>
+          <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg p-1 transition hover:bg-muted">
+            <Avatar className="size-9 ring-2 ring-primary/10">
+              <AvatarFallback className="bg-primary/15 text-primary font-semibold">{initials(user?.name)}</AvatarFallback>
             </Avatar>
-            <span className="hidden text-sm md:inline">{user?.name ?? 'Account'}</span>
+            <div className="hidden flex-col items-end text-right md:flex">
+              <span className="text-sm font-medium leading-tight">{user?.name ?? 'الحساب'}</span>
+              <span className="text-[10px] text-muted-foreground">{PLAN_LABEL[user?.plan ?? 'BASIC']}</span>
+            </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel className="flex flex-col gap-0.5">
-              <span>{user?.name}</span>
+              <span className="font-semibold">{user?.name}</span>
               <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/onboarding')}>Profile</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate('/onboarding')}>
+              <span className="ml-2">👤</span> الملف الشخصي
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate('/pricing')}>
-              Plan: {user?.plan ?? 'BASIC'}
+              <span className="ml-2">💎</span> الباقة: {PLAN_LABEL[user?.plan ?? 'BASIC']}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -62,7 +76,7 @@ export function Topbar() {
                 navigate('/')
               }}
             >
-              Sign out
+              <span className="ml-2">🚪</span> تسجيل الخروج
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

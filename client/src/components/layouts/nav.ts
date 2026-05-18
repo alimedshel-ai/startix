@@ -3,149 +3,169 @@ import type { UserType } from '@/types/user'
 export interface NavItem {
   to: string
   label: string
+  icon?: string
 }
+
+/** Accent color used by the sidebar for the section header / left-bar marker. */
+export type AccentColor = 'teal' | 'indigo' | 'amber' | 'emerald' | 'rose' | 'violet' | 'sky' | 'orange'
 
 export interface NavSection {
   title: string
+  accent: AccentColor
   items: NavItem[]
 }
 
 const ownerNav: NavSection[] = [
   {
-    title: 'Overview',
+    title: 'نظرة عامة',
+    accent: 'teal',
     items: [
-      { to: '/dashboard', label: 'Dashboard' },
-      { to: '/ceo-dashboard', label: 'CEO dashboard' },
-      { to: '/live-board', label: 'Live board' },
-      { to: '/analytics-dashboard', label: 'Analytics' },
-      { to: '/activity-feed', label: 'Activity feed' },
+      { to: '/dashboard',           label: 'لوحة القيادة',         icon: '🏠' },
+      { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي',  icon: '👔' },
+      { to: '/live-board',          label: 'اللوحة الحية',          icon: '⚡' },
+      { to: '/analytics-dashboard', label: 'التحليلات',             icon: '📈' },
+      { to: '/activity-feed',       label: 'سجل النشاط',            icon: '📰' },
     ],
   },
   {
-    title: 'Companies',
+    title: 'الشركات',
+    accent: 'indigo',
     items: [
-      { to: '/companies', label: 'Companies' },
-      { to: '/companies/add', label: 'Add company' },
+      { to: '/companies',     label: 'شركاتي',         icon: '🏢' },
+      { to: '/companies/add', label: 'إضافة شركة',     icon: '➕' },
     ],
   },
   {
-    title: 'Diagnostic',
+    title: 'التشخيص',
+    accent: 'sky',
     items: [
-      { to: '/diagnostic/owner', label: 'Owner diagnostic' },
-      { to: '/diagnostic/result', label: 'Diagnostic result' },
-      { to: '/company-health', label: 'Company health' },
+      { to: '/diagnostic/owner',  label: 'تشخيص المالك',   icon: '🎯' },
+      { to: '/diagnostic/result', label: 'نتيجة التشخيص',  icon: '📊' },
+      { to: '/company-health',    label: 'صحة الشركة',     icon: '❤️' },
     ],
   },
   {
-    title: 'Strategic analysis',
+    title: 'التحليل الاستراتيجي',
+    accent: 'violet',
     items: [
-      { to: '/pestel', label: 'PESTEL' },
-      { to: '/porter', label: 'Porter Five Forces' },
-      { to: '/benchmarking', label: 'Benchmarking' },
-      { to: '/stakeholders', label: 'Stakeholders' },
-      { to: '/org-dna', label: 'Org DNA' },
+      { to: '/pestel',       label: 'تحليل PESTEL',          icon: '🌐' },
+      { to: '/porter',       label: 'قوى بورتر الخمس',       icon: '⚔️' },
+      { to: '/benchmarking', label: 'المقارنة المرجعية',     icon: '🔍' },
+      { to: '/stakeholders', label: 'أصحاب المصلحة',         icon: '👥' },
+      { to: '/org-dna',      label: 'الحمض التنظيمي',         icon: '🧬' },
     ],
   },
   {
-    title: 'Strategy',
+    title: 'التوليف',
+    accent: 'rose',
     items: [
-      { to: '/swot', label: 'SWOT' },
-      { to: '/tows', label: 'TOWS' },
-      { to: '/gap-analysis', label: 'Gap analysis' },
-      { to: '/risk-map', label: 'Risk map' },
+      { to: '/swot',         label: 'تحليل SWOT',     icon: '🧭' },
+      { to: '/tows',         label: 'مصفوفة TOWS',     icon: '🔄' },
+      { to: '/gap-analysis', label: 'تحليل الفجوة',    icon: '📐' },
+      { to: '/risk-map',     label: 'خريطة المخاطر',   icon: '⚠️' },
     ],
   },
   {
-    title: 'Direction',
+    title: 'الاتجاه الاستراتيجي',
+    accent: 'amber',
     items: [
-      { to: '/directions', label: 'Strategic directions' },
-      { to: '/scenarios', label: 'Scenarios' },
-      { to: '/choices', label: 'Choices' },
-      { to: '/priority-matrix', label: 'Priority matrix' },
+      { to: '/directions',      label: 'الاتجاهات',          icon: '🧭' },
+      { to: '/scenarios',       label: 'السيناريوهات',       icon: '🔮' },
+      { to: '/choices',         label: 'القرارات',           icon: '✅' },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡' },
     ],
   },
   {
-    title: 'Execution',
+    title: 'التنفيذ',
+    accent: 'emerald',
     items: [
-      { to: '/objectives', label: 'Objectives' },
-      { to: '/okrs', label: 'OKRs' },
-      { to: '/kpis', label: 'KPIs' },
-      { to: '/kpi-entries', label: 'KPI entries' },
-      { to: '/initiatives', label: 'Initiatives' },
-      { to: '/projects', label: 'Projects' },
-      { to: '/gantt-chart', label: 'Gantt chart' },
-      { to: '/tasks', label: 'Tasks' },
+      { to: '/objectives',   label: 'الأهداف',          icon: '🎯' },
+      { to: '/okrs',         label: 'OKRs',             icon: '🏆' },
+      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊' },
+      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️' },
+      { to: '/initiatives',  label: 'المبادرات',        icon: '💡' },
+      { to: '/projects',     label: 'المشاريع',         icon: '📁' },
+      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅' },
+      { to: '/tasks',        label: 'المهام',           icon: '✓' },
     ],
   },
   {
-    title: 'Reviews & reports',
+    title: 'المراجعة والتقارير',
+    accent: 'orange',
     items: [
-      { to: '/strategic-calendar', label: 'Strategic calendar' },
-      { to: '/reviews', label: 'Reviews' },
-      { to: '/reports', label: 'Reports' },
+      { to: '/strategic-calendar', label: 'التقويم الاستراتيجي', icon: '🗓️' },
+      { to: '/reviews',            label: 'المراجعات',           icon: '🔁' },
+      { to: '/reports',            label: 'التقارير',            icon: '📑' },
     ],
   },
   {
-    title: 'AI',
-    items: [{ to: '/ai-center', label: 'AI center' }],
+    title: 'الذكاء الاصطناعي',
+    accent: 'violet',
+    items: [{ to: '/ai-center', label: 'مركز الذكاء', icon: '🤖' }],
   },
 ]
 
 const managerNav: NavSection[] = [
   {
-    title: 'Diagnostic',
-    items: [{ to: '/manager/diagnostic', label: 'Manager diagnostic' }],
+    title: 'التشخيص',
+    accent: 'sky',
+    items: [{ to: '/manager/diagnostic', label: 'تشخيص المدير', icon: '🎯' }],
   },
   {
-    title: 'Department',
+    title: 'الإدارة',
+    accent: 'teal',
     items: [
-      { to: '/manager/select-dept', label: 'Select department' },
-      { to: '/manager/dept-dashboard', label: 'Department dashboard' },
-      { to: '/manager/pro-dashboard', label: 'Pro dashboard' },
-      { to: '/manager/dept-questionnaire', label: 'Questionnaire' },
-      { to: '/manager/dept-deep', label: 'Deep dive' },
-      { to: '/manager/dept-smart', label: 'SMART analysis' },
+      { to: '/manager/select-dept',         label: 'اختيار الإدارة',    icon: '🏢' },
+      { to: '/manager/dept-dashboard',      label: 'لوحة الإدارة',       icon: '📊' },
+      { to: '/manager/pro-dashboard',       label: 'اللوحة الاحترافية',  icon: '⭐' },
+      { to: '/manager/dept-questionnaire',  label: 'الاستبيان',          icon: '📋' },
+      { to: '/manager/dept-deep',           label: 'التحليل العميق',     icon: '🔬' },
+      { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
     ],
   },
   {
-    title: 'Department audits',
+    title: 'تدقيق الإدارات',
+    accent: 'indigo',
     items: [
-      { to: '/manager/hr/audit', label: 'HR' },
-      { to: '/manager/finance/audit', label: 'Finance' },
-      { to: '/manager/finance/break-even', label: 'Finance — break-even' },
-      { to: '/manager/sales/audit', label: 'Sales' },
-      { to: '/manager/marketing/audit', label: 'Marketing' },
-      { to: '/manager/operations/audit', label: 'Operations' },
-      { to: '/manager/it/audit', label: 'IT' },
-      { to: '/manager/cs/audit', label: 'Customer service' },
-      { to: '/manager/logistics/audit', label: 'Logistics' },
-      { to: '/manager/logistics/reform', label: 'Logistics reform' },
-      { to: '/manager/quality/audit', label: 'Quality' },
-      { to: '/manager/projects/audit', label: 'Projects' },
-      { to: '/manager/governance/audit', label: 'Governance' },
-      { to: '/manager/governance/hub', label: 'Governance hub' },
+      { to: '/manager/hr/audit',             label: 'الموارد البشرية',          icon: '👤' },
+      { to: '/manager/finance/audit',        label: 'المالية',                  icon: '💰' },
+      { to: '/manager/finance/break-even',   label: 'نقطة التعادل',             icon: '⚖️' },
+      { to: '/manager/sales/audit',          label: 'المبيعات',                  icon: '💼' },
+      { to: '/manager/marketing/audit',      label: 'التسويق',                   icon: '📢' },
+      { to: '/manager/operations/audit',     label: 'العمليات',                  icon: '⚙️' },
+      { to: '/manager/it/audit',             label: 'تقنية المعلومات',           icon: '💻' },
+      { to: '/manager/cs/audit',             label: 'خدمة العملاء',              icon: '📞' },
+      { to: '/manager/logistics/audit',      label: 'الإمداد واللوجستيات',       icon: '🚚' },
+      { to: '/manager/logistics/reform',     label: 'خطة إصلاح اللوجستيات',     icon: '🔧' },
+      { to: '/manager/quality/audit',        label: 'الجودة',                    icon: '✅' },
+      { to: '/manager/projects/audit',       label: 'المشاريع',                  icon: '📋' },
+      { to: '/manager/governance/audit',     label: 'الحوكمة',                   icon: '🏛️' },
+      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️' },
     ],
   },
   {
-    title: 'Compliance',
+    title: 'الامتثال',
+    accent: 'rose',
     items: [
-      { to: '/manager/compliance/audit', label: 'Compliance — basic' },
-      { to: '/manager/compliance/audit-pro', label: 'Compliance — pro' },
-      { to: '/manager/compliance/reform', label: 'Compliance reform plan' },
+      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال — أساسي',   icon: '⚖️' },
+      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال — احترافي', icon: '🛡️' },
+      { to: '/manager/compliance/reform',    label: 'خطة الإصلاح',              icon: '🔧' },
     ],
   },
 ]
 
 const investorNav: NavSection[] = [
   {
-    title: 'Diagnostic',
-    items: [{ to: '/investor/diagnostic', label: 'Investor diagnostic' }],
+    title: 'التشخيص',
+    accent: 'sky',
+    items: [{ to: '/investor/diagnostic', label: 'تشخيص المستثمر', icon: '🎯' }],
   },
   {
-    title: 'Portfolio',
+    title: 'المحفظة',
+    accent: 'emerald',
     items: [
-      { to: '/investor/dashboard', label: 'Investor dashboard' },
-      { to: '/investor/portfolio', label: 'Portfolio' },
+      { to: '/investor/dashboard', label: 'لوحة المستثمر', icon: '📊' },
+      { to: '/investor/portfolio', label: 'المحفظة',        icon: '💼' },
     ],
   },
 ]
@@ -161,4 +181,17 @@ export function homeFor(userType: UserType | null | undefined): string {
   if (userType === 'MANAGER') return '/manager/dept-dashboard'
   if (userType === 'INVESTOR') return '/investor/dashboard'
   return '/dashboard'
+}
+
+/** Resolves accent color tokens to Tailwind classes. Centralized so sidebar
+ *  and any future accent-using component stay in sync. */
+export const ACCENT_CLASSES: Record<AccentColor, { dot: string; bgSoft: string; text: string }> = {
+  teal:    { dot: 'bg-teal-500',    bgSoft: 'bg-teal-50',    text: 'text-teal-700' },
+  indigo:  { dot: 'bg-indigo-500',  bgSoft: 'bg-indigo-50',  text: 'text-indigo-700' },
+  amber:   { dot: 'bg-amber-500',   bgSoft: 'bg-amber-50',   text: 'text-amber-700' },
+  emerald: { dot: 'bg-emerald-500', bgSoft: 'bg-emerald-50', text: 'text-emerald-700' },
+  rose:    { dot: 'bg-rose-500',    bgSoft: 'bg-rose-50',    text: 'text-rose-700' },
+  violet:  { dot: 'bg-violet-500',  bgSoft: 'bg-violet-50',  text: 'text-violet-700' },
+  sky:     { dot: 'bg-sky-500',     bgSoft: 'bg-sky-50',     text: 'text-sky-700' },
+  orange:  { dot: 'bg-orange-500',  bgSoft: 'bg-orange-50',  text: 'text-orange-700' },
 }
