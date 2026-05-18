@@ -34,6 +34,11 @@ import { StrategicTensionsPage } from '@/pages/owner/StrategicTensionsPage'
 import { DirectionsPage } from '@/pages/owner/DirectionsPage'
 import { ScenariosPage } from '@/pages/owner/ScenariosPage'
 import { ChoicesPage } from '@/pages/owner/ChoicesPage'
+import { AnsoffMatrixPage } from '@/pages/owner/AnsoffMatrixPage'
+import { BCGMatrixPage } from '@/pages/owner/BCGMatrixPage'
+import { SPACEMatrixPage } from '@/pages/owner/SPACEMatrixPage'
+import { QSPMPage } from '@/pages/owner/QSPMPage'
+import { ThreeHorizonsPage } from '@/pages/owner/ThreeHorizonsPage'
 import { ObjectivesPage } from '@/pages/owner/ObjectivesPage'
 import { KPIsPage } from '@/pages/owner/KPIsPage'
 import { OKRsPage } from '@/pages/owner/OKRsPage'
@@ -126,6 +131,11 @@ export const router = createBrowserRouter([
               { path: '/directions', element: <DirectionsPage /> },
               { path: '/scenarios', element: <ScenariosPage /> },
               { path: '/choices', element: <ChoicesPage /> },
+              { path: '/ansoff', element: <AnsoffMatrixPage /> },
+              { path: '/bcg', element: <BCGMatrixPage /> },
+              { path: '/space', element: <SPACEMatrixPage /> },
+              { path: '/qspm', element: <QSPMPage /> },
+              { path: '/three-horizons', element: <ThreeHorizonsPage /> },
               { path: '/objectives', element: <ObjectivesPage /> },
               { path: '/kpis', element: <KPIsPage /> },
               { path: '/okrs', element: <OKRsPage /> },

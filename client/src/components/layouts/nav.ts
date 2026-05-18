@@ -75,8 +75,13 @@ const ownerNav: NavSection[] = [
     items: [
       { to: '/directions',      label: 'الاتجاهات',          icon: '🧭' },
       { to: '/scenarios',       label: 'السيناريوهات',       icon: '🔮' },
-      { to: '/choices',         label: 'القرارات',           icon: '✅' },
+      { to: '/choices',         label: 'القرار الاستراتيجي', icon: '✅' },
       { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡' },
+      { to: '/ansoff',          label: 'مصفوفة أنسوف',       icon: '📐' },
+      { to: '/bcg',             label: 'مصفوفة BCG',         icon: '⭐' },
+      { to: '/space',           label: 'مصفوفة SPACE',       icon: '🛰️' },
+      { to: '/qspm',            label: 'مصفوفة QSPM',        icon: '🧮' },
+      { to: '/three-horizons',  label: 'الآفاق الثلاثة',     icon: '🔭' },
     ],
   },
   {
