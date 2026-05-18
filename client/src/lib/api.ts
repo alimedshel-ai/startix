@@ -1,10 +1,17 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+
+const FALLBACK_BASE = 'http://localhost:5001'
+const baseURL = import.meta.env.VITE_API_URL || FALLBACK_BASE
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:5000',
+  baseURL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
+
+if (import.meta.env.DEV) {
+  console.info(`[startix] API base URL: ${baseURL}`)
+}
 
 let refreshPromise: Promise<void> | null = null
 
@@ -22,13 +29,13 @@ async function refreshAccessToken(): Promise<void> {
 
 api.interceptors.response.use(
   (res) => res,
-  async (error) => {
-    const original = error.config
+  async (error: AxiosError) => {
+    const original = error.config as ((typeof error)['config'] & { _retry?: boolean }) | undefined
     const status = error.response?.status
     const url: string = original?.url ?? ''
     const isAuthRoute = url.includes('/api/auth/refresh') || url.includes('/api/auth/login')
 
-    if (status === 401 && !original._retry && !isAuthRoute) {
+    if (status === 401 && original && !original._retry && !isAuthRoute) {
       original._retry = true
       try {
         await refreshAccessToken()
@@ -40,3 +47,24 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+/**
+ * Pull a user-friendly message off an axios error. Distinguishes network
+ * failures (CORS / server down) from API-level errors so the UI can show
+ * the real cause instead of a generic "failed" toast.
+ */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  const e = err as AxiosError<{ error?: string; issues?: { message: string }[] }>
+  // Network error: no response, no status — usually CORS, server down, or
+  // wrong port.
+  if (!e?.response && e?.message) {
+    if (e.code === 'ERR_NETWORK') {
+      return `تعذّر الاتصال بالخادم على ${baseURL}. تأكد أن السيرفر يعمل ثم أعد المحاولة.`
+    }
+    return `${fallback} (${e.message})`
+  }
+  const data = e?.response?.data
+  if (data?.error) return data.error
+  if (data?.issues?.length) return data.issues.map((i) => i.message).join('، ')
+  return fallback
+}

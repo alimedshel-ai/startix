@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { apiErrorMessage } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 
 const schema = z.object({
@@ -33,10 +34,7 @@ export function LoginPage() {
       toast.success('مرحباً بعودتك')
       navigate('/onboarding')
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'فشل تسجيل الدخول'
-      toast.error(message)
+      toast.error(apiErrorMessage(err, 'فشل تسجيل الدخول'))
     } finally {
       setSubmitting(false)
     }
