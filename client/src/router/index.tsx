@@ -23,6 +23,8 @@ import { PorterFiveForcesPage } from '@/pages/owner/PorterFiveForcesPage'
 import { BenchmarkingPage } from '@/pages/owner/BenchmarkingPage'
 import { StakeholdersPage } from '@/pages/owner/StakeholdersPage'
 import { OrgDNAPage } from '@/pages/owner/OrgDNAPage'
+import { ValueChainPage } from '@/pages/owner/ValueChainPage'
+import { CoreCapabilitiesPage } from '@/pages/owner/CoreCapabilitiesPage'
 import { SWOTPage } from '@/pages/owner/SWOTPage'
 import { TOWSPage } from '@/pages/owner/TOWSPage'
 import { GapAnalysisPage } from '@/pages/owner/GapAnalysisPage'
@@ -111,6 +113,8 @@ export const router = createBrowserRouter([
               { path: '/benchmarking', element: <BenchmarkingPage /> },
               { path: '/stakeholders', element: <StakeholdersPage /> },
               { path: '/org-dna', element: <OrgDNAPage /> },
+              { path: '/value-chain', element: <ValueChainPage /> },
+              { path: '/core-capabilities', element: <CoreCapabilitiesPage /> },
               { path: '/swot', element: <SWOTPage /> },
               { path: '/tows', element: <TOWSPage /> },
               { path: '/gap-analysis', element: <GapAnalysisPage /> },

@@ -51,8 +51,10 @@ const ownerNav: NavSection[] = [
       { to: '/pestel',       label: 'تحليل PESTEL',          icon: '🌐' },
       { to: '/porter',       label: 'قوى بورتر الخمس',       icon: '⚔️' },
       { to: '/benchmarking', label: 'المقارنة المرجعية',     icon: '🔍' },
-      { to: '/stakeholders', label: 'أصحاب المصلحة',         icon: '👥' },
-      { to: '/org-dna',      label: 'الحمض التنظيمي',         icon: '🧬' },
+      { to: '/stakeholders',        label: 'أصحاب المصلحة',         icon: '👥' },
+      { to: '/org-dna',             label: 'الحمض التنظيمي',         icon: '🧬' },
+      { to: '/value-chain',         label: 'سلسلة القيمة',           icon: '🔗' },
+      { to: '/core-capabilities',   label: 'القدرات الجوهرية',       icon: '💎' },
     ],
   },
   {
