@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -6,13 +7,49 @@ import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { PathBadge } from '@/components/PathBadge'
 import { RadarChart } from '@/components/charts/RadarChart'
+import { api } from '@/lib/api'
+import type { OwnerDiagnosticResult } from '@/lib/diagnosticQuestions'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
 
 export function DiagnosticResultPage() {
-  const result = useDiagnosticStore((s) => s.result)
+  const storeResult = useDiagnosticStore((s) => s.result)
+  const setResult = useDiagnosticStore((s) => s.setResult)
   const reset = useDiagnosticStore((s) => s.reset)
+  const [loading, setLoading] = useState(!storeResult)
 
-  if (!result) {
+  // Rehydrate from the backend on mount when the store is empty (e.g. after
+  // a page refresh). The server re-derives the full result from the saved
+  // answers so we never persist denormalised state.
+  useEffect(() => {
+    if (storeResult) {
+      setLoading(false)
+      return
+    }
+    let cancel = false
+    api.get<{ result: OwnerDiagnosticResult | null }>('/api/diagnostic/me/latest')
+      .then(({ data }) => {
+        if (cancel) return
+        if (data.result) setResult(data.result)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancel) setLoading(false)
+      })
+    return () => {
+      cancel = true
+    }
+  }, [storeResult, setResult])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Diagnostic result" />
+        <Card><CardHeader><CardTitle>Loading…</CardTitle></CardHeader></Card>
+      </div>
+    )
+  }
+
+  if (!storeResult) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Diagnostic result" />
@@ -29,22 +66,15 @@ export function DiagnosticResultPage() {
     )
   }
 
+  const result = storeResult
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Diagnostic result"
         description="Strategic path, maturity, radar profile, and your top 4 urgent actions."
         actions={
-          <>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                reset()
-              }}
-            >
-              Retake
-            </Button>
-          </>
+          <Button variant="ghost" onClick={reset}>Retake</Button>
         }
       />
 

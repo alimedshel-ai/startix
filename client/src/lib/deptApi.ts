@@ -120,6 +120,31 @@ export interface Company {
   country: string
 }
 
+export interface CompanyWithRole extends Company {
+  role: string
+  logoUrl?: string | null
+  createdAt?: string
+}
+
+export async function listMyCompanies(): Promise<CompanyWithRole[]> {
+  const { data } = await api.get('/api/companies')
+  return data
+}
+
+export async function createCompany(payload: { name: string; sector?: string; size: Company['size']; stage?: string; country?: string; logoUrl?: string }): Promise<Company> {
+  const { data } = await api.post('/api/companies', payload)
+  return data
+}
+
+export async function updateCompany(id: string, payload: Partial<{ name: string; sector: string; size: Company['size']; stage: string; country: string; logoUrl: string }>): Promise<Company> {
+  const { data } = await api.patch(`/api/companies/${id}`, payload)
+  return data
+}
+
+export async function deleteCompanyById(id: string): Promise<void> {
+  await api.delete(`/api/companies/${id}`)
+}
+
 export async function getMyFirstCompany(): Promise<{ company: Company | null }> {
   const { data } = await api.get('/api/departments/me/first-company')
   return data

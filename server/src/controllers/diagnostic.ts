@@ -230,7 +230,51 @@ export const getLatestDiagnostic: RequestHandler = async (req, res, next) => {
     });
     if (!latest) throw new HttpError(404, 'No diagnostic recorded for this company');
 
-    res.json({ diagnostic: latest });
+    // Owner diagnostics re-compute the full result so the client can rebuild
+    // the result page after a refresh without persisting pathScores/breakdown.
+    let result: ReturnType<typeof calculateOwnerPath> | null = null;
+    if (latest.type === 'OWNER') {
+      try {
+        result = calculateOwnerPath(latest.answers as unknown as OwnerAnswers);
+      } catch {
+        result = null;
+      }
+    }
+
+    res.json({ diagnostic: latest, result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/diagnostic/me/latest — latest diagnostic for the caller's
+// first linked company. Used by the client to rehydrate the result view
+// after a page refresh.
+export const getMyLatestDiagnostic: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const link = await prisma.companyUser.findFirst({
+      where: { userId: req.auth.sub },
+      orderBy: { id: 'asc' },
+    });
+    if (!link) {
+      res.json({ diagnostic: null, result: null });
+      return;
+    }
+    const latest = await prisma.diagnostic.findFirst({
+      where: { companyId: link.companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!latest) {
+      res.json({ diagnostic: null, result: null });
+      return;
+    }
+    let result: ReturnType<typeof calculateOwnerPath> | null = null;
+    if (latest.type === 'OWNER') {
+      try { result = calculateOwnerPath(latest.answers as unknown as OwnerAnswers); }
+      catch { result = null; }
+    }
+    res.json({ diagnostic: latest, result });
   } catch (err) {
     next(err);
   }

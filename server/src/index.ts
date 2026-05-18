@@ -11,6 +11,7 @@ import diagnosticRouter from './routes/diagnostic';
 import departmentsRouter from './routes/departments';
 import complianceRouter from './routes/compliance';
 import strategicRouter from './routes/strategic';
+import companiesRouter from './routes/companies';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -42,6 +43,7 @@ app.use('/api/diagnostic', diagnosticRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/compliance', complianceRouter);
 app.use('/api/strategic', strategicRouter);
+app.use('/api/companies', companiesRouter);
 
 app.use(notFound);
 app.use(errorHandler);
