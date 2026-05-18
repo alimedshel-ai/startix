@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function InvestorDashboardPage() {
-  return <StubPage title="Investor dashboard" description="Portfolio rollup view." phase={8} />
+  return (
+    <StubPage
+      title="لوحة المستثمر"
+      description="نظرة عامة على المحفظة وصحة الشركات."
+      phase={8}
+      icon="📊"
+      accent="emerald"
+    />
+  )
 }

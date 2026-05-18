@@ -39,6 +39,13 @@ interface KOLicense {
 
 const PENALTY_FMT = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 })
 
+const ZONE_LABEL: Record<string, string> = {
+  GREEN: 'آمنة',
+  YELLOW: 'تحذير',
+  ORANGE: 'خطر',
+  RED: 'حرجة',
+}
+
 export function ComplianceAuditProPage() {
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [axes, setAxes] = useState<ProAxisDef[]>([])
@@ -56,7 +63,7 @@ export function ComplianceAuditProPage() {
       try {
         const { company } = await getMyFirstCompany()
         if (!company) {
-          toast.error('Complete the manager diagnostic first')
+          toast.error('أكمل تشخيص المدير أولاً')
           setLoading(false)
           return
         }
@@ -67,7 +74,7 @@ export function ComplianceAuditProPage() {
         setQuestions(data.questions ?? [])
         setKoDefs(data.koLicenses ?? [])
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load Pro audit'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل التدقيق الاحترافي'
         toast.error(msg)
       } finally {
         if (!cancel) setLoading(false)
@@ -90,7 +97,7 @@ export function ComplianceAuditProPage() {
   async function submit() {
     if (!companyId) return
     if (answeredCount < questions.length) {
-      toast.error(`Please answer all ${questions.length} questions before submitting.`)
+      toast.error(`يرجى الإجابة على جميع الأسئلة (${questions.length}) قبل الإرسال.`)
       return
     }
     setSubmitting(true)
@@ -101,9 +108,9 @@ export function ComplianceAuditProPage() {
       }
       const { result } = await submitCompliancePro(companyId, payload)
       setResult(result)
-      toast.success('Pro audit submitted')
+      toast.success('تم إرسال التدقيق الاحترافي')
     } catch (err) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not submit audit'
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر إرسال التدقيق'
       toast.error(msg)
     } finally {
       setSubmitting(false)
@@ -113,16 +120,16 @@ export function ComplianceAuditProPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Compliance audit (Pro)"
-        description="64 mandatory elements across 8 axes + sector-specific axes. KO licenses force the axis to 0 when expired."
+        title="تدقيق الامتثال (احترافي)"
+        description="64 عنصراً إلزامياً عبر 8 محاور + محاور خاصة بالقطاع. تراخيص KO تفرض إعطاء المحور صفراً عند انتهاء صلاحيتها."
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
-          { label: 'Compliance', to: '/manager/compliance/audit' },
-          { label: 'Pro' },
+          { label: 'الأقسام', to: '/manager/select-dept' },
+          { label: 'الامتثال', to: '/manager/compliance/audit' },
+          { label: 'احترافي' },
         ]}
         actions={
           <Link to="/manager/compliance/audit" className={buttonVariants({ variant: 'outline' })}>
-            Back to basic
+            العودة إلى الأساسي
           </Link>
         }
       />
@@ -130,26 +137,26 @@ export function ComplianceAuditProPage() {
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading Pro audit…</CardTitle>
+            <CardTitle>جاري تحميل التدقيق الاحترافي…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {!loading && !result && (
         <>
-          <Card>
+          <Card className="bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
             <CardHeader>
-              <CardTitle>Progress</CardTitle>
-              <CardDescription>{answeredCount} of {questions.length} answered.</CardDescription>
-              <Progress value={progress} className="mt-2" />
+              <CardTitle>التقدم</CardTitle>
+              <CardDescription><span className="tabular-nums">{answeredCount}</span> من <span className="tabular-nums">{questions.length}</span> تمت الإجابة عليها.</CardDescription>
+              <Progress value={progress} className="mt-2 h-2" />
             </CardHeader>
           </Card>
 
           {koDefs.length > 0 && (
-            <Card>
+            <Card className="bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
               <CardHeader>
-                <CardTitle>Smart KO — licenses & expiry dates</CardTitle>
-                <CardDescription>Expired licenses force the axis to 0 and trigger a penalty. Warnings at 30 and 90 days.</CardDescription>
+                <CardTitle>KO الذكية — التراخيص وتواريخ الانتهاء</CardTitle>
+                <CardDescription>التراخيص المنتهية تفرض صفراً على المحور وتُفعّل الغرامة. تحذيرات عند 30 و90 يوماً.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2">
                 {koDefs.map((lic) => (
@@ -174,7 +181,7 @@ export function ComplianceAuditProPage() {
               <Card key={axis.key}>
                 <CardHeader>
                   <CardTitle>{axis.label}</CardTitle>
-                  <CardDescription>Regulator: {axis.regulator} · {qs.length} questions · {axis.mandatory ? 'Mandatory axis' : 'Sector-contextual'}</CardDescription>
+                  <CardDescription>الجهة التنظيمية: {axis.regulator} · <span className="tabular-nums">{qs.length}</span> أسئلة · {axis.mandatory ? 'محور إلزامي' : 'حسب القطاع'}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {qs.map((q) => (
@@ -205,7 +212,7 @@ export function ComplianceAuditProPage() {
 
           <CardFooter className="justify-end">
             <Button onClick={submit} disabled={submitting}>
-              {submitting ? 'Submitting…' : `Submit (${answeredCount}/${questions.length})`}
+              {submitting ? 'جاري الإرسال…' : `إرسال (${answeredCount}/${questions.length})`}
             </Button>
           </CardFooter>
         </>
@@ -219,37 +226,38 @@ export function ComplianceAuditProPage() {
 function ProResultView({ result }: { result: ComplianceProResult }) {
   return (
     <>
-      <Card>
+      <Card className="overflow-hidden bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
+        <div className="h-1.5 bg-gradient-to-l from-rose-500 via-red-500 to-orange-500" />
         <CardHeader>
-          <CardTitle>Overall maturity</CardTitle>
-          <CardDescription>{result.dangerZone === 'RED' ? 'Critical exposure across multiple axes.' : 'See per-axis breakdown below.'}</CardDescription>
+          <CardTitle>النضج الإجمالي</CardTitle>
+          <CardDescription>{result.dangerZone === 'RED' ? 'تعرّض حرج عبر محاور متعددة.' : 'انظر التفصيل لكل محور أدناه.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="text-3xl font-semibold">{result.overallMaturityPct}%</div>
-            <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(result.dangerZone)}`}>{result.dangerZone} zone</span>
+            <div className="text-3xl font-semibold tabular-nums">{result.overallMaturityPct}%</div>
+            <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(result.dangerZone)}`}>منطقة {ZONE_LABEL[result.dangerZone] ?? result.dangerZone}</span>
           </div>
-          <Progress value={result.overallMaturityPct} />
+          <Progress value={result.overallMaturityPct} className="h-2" />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Per-axis maturity</CardTitle>
-          <CardDescription>Mandatory axes appear first.</CardDescription>
+          <CardTitle>النضج لكل محور</CardTitle>
+          <CardDescription>المحاور الإلزامية تظهر أولاً.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2">
             {result.axes.map((a) => (
-              <div key={a.axis} className="rounded-md border p-3">
+              <div key={a.axis} className="rounded-md border p-3 transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">{a.label}</div>
                     <div className="text-xs text-muted-foreground">{a.regulator}</div>
                   </div>
-                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${dangerZoneColor(a.dangerZone)}`}>{a.dangerZone}</span>
+                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${dangerZoneColor(a.dangerZone)}`}>{ZONE_LABEL[a.dangerZone] ?? a.dangerZone}</span>
                 </div>
-                <div className="mt-2 text-xl font-semibold">{a.maturityPct}%</div>
+                <div className="mt-2 text-xl font-semibold tabular-nums">{a.maturityPct}%</div>
                 <Progress value={a.maturityPct} className="mt-1 h-1.5" />
                 {a.warnings.length > 0 && (
                   <ul className="mt-2 text-xs text-orange-700">
@@ -266,27 +274,27 @@ function ProResultView({ result }: { result: ComplianceProResult }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Risk matrix</CardTitle>
-          <CardDescription>Top 8 axes ordered by lowest maturity.</CardDescription>
+          <CardTitle>مصفوفة المخاطر</CardTitle>
+          <CardDescription>أبرز 8 محاور مرتّبة من الأقل نضجاً.</CardDescription>
         </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2">Axis</th>
-                <th className="py-2">P</th>
-                <th className="py-2">I</th>
-                <th className="py-2">Risk</th>
-                <th className="py-2">Top risk identified</th>
+              <tr className="border-b text-right text-muted-foreground">
+                <th className="py-2">المحور</th>
+                <th className="py-2">الاحتمالية</th>
+                <th className="py-2">الأثر</th>
+                <th className="py-2">الخطورة</th>
+                <th className="py-2">أبرز خطر محدد</th>
               </tr>
             </thead>
             <tbody>
               {result.riskMatrix.map((row) => (
                 <tr key={row.axis} className="border-b">
                   <td className="py-2 font-medium">{row.label}</td>
-                  <td className="py-2">{row.probability}</td>
-                  <td className="py-2">{row.impact}</td>
-                  <td className="py-2 font-semibold">{row.risk}</td>
+                  <td className="py-2 tabular-nums">{row.probability}</td>
+                  <td className="py-2 tabular-nums">{row.impact}</td>
+                  <td className="py-2 font-semibold tabular-nums">{row.risk}</td>
                   <td className="py-2 text-muted-foreground">{row.topRisk}</td>
                 </tr>
               ))}
@@ -295,25 +303,25 @@ function ProResultView({ result }: { result: ComplianceProResult }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="bg-gradient-to-br from-red-500/10 to-transparent border-red-200">
         <CardHeader>
-          <CardTitle>Saudi penalty exposure</CardTitle>
-          <CardDescription>Estimate scaled by axis weights and maturity gaps.</CardDescription>
+          <CardTitle>تعرّض الغرامات السعودية</CardTitle>
+          <CardDescription>تقدير معدّل وفق أوزان المحاور وفجوات النضج.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-baseline justify-between border-b pb-2">
-            <span className="text-muted-foreground">Max penalty (entity ceiling)</span>
-            <span className="font-medium">{PENALTY_FMT.format(result.penaltyEstimate.maxPenalty)}</span>
+            <span className="text-muted-foreground">الحد الأقصى للغرامة (سقف الكيان)</span>
+            <span className="font-medium tabular-nums">{PENALTY_FMT.format(result.penaltyEstimate.maxPenalty)}</span>
           </div>
           <div className="flex items-baseline justify-between border-b pb-2">
-            <span className="text-muted-foreground">Estimated exposure</span>
-            <span className="text-lg font-semibold text-red-700">{PENALTY_FMT.format(result.penaltyEstimate.estimate)}</span>
+            <span className="text-muted-foreground">التعرّض التقديري</span>
+            <span className="text-lg font-semibold text-red-700 tabular-nums">{PENALTY_FMT.format(result.penaltyEstimate.estimate)}</span>
           </div>
           <ul className="space-y-1 text-xs text-muted-foreground">
             {result.penaltyEstimate.perAxis.map((p) => (
               <li key={p.axis} className="flex justify-between">
                 <span>{p.axis}</span>
-                <span>{PENALTY_FMT.format(p.estimate)}</span>
+                <span className="tabular-nums">{PENALTY_FMT.format(p.estimate)}</span>
               </li>
             ))}
           </ul>
@@ -322,8 +330,8 @@ function ProResultView({ result }: { result: ComplianceProResult }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>KO licenses</CardTitle>
-          <CardDescription>Critical permits that, when expired, force the linked axis to 0.</CardDescription>
+          <CardTitle>تراخيص KO</CardTitle>
+          <CardDescription>التصاريح الحرجة التي عند انتهائها تفرض صفراً على المحور المرتبط.</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm">
@@ -331,9 +339,9 @@ function ProResultView({ result }: { result: ComplianceProResult }) {
               <li key={lic.key} className="flex items-center justify-between border-b pb-2">
                 <span>{lic.label}</span>
                 <span className={lic.warning === 'EXPIRED' ? 'text-red-700 font-medium' : lic.warning === '30_DAYS' ? 'text-orange-700' : lic.warning === '90_DAYS' ? 'text-yellow-700' : 'text-muted-foreground'}>
-                  {lic.warning === 'OK' ? (lic.daysUntilExpiry == null ? 'Not provided' : `${lic.daysUntilExpiry} days`)
-                    : lic.warning === 'EXPIRED' ? `Expired ${Math.abs(lic.daysUntilExpiry ?? 0)} days ago`
-                    : `${lic.daysUntilExpiry} days — warning`}
+                  {lic.warning === 'OK' ? (lic.daysUntilExpiry == null ? 'غير محدد' : <span className="tabular-nums">{lic.daysUntilExpiry} يوماً</span>)
+                    : lic.warning === 'EXPIRED' ? <span className="tabular-nums">انتهى منذ {Math.abs(lic.daysUntilExpiry ?? 0)} يوماً</span>
+                    : <span className="tabular-nums">{lic.daysUntilExpiry} يوماً — تحذير</span>}
                 </span>
               </li>
             ))}
@@ -343,7 +351,7 @@ function ProResultView({ result }: { result: ComplianceProResult }) {
 
       <div className="flex justify-end">
         <Link to="/manager/compliance/reform" className={buttonVariants()}>
-          Open 12-week reform plan →
+          فتح خطة الإصلاح لـ 12 أسبوعاً ←
         </Link>
       </div>
     </>

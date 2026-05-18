@@ -22,15 +22,21 @@ interface Props {
   deptId: string
   deptCode: DeptCode
   variant?: 'basic' | 'pro'
-  /** Called after a successful audit submission. */
   onComplete?: (score: AuditScore) => void
 }
 
 const AXIS_LABEL: Record<string, string> = {
-  governance: 'Governance',
-  financial: 'Financial',
-  team: 'Team',
-  digital: 'Digital',
+  governance: 'الحوكمة',
+  financial:  'المالية',
+  team:       'الفريق',
+  digital:    'الرقمي',
+}
+
+const ZONE_LABEL: Record<string, string> = {
+  GREEN:  'منطقة آمنة',
+  YELLOW: 'منطقة تحذير',
+  ORANGE: 'منطقة خطر',
+  RED:    'منطقة حرجة',
 }
 
 export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplete }: Props) {
@@ -50,15 +56,13 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
         setQuestions(questions)
       })
       .catch((err) => {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load questions'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل الأسئلة'
         toast.error(msg)
       })
       .finally(() => {
         if (!cancel) setLoading(false)
       })
-    return () => {
-      cancel = true
-    }
+    return () => { cancel = true }
   }, [deptId, variant])
 
   const total = questions.length
@@ -83,9 +87,9 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
         : await submitDeptAudit(deptId, payload)
       setScore(score)
       onComplete?.(score)
-      toast.success('Audit submitted')
+      toast.success('تم إرسال التدقيق')
     } catch (err) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not submit audit'
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'فشل إرسال التدقيق'
       toast.error(msg)
     } finally {
       setSubmitting(false)
@@ -105,7 +109,7 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Loading audit…</CardTitle>
+          <CardTitle>جاري تحميل التدقيق…</CardTitle>
         </CardHeader>
       </Card>
     )
@@ -119,27 +123,28 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
     return (
       <Card>
         <CardHeader>
-          <CardTitle>No questions available</CardTitle>
-          <CardDescription>This department has no audit configured yet.</CardDescription>
+          <CardTitle>لا توجد أسئلة متاحة</CardTitle>
+          <CardDescription>هذه الإدارة لا تحتوي على تدقيق مُعدّ بعد.</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden shadow-sm">
+      <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-rose-500" />
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <span aria-hidden>{DEPT_ICON[deptCode]}</span>
-          {DEPT_LABEL[deptCode]} audit {variant === 'pro' ? '(Pro)' : ''}
+          <span className="text-xl" aria-hidden>{DEPT_ICON[deptCode]}</span>
+          تدقيق {DEPT_LABEL[deptCode]} {variant === 'pro' ? '— احترافي' : ''}
         </CardTitle>
         <CardDescription>
-          Question {step + 1} of {total} · Axis: {AXIS_LABEL[current!.axis]}
+          السؤال {step + 1} من {total} · المحور: {AXIS_LABEL[current!.axis]}
         </CardDescription>
-        <Progress value={progress} className="mt-2" />
+        <Progress value={progress} className="mt-2 h-2" />
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-base font-medium">{current!.prompt}</p>
+        <p className="text-base font-medium leading-relaxed">{current!.prompt}</p>
         <RadioGroup
           value={value ?? ''}
           onValueChange={(v) => setAnswers((prev) => ({ ...prev, [current!.id]: String(v) }))}
@@ -149,7 +154,7 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
             <Label
               key={opt.value}
               htmlFor={`${current!.id}_${opt.value}`}
-              className="flex cursor-pointer items-center gap-3 rounded-md border p-3 hover:bg-accent"
+              className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm"
             >
               <RadioGroupItem value={opt.value} id={`${current!.id}_${opt.value}`} />
               <span className="text-sm">{opt.label}</span>
@@ -157,17 +162,17 @@ export function DeptAuditWizard({ deptId, deptCode, variant = 'basic', onComplet
           ))}
         </RadioGroup>
         <p className="text-xs text-muted-foreground">
-          Answered {Object.keys(answers).length} · Skipped {total - Object.keys(answers).length}
+          أجبت {Object.keys(answers).length} · متبقي {total - Object.keys(answers).length}
         </p>
       </CardContent>
       <CardFooter className="flex justify-between">
-        <Button variant="ghost" onClick={back} disabled={step === 0}>Back</Button>
+        <Button variant="ghost" onClick={back} disabled={step === 0}>السابق</Button>
         <Button onClick={next} disabled={!canAdvance || submitting}>
-          {step === total - 1 ? (submitting ? 'Submitting…' : 'Submit') : 'Next'}
+          {step === total - 1 ? (submitting ? 'جاري الإرسال…' : 'إرسال') : 'التالي'}
         </Button>
       </CardFooter>
       <CardFooter className="border-t pt-3 text-xs text-muted-foreground">
-        Sections: G {grouped.governance.length} · F {grouped.financial.length} · T {grouped.team.length} · D {grouped.digital.length}
+        الأقسام: حوكمة {grouped.governance.length} · مالية {grouped.financial.length} · فريق {grouped.team.length} · رقمي {grouped.digital.length}
       </CardFooter>
     </Card>
   )
@@ -184,32 +189,33 @@ interface ResultProps {
 export function DeptAuditResult({ deptCode, score, onRestart }: ResultProps) {
   const zoneCls = dangerZoneColor(score.dangerZone)
   return (
-    <Card>
+    <Card className="overflow-hidden shadow-sm">
+      <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <span aria-hidden>{DEPT_ICON[deptCode]}</span>
-          {DEPT_LABEL[deptCode]} audit result
+          نتيجة تدقيق {DEPT_LABEL[deptCode]}
         </CardTitle>
-        <CardDescription>4-axis maturity scoring · max {AXIS_CAP_TOTAL} pts</CardDescription>
+        <CardDescription>تقييم نضج عبر ٤ محاور · إجمالي {AXIS_CAP_TOTAL} نقطة</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-4">
           <div className="flex-1">
-            <div className="text-3xl font-semibold">{score.healthPct}%</div>
-            <div className="text-sm text-muted-foreground">Maturity ({score.total} / {AXIS_CAP_TOTAL})</div>
+            <div className="text-3xl font-semibold tabular-nums">{score.healthPct}%</div>
+            <div className="text-sm text-muted-foreground">النضج ({score.total} / {AXIS_CAP_TOTAL})</div>
           </div>
           <span className={`inline-flex items-center rounded-md border px-3 py-1 text-sm font-medium ${zoneCls}`}>
-            {score.dangerZone}
+            {ZONE_LABEL[score.dangerZone] ?? score.dangerZone}
           </span>
         </div>
-        <Progress value={score.healthPct} />
+        <Progress value={score.healthPct} className="h-2" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {score.byAxis.map((row) => {
             const pct = row.cap === 0 ? 0 : Math.round((row.score / row.cap) * 100)
             return (
-              <div key={row.axis} className="rounded-md border p-3">
+              <div key={row.axis} className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-3">
                 <div className="text-xs font-medium uppercase text-muted-foreground">{AXIS_LABEL[row.axis]}</div>
-                <div className="text-lg font-semibold">{row.score} <span className="text-xs text-muted-foreground">/ {row.cap}</span></div>
+                <div className="text-lg font-semibold tabular-nums">{row.score} <span className="text-xs text-muted-foreground">/ {row.cap}</span></div>
                 <Progress value={pct} className="mt-1 h-1.5" />
               </div>
             )
@@ -217,8 +223,8 @@ export function DeptAuditResult({ deptCode, score, onRestart }: ResultProps) {
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
-        {onRestart ? <Button variant="ghost" onClick={onRestart}>Re-take</Button> : <span />}
-        <Button onClick={() => window.print()} variant="outline">Print</Button>
+        {onRestart ? <Button variant="ghost" onClick={onRestart}>إعادة التدقيق</Button> : <span />}
+        <Button onClick={() => window.print()} variant="outline">طباعة</Button>
       </CardFooter>
     </Card>
   )

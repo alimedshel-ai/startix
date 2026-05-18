@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function TOWSPage() {
-  return <StubPage title="TOWS" description="Pair SWOT items into SO, WO, ST, WT strategies." phase={6} />
+  return (
+    <StubPage
+      title="مصفوفة TOWS"
+      description="اشتقاق الاستراتيجيات من تقاطع SWOT (SO/WO/ST/WT)."
+      phase={6}
+      icon="🔄"
+      accent="rose"
+    />
+  )
 }

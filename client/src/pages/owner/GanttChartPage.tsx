@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function GanttChartPage() {
-  return <StubPage title="Gantt chart" description="Project timeline view with dependencies." phase={6} />
+  return (
+    <StubPage
+      title="مخطط جانت"
+      description="عرض زمني تفاعلي للمشاريع والمعالم."
+      phase={6}
+      icon="📅"
+      accent="emerald"
+    />
+  )
 }

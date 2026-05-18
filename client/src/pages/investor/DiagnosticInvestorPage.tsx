@@ -17,28 +17,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
 
 const PORTFOLIO = [
-  ['1', '1 company'],
-  ['2-5', '2–5 companies'],
-  ['6-15', '6–15 companies'],
-  ['16+', '16+ companies'],
+  ['1', 'شركة واحدة'],
+  ['2-5', '٢–٥ شركات'],
+  ['6-15', '٦–١٥ شركة'],
+  ['16+', '١٦+ شركة'],
 ] as const
 const STAGE = [
-  ['seed', 'Seed'],
-  ['early', 'Early stage'],
-  ['growth', 'Growth'],
-  ['late', 'Late stage / public'],
+  ['seed', 'تأسيس'],
+  ['early', 'مرحلة مبكرة'],
+  ['growth', 'نمو'],
+  ['late', 'مرحلة متأخرة / مدرجة'],
 ] as const
 const CADENCE = [
-  ['monthly', 'Monthly'],
-  ['quarterly', 'Quarterly'],
-  ['annual', 'Annual'],
+  ['monthly', 'شهري'],
+  ['quarterly', 'ربعي'],
+  ['annual', 'سنوي'],
 ] as const
 
 const schema = z.object({
-  companyName: z.string().min(1).max(120),
+  companyName: z.string().min(1, 'مطلوب').max(120),
   portfolioSize: z.enum(PORTFOLIO.map((p) => p[0]) as [string, ...string[]]),
   investmentStage: z.enum(STAGE.map((s) => s[0]) as [string, ...string[]]),
   monitoringCadence: z.enum(CADENCE.map((c) => c[0]) as [string, ...string[]]),
@@ -63,13 +63,10 @@ export function DiagnosticInvestorPage() {
     setSubmitting(true)
     try {
       await api.post('/api/diagnostic/investor', values)
-      toast.success('Diagnostic saved')
+      toast.success('تم حفظ التشخيص')
       navigate('/investor/dashboard')
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Could not submit diagnostic'
-      toast.error(msg)
+      toast.error(apiErrorMessage(err, 'تعذّر إرسال التشخيص'))
     } finally {
       setSubmitting(false)
     }
@@ -78,27 +75,28 @@ export function DiagnosticInvestorPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Investor diagnostic"
-        description="Three questions to tune your portfolio dashboard."
+        title="تشخيص المستثمر"
+        description="ثلاثة أسئلة لضبط لوحة المحفظة."
       />
 
-      <Card className="mx-auto w-full max-w-2xl">
+      <Card className="mx-auto w-full max-w-2xl overflow-hidden shadow-sm">
+        <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
         <CardHeader>
-          <CardTitle>Portfolio profile</CardTitle>
-          <CardDescription>Answers shape monitoring cadence and rollup tiles.</CardDescription>
+          <CardTitle>ملف المحفظة</CardTitle>
+          <CardDescription>إجاباتك تشكّل وتيرة المتابعة ومربعات اللوحة.</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="companyName">Portfolio name</Label>
-              <Input id="companyName" placeholder="e.g. Riyadh Growth Fund" {...register('companyName')} />
+              <Label htmlFor="companyName">اسم المحفظة</Label>
+              <Input id="companyName" placeholder="مثال: صندوق الرياض للنمو" {...register('companyName')} />
               {errors.companyName && (
                 <p className="text-sm text-destructive">{errors.companyName.message}</p>
               )}
             </div>
 
             <div className="grid gap-2">
-              <Label>Portfolio size</Label>
+              <Label>حجم المحفظة</Label>
               <Select
                 value={watch('portfolioSize')}
                 onValueChange={(v) => setValue('portfolioSize', v as Form['portfolioSize'])}
@@ -117,7 +115,7 @@ export function DiagnosticInvestorPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Primary investment stage</Label>
+              <Label>مرحلة الاستثمار الرئيسية</Label>
               <Select
                 value={watch('investmentStage')}
                 onValueChange={(v) => setValue('investmentStage', v as Form['investmentStage'])}
@@ -136,7 +134,7 @@ export function DiagnosticInvestorPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Monitoring cadence</Label>
+              <Label>وتيرة المتابعة</Label>
               <Select
                 value={watch('monitoringCadence')}
                 onValueChange={(v) => setValue('monitoringCadence', v as Form['monitoringCadence'])}
@@ -155,8 +153,8 @@ export function DiagnosticInvestorPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={submitting} className="ml-auto">
-              {submitting ? 'Saving…' : 'Save diagnostic'}
+            <Button type="submit" disabled={submitting} className="mr-auto">
+              {submitting ? 'جاري الحفظ…' : 'حفظ التشخيص'}
             </Button>
           </CardFooter>
         </form>

@@ -22,6 +22,13 @@ interface BasicQuestion {
   options: { value: string; label: string }[]
 }
 
+const ZONE_LABEL: Record<string, string> = {
+  GREEN: 'آمنة',
+  YELLOW: 'تحذير',
+  ORANGE: 'خطر',
+  RED: 'حرجة',
+}
+
 export function ComplianceAuditPage() {
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<BasicQuestion[]>([])
@@ -37,7 +44,7 @@ export function ComplianceAuditPage() {
       try {
         const { company } = await getMyFirstCompany()
         if (!company) {
-          toast.error('Complete the manager diagnostic first')
+          toast.error('أكمل تشخيص المدير أولاً')
           setLoading(false)
           return
         }
@@ -46,7 +53,7 @@ export function ComplianceAuditPage() {
         if (cancel) return
         setQuestions(data.questions)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load questions'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل الأسئلة'
         toast.error(msg)
       } finally {
         if (!cancel) setLoading(false)
@@ -70,9 +77,9 @@ export function ComplianceAuditPage() {
       const payload = Object.entries(answers).map(([questionId, v]) => ({ questionId, value: v }))
       const res = await submitComplianceBasic(companyId, payload)
       setResult(res.result)
-      toast.success('Compliance audit submitted')
+      toast.success('تم إرسال تدقيق الامتثال')
     } catch (err) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not submit audit'
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر إرسال التدقيق'
       toast.error(msg)
     } finally {
       setSubmitting(false)
@@ -88,15 +95,15 @@ export function ComplianceAuditPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Compliance audit (Basic)"
-        description="8 quick questions across licenses, tax, labor, privacy, cybersecurity, governance, AML and consumer protection."
+        title="تدقيق الامتثال (الأساسي)"
+        description="8 أسئلة سريعة تغطي التراخيص، الضريبة، العمل، الخصوصية، الأمن السيبراني، الحوكمة، مكافحة غسل الأموال وحماية المستهلك."
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
-          { label: 'Compliance' },
+          { label: 'الأقسام', to: '/manager/select-dept' },
+          { label: 'الامتثال' },
         ]}
         actions={
           <Link to="/manager/compliance/audit-pro" className={buttonVariants({ variant: 'outline' })}>
-            Switch to Pro
+            التبديل إلى الاحترافي
           </Link>
         }
       />
@@ -104,17 +111,17 @@ export function ComplianceAuditPage() {
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading…</CardTitle>
+            <CardTitle>جاري التحميل…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {!loading && !result && current && (
-        <Card>
+        <Card className="bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
           <CardHeader>
-            <CardTitle>Question {step + 1} of {total}</CardTitle>
-            <CardDescription>4 choices · Likert maturity</CardDescription>
-            <Progress value={progress} className="mt-2" />
+            <CardTitle>السؤال <span className="tabular-nums">{step + 1}</span> من <span className="tabular-nums">{total}</span></CardTitle>
+            <CardDescription>4 خيارات · مقياس النضج (ليكرت)</CardDescription>
+            <Progress value={progress} className="mt-2 h-2" />
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-base font-medium">{current.prompt}</p>
@@ -127,7 +134,7 @@ export function ComplianceAuditPage() {
                 <Label
                   key={opt.value}
                   htmlFor={`${current.id}_${opt.value}`}
-                  className="flex cursor-pointer items-center gap-3 rounded-md border p-3 hover:bg-accent"
+                  className="flex cursor-pointer items-center gap-3 rounded-md border p-3 hover:bg-accent transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <RadioGroupItem value={opt.value} id={`${current.id}_${opt.value}`} />
                   <span className="text-sm">{opt.label}</span>
@@ -136,34 +143,35 @@ export function ComplianceAuditPage() {
             </RadioGroup>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</Button>
+            <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>السابق</Button>
             <Button onClick={next} disabled={!canAdvance || submitting}>
-              {step === total - 1 ? (submitting ? 'Submitting…' : 'Submit') : 'Next'}
+              {step === total - 1 ? (submitting ? 'جاري الإرسال…' : 'إرسال') : 'التالي'}
             </Button>
           </CardFooter>
         </Card>
       )}
 
       {result && (
-        <Card>
+        <Card className="overflow-hidden bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
+          <div className="h-1.5 bg-gradient-to-l from-rose-500 via-red-500 to-orange-500" />
           <CardHeader>
-            <CardTitle>Compliance maturity</CardTitle>
-            <CardDescription>Based on {questions.length} questions. {result.dangerZone === 'RED' ? 'Critical exposure detected.' : null}</CardDescription>
+            <CardTitle>نضج الامتثال</CardTitle>
+            <CardDescription>استناداً إلى {questions.length} أسئلة. {result.dangerZone === 'RED' ? 'تم رصد تعرّض حرج.' : null}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="text-3xl font-semibold">{result.maturityPct}%</div>
-              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(result.dangerZone)}`}>{result.dangerZone} zone</span>
+              <div className="text-3xl font-semibold tabular-nums">{result.maturityPct}%</div>
+              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(result.dangerZone)}`}>منطقة {ZONE_LABEL[result.dangerZone] ?? result.dangerZone}</span>
             </div>
-            <Progress value={result.maturityPct} />
-            <p className="text-xs text-muted-foreground">Raw {result.rawScore} / {result.maxScore} pts.</p>
+            <Progress value={result.maturityPct} className="h-2" />
+            <p className="text-xs text-muted-foreground tabular-nums">النقاط الخام {result.rawScore} / {result.maxScore}.</p>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Link to="/manager/compliance/audit-pro" className={buttonVariants({ variant: 'outline' })}>
-              Run Pro audit (64 elements)
+              تنفيذ التدقيق الاحترافي (64 عنصراً)
             </Link>
             <Link to="/manager/compliance/reform" className={buttonVariants()}>
-              See reform plan →
+              عرض خطة الإصلاح ←
             </Link>
           </CardFooter>
         </Card>

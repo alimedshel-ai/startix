@@ -18,38 +18,38 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
 
 const DEPTS = [
-  ['HR', 'Human resources'],
-  ['FINANCE', 'Finance'],
-  ['SALES', 'Sales'],
-  ['MARKETING', 'Marketing'],
-  ['OPERATIONS', 'Operations'],
-  ['IT', 'IT'],
-  ['CUSTOMER_SERVICE', 'Customer service'],
-  ['SUPPORT', 'Support'],
-  ['LOGISTICS', 'Logistics'],
-  ['QUALITY', 'Quality'],
-  ['PROJECTS', 'Projects'],
-  ['GOVERNANCE', 'Governance'],
-  ['COMPLIANCE', 'Compliance'],
+  ['HR', 'الموارد البشرية'],
+  ['FINANCE', 'المالية'],
+  ['SALES', 'المبيعات'],
+  ['MARKETING', 'التسويق'],
+  ['OPERATIONS', 'العمليات'],
+  ['IT', 'تقنية المعلومات'],
+  ['CUSTOMER_SERVICE', 'خدمة العملاء'],
+  ['SUPPORT', 'الإمداد والدعم'],
+  ['LOGISTICS', 'اللوجستيات'],
+  ['QUALITY', 'الجودة'],
+  ['PROJECTS', 'المشاريع'],
+  ['GOVERNANCE', 'الحوكمة'],
+  ['COMPLIANCE', 'الامتثال'],
 ] as const
 
 const TOOLING = [
-  ['none', 'None — manual'],
-  ['basic', 'Basic — spreadsheets'],
-  ['modern', 'Modern — SaaS in place'],
-  ['advanced', 'Advanced — integrated stack'],
+  ['none', 'لا يوجد — يدوي'],
+  ['basic', 'أساسي — جداول'],
+  ['modern', 'حديث — برامج سحابية'],
+  ['advanced', 'متقدم — منظومة متكاملة'],
 ] as const
 
 const schema = z.object({
-  companyName: z.string().min(1).max(120),
+  companyName: z.string().min(1, 'مطلوب').max(120),
   departmentType: z.enum(DEPTS.map((d) => d[0]) as [string, ...string[]]),
-  experienceYears: z.string().regex(/^\d+$/, 'Numbers only'),
-  teamSize: z.string().regex(/^\d+$/, 'Numbers only'),
+  experienceYears: z.string().regex(/^\d+$/, 'أرقام فقط'),
+  teamSize: z.string().regex(/^\d+$/, 'أرقام فقط'),
   toolingMaturity: z.enum(TOOLING.map((t) => t[0]) as [string, ...string[]]),
-  topChallenge: z.string().min(3, 'Add a short note').max(280),
+  topChallenge: z.string().min(3, 'اكتب ملاحظة قصيرة').max(280),
 })
 type Form = z.infer<typeof schema>
 
@@ -75,13 +75,10 @@ export function DiagnosticManagerPage() {
         experienceYears: Number(values.experienceYears),
         teamSize: Number(values.teamSize),
       })
-      toast.success('Diagnostic saved')
+      toast.success('تم حفظ التشخيص')
       navigate('/manager/dept-dashboard')
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Could not submit diagnostic'
-      toast.error(msg)
+      toast.error(apiErrorMessage(err, 'تعذّر إرسال التشخيص'))
     } finally {
       setSubmitting(false)
     }
@@ -93,19 +90,20 @@ export function DiagnosticManagerPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Manager diagnostic"
-        description="Five questions to set up your department dashboard."
+        title="تشخيص المدير"
+        description="خمسة أسئلة لإعداد لوحة قيادة إدارتك."
       />
 
-      <Card className="mx-auto w-full max-w-2xl">
+      <Card className="mx-auto w-full max-w-2xl overflow-hidden shadow-sm">
+        <div className="h-1.5 bg-gradient-to-l from-sky-500 via-teal-500 to-emerald-500" />
         <CardHeader>
-          <CardTitle>Tell us about your department</CardTitle>
-          <CardDescription>Answers feed the dept dashboard and KPI recommendations.</CardDescription>
+          <CardTitle>أخبرنا عن إدارتك</CardTitle>
+          <CardDescription>إجاباتك تغذي لوحة الإدارة وتوصيات مؤشرات الأداء.</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="companyName">Company name</Label>
+              <Label htmlFor="companyName">اسم الشركة</Label>
               <Input id="companyName" {...register('companyName')} />
               {errors.companyName && (
                 <p className="text-sm text-destructive">{errors.companyName.message}</p>
@@ -113,7 +111,7 @@ export function DiagnosticManagerPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Department</Label>
+              <Label>الإدارة</Label>
               <Select value={dept} onValueChange={(v) => setValue('departmentType', v as Form['departmentType'])}>
                 <SelectTrigger>
                   <SelectValue />
@@ -130,17 +128,17 @@ export function DiagnosticManagerPage() {
 
             <div className="grid gap-2 md:grid-cols-2 md:gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="experienceYears">Years of experience</Label>
+                <Label htmlFor="experienceYears">سنوات الخبرة</Label>
                 <Input id="experienceYears" type="number" min={0} {...register('experienceYears')} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="teamSize">Team size</Label>
+                <Label htmlFor="teamSize">حجم الفريق</Label>
                 <Input id="teamSize" type="number" min={0} {...register('teamSize')} />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <Label>Tooling maturity</Label>
+              <Label>نضج الأدوات</Label>
               <Select value={tooling} onValueChange={(v) => setValue('toolingMaturity', v as Form['toolingMaturity'])}>
                 <SelectTrigger>
                   <SelectValue />
@@ -156,7 +154,7 @@ export function DiagnosticManagerPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="topChallenge">Top challenge right now</Label>
+              <Label htmlFor="topChallenge">أكبر تحدٍّ حالياً</Label>
               <Textarea id="topChallenge" rows={3} {...register('topChallenge')} />
               {errors.topChallenge && (
                 <p className="text-sm text-destructive">{errors.topChallenge.message}</p>
@@ -164,8 +162,8 @@ export function DiagnosticManagerPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={submitting} className="ml-auto">
-              {submitting ? 'Saving…' : 'Save diagnostic'}
+            <Button type="submit" disabled={submitting} className="mr-auto">
+              {submitting ? 'جاري الحفظ…' : 'حفظ التشخيص'}
             </Button>
           </CardFooter>
         </form>

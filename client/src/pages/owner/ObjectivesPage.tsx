@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function ObjectivesPage() {
-  return <StubPage title="Objectives" description="Strategic + operational objectives with status." phase={6} />
+  return (
+    <StubPage
+      title="الأهداف"
+      description="إنشاء ومتابعة الأهداف الاستراتيجية والتشغيلية."
+      phase={6}
+      icon="🎯"
+      accent="emerald"
+    />
+  )
 }

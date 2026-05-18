@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function GapAnalysisPage() {
-  return <StubPage title="Gap analysis" description="Where you are vs where you need to be — by capability." phase={6} />
+  return (
+    <StubPage
+      title="تحليل الفجوة"
+      description="الحالة الحالية مقابل المرغوبة، مع تحديد الفجوات الأهم."
+      phase={6}
+      icon="📐"
+      accent="rose"
+    />
+  )
 }

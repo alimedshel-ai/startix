@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function OrgDNAPage() {
-  return <StubPage title="Org DNA" description="Decision rights, motivators, information flow, structure." phase={4} />
+  return (
+    <StubPage
+      title="الحمض التنظيمي"
+      description="حقوق القرار، الحوافز، تدفق المعلومات، والهيكل التنظيمي."
+      phase={6}
+      icon="🧬"
+      accent="fuchsia"
+    />
+  )
 }

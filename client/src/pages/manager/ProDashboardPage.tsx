@@ -12,30 +12,30 @@ export function ProDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Pro dashboard"
-        description="Deeper modules — audit-pro, sector-contextual compliance, Saudi penalty exposure."
+        title="لوحة الاحترافي"
+        description="وحدات أعمق — تدقيق احترافي، امتثال حسب القطاع، وتقدير الغرامات السعودية."
       />
 
       {!proAllowed && (
-        <Card>
+        <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-200">
           <CardHeader>
-            <CardTitle>Upgrade required</CardTitle>
-            <CardDescription>Pro modules require a Professional plan.</CardDescription>
+            <CardTitle>الترقية مطلوبة</CardTitle>
+            <CardDescription>تتطلب الوحدات الاحترافية خطة احترافية.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/pricing" className={buttonVariants()}>See pricing</Link>
+            <Link to="/pricing" className={buttonVariants()}>عرض الأسعار</Link>
           </CardContent>
         </Card>
       )}
 
       {proAllowed && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <ProCard title="HR — Pro audit" to="/manager/hr/audit" description="Succession, leadership pipeline, people analytics." />
-          <ProCard title="Sales — Pro audit" to="/manager/sales/audit" description="Segmentation, margin, predictive lead scoring." />
-          <ProCard title="Marketing — Pro audit" to="/manager/marketing/audit" description="Product marketing, MQL→SQL, CDP." />
-          <ProCard title="Compliance — Pro audit" to="/manager/compliance/audit-pro" description="64 mandatory elements + sector axes + KO licenses." />
-          <ProCard title="Compliance reform plan" to="/manager/compliance/reform" description="12-week corrective schedule." />
-          <ProCard title="Governance hub" to="/manager/governance/hub" description="Risk matrix + governance health." />
+          <ProCard title="الموارد البشرية — تدقيق احترافي" to="/manager/hr/audit" description="التعاقب الوظيفي، خط القيادة، وتحليلات الموظفين." />
+          <ProCard title="المبيعات — تدقيق احترافي" to="/manager/sales/audit" description="التجزئة، الهامش، وتقييم العملاء المحتملين التنبؤي." />
+          <ProCard title="التسويق — تدقيق احترافي" to="/manager/marketing/audit" description="تسويق المنتج، تحويل MQL إلى SQL، وCDP." />
+          <ProCard title="الامتثال — تدقيق احترافي" to="/manager/compliance/audit-pro" description="64 عنصر إلزامي + محاور حسب القطاع + تراخيص KO." />
+          <ProCard title="خطة الإصلاح للامتثال" to="/manager/compliance/reform" description="جدول تصحيحي مدّته 12 أسبوعاً." />
+          <ProCard title="مركز الحوكمة" to="/manager/governance/hub" description="مصفوفة المخاطر + صحة الحوكمة." />
         </div>
       )}
     </div>
@@ -44,13 +44,13 @@ export function ProDashboardPage() {
 
 function ProCard({ title, description, to }: { title: string; description: string; to: string }) {
   return (
-    <Card>
+    <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-200 transition hover:-translate-y-0.5 hover:shadow-md">
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Link to={to} className={buttonVariants({ variant: 'outline' })}>Open →</Link>
+        <Link to={to} className={buttonVariants({ variant: 'outline' })}>فتح ←</Link>
       </CardContent>
     </Card>
   )

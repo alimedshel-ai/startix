@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function ChoicesPage() {
-  return <StubPage title="Choices" description="Pick the strategic direction and lock in commitments." phase={6} />
+  return (
+    <StubPage
+      title="القرارات الاستراتيجية"
+      description="تثبيت الاتجاه المختار وتدوين المبررات."
+      phase={6}
+      icon="✅"
+      accent="amber"
+    />
+  )
 }

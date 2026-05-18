@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function CompanyDetailPage() {
-  return <StubPage title="Company detail" description="Read-only company detail for portfolio view." phase={8} />
+  return (
+    <StubPage
+      title="تفاصيل الشركة"
+      description="عرض تفصيلي للشركة (قراءة فقط) من محفظتك."
+      phase={8}
+      icon="🏢"
+      accent="emerald"
+    />
+  )
 }

@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function ActivityFeedPage() {
-  return <StubPage title="Activity feed" description="Cross-feature event stream with filters." phase={8} />
+  return (
+    <StubPage
+      title="سجل النشاط"
+      description="سجل زمني لكل النشاطات مع فلاتر بالنوع والتاريخ."
+      phase={8}
+      icon="📰"
+      accent="sky"
+    />
+  )
 }

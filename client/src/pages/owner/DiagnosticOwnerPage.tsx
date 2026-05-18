@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
 import { OWNER_QUESTIONS, type OwnerAnswers, type OwnerDiagnosticResult } from '@/lib/diagnosticQuestions'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
 
@@ -39,13 +39,10 @@ export function DiagnosticOwnerPage() {
         draft
       )
       setResult(data.result)
-      toast.success('Diagnostic complete')
+      toast.success('اكتمل التشخيص')
       navigate('/diagnostic/result')
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Could not submit diagnostic'
-      toast.error(msg)
+      toast.error(apiErrorMessage(err, 'تعذّر إرسال التشخيص'))
     } finally {
       setSubmitting(false)
     }
@@ -66,36 +63,35 @@ export function DiagnosticOwnerPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Owner diagnostic"
-        description="9-step assessment — identifies your strategic path and 4 urgent actions."
+        title="تشخيص المالك"
+        description="تقييم من 9 خطوات — يحدد مسارك الاستراتيجي و 4 إجراءات عاجلة."
         actions={
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               reset()
-              toast.message('Diagnostic reset')
+              toast.message('تم إعادة ضبط التشخيص')
             }}
           >
-            Reset
+            إعادة الضبط
           </Button>
         }
       />
 
-      <Card className="mx-auto w-full max-w-2xl">
+      <Card className="mx-auto w-full max-w-2xl overflow-hidden shadow-sm">
+        <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-rose-500" />
         <CardHeader>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Step {step + 1} of {TOTAL_STEPS}
-            </span>
-            <span>{progress}%</span>
+            <span>الخطوة {step + 1} من {TOTAL_STEPS}</span>
+            <span className="tabular-nums">{progress}%</span>
           </div>
-          <Progress value={progress} />
+          <Progress value={progress} className="h-2" />
           <CardTitle className="mt-3">
-            {isIdentificationStep ? 'Company information' : question!.label}
+            {isIdentificationStep ? 'معلومات الشركة' : question!.label}
           </CardTitle>
           {!isIdentificationStep && question && (
-            <CardDescription>{question.prompt}</CardDescription>
+            <CardDescription className="leading-relaxed">{question.prompt}</CardDescription>
           )}
         </CardHeader>
 
@@ -103,7 +99,7 @@ export function DiagnosticOwnerPage() {
           {isIdentificationStep ? (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="companyName">Company name</Label>
+                <Label htmlFor="companyName">اسم الشركة</Label>
                 <Input
                   id="companyName"
                   value={draft.companyName ?? ''}
@@ -111,10 +107,10 @@ export function DiagnosticOwnerPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="sector">Sector</Label>
+                <Label htmlFor="sector">القطاع</Label>
                 <Input
                   id="sector"
-                  placeholder="retail, services, tech, manufacturing…"
+                  placeholder="تجزئة، خدمات، تقنية، تصنيع…"
                   value={draft.sector ?? ''}
                   onChange={(e) => setDraft({ sector: e.target.value })}
                 />
@@ -133,7 +129,7 @@ export function DiagnosticOwnerPage() {
                   <Label
                     key={o.value}
                     htmlFor={`${question.key}-${o.value}`}
-                    className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/40"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm"
                   >
                     <RadioGroupItem id={`${question.key}-${o.value}`} value={o.value} />
                     <span className="text-sm leading-snug">{o.label}</span>
@@ -146,10 +142,10 @@ export function DiagnosticOwnerPage() {
 
         <CardFooter className="flex justify-between">
           <Button variant="ghost" onClick={back} disabled={step === 0 || submitting}>
-            Back
+            السابق
           </Button>
           <Button onClick={next} disabled={!canAdvance || submitting}>
-            {submitting ? 'Submitting…' : step === TOTAL_STEPS - 1 ? 'Submit' : 'Next'}
+            {submitting ? 'جاري الإرسال…' : step === TOTAL_STEPS - 1 ? 'إرسال' : 'التالي'}
           </Button>
         </CardFooter>
       </Card>

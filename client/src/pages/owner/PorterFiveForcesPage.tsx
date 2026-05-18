@@ -30,17 +30,17 @@ const EMPTY: PorterData = {
   newEntrants:   { rating: 3, notes: '' },
 }
 
-const FORCES: { key: keyof PorterData; label: string; description: string }[] = [
-  { key: 'rivalry',       label: 'Competitive rivalry', description: 'Intensity among existing competitors.' },
-  { key: 'supplierPower', label: 'Supplier power',      description: 'How easily can suppliers raise prices?' },
-  { key: 'buyerPower',    label: 'Buyer power',         description: 'How easily can customers push prices down?' },
-  { key: 'substitutes',   label: 'Threat of substitutes', description: 'Alternatives outside the industry.' },
-  { key: 'newEntrants',   label: 'Threat of new entrants', description: 'How easy is it to enter the market?' },
+const FORCES: { key: keyof PorterData; label: string; description: string; icon: string; tint: string }[] = [
+  { key: 'rivalry',       label: 'حدة المنافسة',       description: 'حدّة التنافس بين المنافسين الحاليين.',  icon: '⚔️', tint: 'border-rose-200 bg-rose-50/50' },
+  { key: 'supplierPower', label: 'قوة الموردين',        description: 'مدى قدرة الموردين على رفع الأسعار.',     icon: '🏭', tint: 'border-amber-200 bg-amber-50/50' },
+  { key: 'buyerPower',    label: 'قوة المشترين',        description: 'مدى قدرة العملاء على الضغط لخفض السعر.',  icon: '🛒', tint: 'border-emerald-200 bg-emerald-50/50' },
+  { key: 'substitutes',   label: 'تهديد البدائل',       description: 'بدائل من خارج الصناعة.',                  icon: '🔄', tint: 'border-violet-200 bg-violet-50/50' },
+  { key: 'newEntrants',   label: 'تهديد الداخلين الجدد', description: 'سهولة دخول لاعبين جدد للسوق.',           icon: '🚪', tint: 'border-sky-200 bg-sky-50/50' },
 ]
 
 export function PorterFiveForcesPage() {
   return (
-    <StrategicShell title="Porter five forces" description="Rate each force 1 (weak) – 5 (strong) and capture notes.">
+    <StrategicShell title="قوى بورتر الخمس" description="قيّم كل قوة من ١ (ضعيفة) إلى ٥ (قوية) مع ملاحظات.">
       {(companyId) => <Editor companyId={companyId} />}
     </StrategicShell>
   )
@@ -60,9 +60,9 @@ function Editor({ companyId }: { companyId: string }) {
     setSaving(true)
     try {
       await upsertArtifact(companyId, 'PORTER', data)
-      toast.success('Porter saved')
+      toast.success('تم حفظ التحليل')
     } catch (err) {
-      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Save failed')
+      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'فشل الحفظ')
     } finally {
       setSaving(false)
     }
@@ -74,26 +74,29 @@ function Editor({ companyId }: { companyId: string }) {
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-3">
         {FORCES.map((f) => (
-          <Card key={f.key}>
+          <Card key={f.key} className={f.tint}>
             <CardHeader>
-              <CardTitle className="text-base">{f.label}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="text-xl">{f.icon}</span>
+                {f.label}
+              </CardTitle>
               <CardDescription>{f.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Rating</Label>
+                <Label className="text-xs text-muted-foreground">التقييم</Label>
                 <select
-                  className="rounded border bg-background px-2 py-1 text-sm"
+                  className="rounded-md border bg-background px-2 py-1 text-sm"
                   value={data[f.key].rating}
                   onChange={(e) => setData((p) => ({ ...p, [f.key]: { ...p[f.key], rating: Number(e.target.value) as Force['rating'] } }))}
                 >
                   {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
-                <span className="text-xs text-muted-foreground">1 = weak · 5 = strong</span>
+                <span className="text-xs text-muted-foreground">١ = ضعيفة · ٥ = قوية</span>
               </div>
               <Textarea
                 rows={2}
-                placeholder="Notes…"
+                placeholder="ملاحظات…"
                 value={data[f.key].notes}
                 onChange={(e) => setData((p) => ({ ...p, [f.key]: { ...p[f.key], notes: e.target.value } }))}
               />
@@ -101,14 +104,14 @@ function Editor({ companyId }: { companyId: string }) {
           </Card>
         ))}
         <div className="flex justify-end">
-          <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+          <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ'}</Button>
         </div>
       </div>
 
-      <Card>
+      <Card className="bg-gradient-to-br from-primary/5 to-violet-500/5">
         <CardHeader>
-          <CardTitle>Pentagon</CardTitle>
-          <CardDescription>Visual snapshot of force pressure.</CardDescription>
+          <CardTitle>الخماسي</CardTitle>
+          <CardDescription>عرض مرئي لضغط القوى.</CardDescription>
         </CardHeader>
         <CardContent>
           <RadarChart data={radar} height={360} />

@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function SWOTPage() {
-  return <StubPage title="SWOT" description="Strengths, weaknesses, opportunities, threats — collaborative." phase={6} />
+  return (
+    <StubPage
+      title="تحليل SWOT"
+      description="نقاط القوة، الضعف، الفرص، والتهديدات."
+      phase={6}
+      icon="🧭"
+      accent="rose"
+    />
+  )
 }

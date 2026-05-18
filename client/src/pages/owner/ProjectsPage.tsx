@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function ProjectsPage() {
-  return <StubPage title="Projects" description="Projects with status, owners, dates." phase={6} />
+  return (
+    <StubPage
+      title="المشاريع"
+      description="المشاريع: الحالة، المسؤول، التواريخ، الفريق."
+      phase={6}
+      icon="📁"
+      accent="emerald"
+    />
+  )
 }

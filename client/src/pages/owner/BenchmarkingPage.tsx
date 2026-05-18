@@ -22,13 +22,13 @@ interface BenchmarkData {
 }
 
 const EMPTY: BenchmarkData = {
-  competitors: { c1: 'Competitor 1', c2: 'Competitor 2', c3: 'Competitor 3' },
+  competitors: { c1: 'منافس ١', c2: 'منافس ٢', c3: 'منافس ٣' },
   rows: [],
 }
 
 export function BenchmarkingPage() {
   return (
-    <StrategicShell title="Benchmarking" description="Compare your company against three named competitors across key metrics.">
+    <StrategicShell title="المقارنة المرجعية" description="قارن شركتك بثلاثة منافسين عبر مقاييس مفتاحية.">
       {(companyId) => <Editor companyId={companyId} />}
     </StrategicShell>
   )
@@ -58,9 +58,9 @@ function Editor({ companyId }: { companyId: string }) {
     setSaving(true)
     try {
       await upsertArtifact(companyId, 'BENCHMARK', data)
-      toast.success('Benchmark saved')
+      toast.success('تم حفظ المقارنة')
     } catch (err) {
-      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Save failed')
+      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'فشل الحفظ')
     } finally {
       setSaving(false)
     }
@@ -68,10 +68,10 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <Card>
+      <Card className="bg-gradient-to-bl from-violet-500/5 to-indigo-500/5">
         <CardHeader>
-          <CardTitle>Competitors</CardTitle>
-          <CardDescription>Name the three competitors you are comparing against.</CardDescription>
+          <CardTitle>المنافسون</CardTitle>
+          <CardDescription>سمِّ المنافسين الثلاثة الذين تقارن معهم.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-3">
           {(['c1', 'c2', 'c3'] as const).map((k) => (
@@ -86,15 +86,15 @@ function Editor({ companyId }: { companyId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Metrics</CardTitle>
-          <CardDescription>{data.rows.length} row{data.rows.length === 1 ? '' : 's'}.</CardDescription>
+          <CardTitle>المقاييس</CardTitle>
+          <CardDescription>{data.rows.length} صف.</CardDescription>
         </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2">Metric</th>
-                <th className="py-2">Ours</th>
+              <tr className="border-b text-right text-muted-foreground">
+                <th className="py-2">المقياس</th>
+                <th className="py-2">شركتنا</th>
                 <th className="py-2">{data.competitors.c1}</th>
                 <th className="py-2">{data.competitors.c2}</th>
                 <th className="py-2">{data.competitors.c3}</th>
@@ -115,8 +115,8 @@ function Editor({ companyId }: { companyId: string }) {
             </tbody>
           </table>
           <div className="mt-3 flex justify-between">
-            <Button variant="outline" size="sm" onClick={addRow}>+ Metric</Button>
-            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+            <Button variant="outline" size="sm" onClick={addRow}>+ مقياس</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ'}</Button>
           </div>
         </CardContent>
       </Card>

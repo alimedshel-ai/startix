@@ -5,52 +5,55 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 const TIERS = [
   {
-    name: 'Basic',
-    price: 'Free',
+    name: 'الأساسي',
+    price: 'مجاناً',
     period: '',
-    blurb: 'Diagnostic engine + 1 strategic path. Perfect for trying Startix.',
+    blurb: 'محرك التشخيص + مسار استراتيجي واحد. مثالي لتجربة ستارتكس.',
     features: [
-      'Owner / Manager / Investor diagnostic',
-      '1 strategic path',
-      'Up to 1 company',
-      'Email support',
+      'تشخيص: مالك / مدير / مستثمر',
+      'مسار استراتيجي واحد',
+      'حتى شركة واحدة',
+      'دعم عبر البريد',
     ],
-    cta: 'Start free',
+    cta: 'ابدأ مجاناً',
     href: '/select-type',
     highlight: false,
+    gradient: 'from-sky-500/10 to-transparent border-sky-200',
   },
   {
-    name: 'Professional',
-    price: '199 SAR',
-    period: '/ month',
-    blurb: 'Full lifecycle, 13 department audits, AI analysis, exports.',
+    name: 'الاحترافي',
+    price: '199 ر.س',
+    period: '/ شهرياً',
+    blurb: 'دورة كاملة، 13 إدارة، تحليل ذكي، وتصدير التقارير.',
     features: [
-      'All Basic features',
-      '5 strategic paths',
-      '13 department audits',
-      'AI advisor (Claude)',
-      'PDF + Excel exports',
-      'Up to 5 companies',
+      'كل ميزات الأساسي',
+      '5 مسارات استراتيجية',
+      'تدقيق 13 إدارة',
+      'مستشار ذكي (Claude)',
+      'تصدير PDF و Excel',
+      'حتى 5 شركات',
     ],
-    cta: 'Choose Professional',
+    cta: 'اختر الاحترافي',
     href: '/select-type',
     highlight: true,
+    gradient: 'from-primary/15 to-violet-500/10 border-primary',
   },
   {
-    name: 'Enterprise',
-    price: 'Custom',
+    name: 'المؤسسي',
+    price: 'مخصص',
     period: '',
-    blurb: 'Multi-entity portfolios, SSO, dedicated success manager.',
+    blurb: 'محافظ متعددة الكيانات، تسجيل دخول موحّد، ومدير نجاح مخصّص.',
     features: [
-      'Unlimited companies',
-      'Multi-entity dashboards',
-      'SSO + custom roles',
-      'Compliance audit (Pro)',
-      'Dedicated onboarding',
+      'شركات غير محدودة',
+      'لوحات متعددة الكيانات',
+      'SSO + أدوار مخصصة',
+      'تدقيق الامتثال (احترافي)',
+      'إعداد مخصص',
     ],
-    cta: 'Contact sales',
+    cta: 'تواصل مع المبيعات',
     href: '/select-type',
     highlight: false,
+    gradient: 'from-emerald-500/10 to-transparent border-emerald-200',
   },
 ]
 
@@ -58,9 +61,12 @@ export function PricingPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-12 px-6 py-16">
       <header className="text-center">
-        <h1 className="text-4xl font-semibold tracking-tight">Simple pricing for serious strategy</h1>
+        <Link to="/" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          ← العودة للصفحة الرئيسية
+        </Link>
+        <h1 className="text-balance text-4xl font-bold tracking-tight">أسعار بسيطة لاستراتيجية جادة</h1>
         <p className="mt-3 text-muted-foreground">
-          All prices in SAR. Switch or cancel any time.
+          جميع الأسعار بالريال السعودي. تستطيع التبديل أو الإلغاء في أي وقت.
         </p>
       </header>
 
@@ -68,22 +74,27 @@ export function PricingPage() {
         {TIERS.map((t) => (
           <Card
             key={t.name}
-            className={t.highlight ? 'border-primary shadow-lg' : undefined}
+            className={`overflow-hidden bg-gradient-to-br ${t.gradient} ${t.highlight ? 'shadow-lg ring-2 ring-primary/20' : ''}`}
           >
+            {t.highlight && (
+              <div className="bg-primary px-4 py-1 text-center text-xs font-semibold uppercase tracking-wider text-primary-foreground">
+                الأكثر اختياراً
+              </div>
+            )}
             <CardHeader>
-              <CardTitle>{t.name}</CardTitle>
-              <CardDescription>{t.blurb}</CardDescription>
+              <CardTitle className="text-xl">{t.name}</CardTitle>
+              <CardDescription className="leading-relaxed">{t.blurb}</CardDescription>
               <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-3xl font-semibold text-foreground">{t.price}</span>
-                {t.period && <span className="text-muted-foreground">{t.period}</span>}
+                <span className="text-3xl font-bold text-foreground tabular-nums">{t.price}</span>
+                {t.period && <span className="text-sm text-muted-foreground">{t.period}</span>}
               </div>
             </CardHeader>
             <CardContent>
               <ul className="grid gap-2 text-sm">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-                    {f}
+                    <span aria-hidden className="mt-1.5 inline-block size-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{f}</span>
                   </li>
                 ))}
               </ul>

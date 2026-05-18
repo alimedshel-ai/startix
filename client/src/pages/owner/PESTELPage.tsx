@@ -24,13 +24,13 @@ interface PESTELData {
   legal: Factor[]
 }
 
-const SECTIONS: { key: Section; label: string; color: string }[] = [
-  { key: 'political',      label: 'Political',     color: 'bg-red-50' },
-  { key: 'economic',       label: 'Economic',      color: 'bg-amber-50' },
-  { key: 'social',         label: 'Social',        color: 'bg-yellow-50' },
-  { key: 'technological',  label: 'Technological', color: 'bg-emerald-50' },
-  { key: 'environmental',  label: 'Environmental', color: 'bg-sky-50' },
-  { key: 'legal',          label: 'Legal',         color: 'bg-violet-50' },
+const SECTIONS: { key: Section; label: string; gradient: string; icon: string }[] = [
+  { key: 'political',     label: 'سياسي',    icon: '🏛️', gradient: 'from-rose-500/15 to-rose-500/0 border-rose-200' },
+  { key: 'economic',      label: 'اقتصادي',   icon: '💰', gradient: 'from-amber-500/15 to-amber-500/0 border-amber-200' },
+  { key: 'social',        label: 'اجتماعي',   icon: '👥', gradient: 'from-yellow-500/15 to-yellow-500/0 border-yellow-200' },
+  { key: 'technological', label: 'تقني',     icon: '💻', gradient: 'from-emerald-500/15 to-emerald-500/0 border-emerald-200' },
+  { key: 'environmental', label: 'بيئي',     icon: '🌿', gradient: 'from-sky-500/15 to-sky-500/0 border-sky-200' },
+  { key: 'legal',         label: 'قانوني',   icon: '⚖️', gradient: 'from-violet-500/15 to-violet-500/0 border-violet-200' },
 ]
 
 const EMPTY: PESTELData = {
@@ -40,8 +40,8 @@ const EMPTY: PESTELData = {
 export function PESTELPage() {
   return (
     <StrategicShell
-      title="PESTEL analysis"
-      description="External-environment scan across 6 dimensions. Rate impact 1–5 per factor."
+      title="تحليل PESTEL"
+      description="مسح للبيئة الخارجية عبر ٦ أبعاد. قيّم أثر كل عامل من ١ إلى ٥."
     >
       {(companyId) => <PESTELEditor companyId={companyId} />}
     </StrategicShell>
@@ -62,9 +62,9 @@ function PESTELEditor({ companyId }: { companyId: string }) {
     setSaving(true)
     try {
       await upsertArtifact(companyId, 'PESTEL', data)
-      toast.success('PESTEL saved')
+      toast.success('تم حفظ تحليل PESTEL')
     } catch (err) {
-      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Save failed')
+      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'فشل الحفظ')
     } finally {
       setSaving(false)
     }
@@ -88,38 +88,41 @@ function PESTELEditor({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {SECTIONS.map((s) => (
-          <Card key={s.key} className={s.color}>
+          <Card key={s.key} className={`bg-gradient-to-br ${s.gradient}`}>
             <CardHeader>
-              <CardTitle className="text-base">{s.label}</CardTitle>
-              <CardDescription>{data[s.key].length} factor{data[s.key].length === 1 ? '' : 's'}</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="text-xl">{s.icon}</span>
+                {s.label}
+              </CardTitle>
+              <CardDescription>{data[s.key].length} عامل</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {data[s.key].map((f) => (
                 <div key={f.id} className="flex items-center gap-2">
                   <Input
                     value={f.text}
-                    placeholder="Factor description"
+                    placeholder="وصف العامل"
                     onChange={(e) => update(s.key, f.id, { text: e.target.value })}
                   />
                   <select
-                    className="rounded border bg-background px-2 py-1 text-xs"
+                    className="rounded-md border bg-background px-2 py-1 text-xs"
                     value={f.impact}
                     onChange={(e) => update(s.key, f.id, { impact: Number(e.target.value) as Factor['impact'] })}
                   >
-                    {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>Impact {v}</option>)}
+                    {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>أثر {v}</option>)}
                   </select>
                   <Button variant="ghost" size="sm" onClick={() => remove(s.key, f.id)}>×</Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={() => add(s.key)}>+ Factor</Button>
+              <Button variant="outline" size="sm" onClick={() => add(s.key)}>+ عامل</Button>
             </CardContent>
           </Card>
         ))}
       </div>
       <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save PESTEL'}</Button>
+        <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ التحليل'}</Button>
       </div>
     </>
   )

@@ -10,7 +10,7 @@ export function LogisticsAuditPage() {
       afterResult={() => (
         <div className="flex justify-end">
           <Link to="/manager/logistics/reform" className={buttonVariants({ variant: 'outline' })}>
-            Generate reform plan →
+            توليد خطة الإصلاح ←
           </Link>
         </div>
       )}

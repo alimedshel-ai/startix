@@ -23,17 +23,24 @@ interface RiskRow {
 }
 
 const AXIS_LABEL: Record<string, string> = {
-  governance: 'Governance',
-  financial: 'Financial controls',
-  team: 'Board / directors',
-  digital: 'Digital evidence',
+  governance: 'الحوكمة',
+  financial: 'الضوابط المالية',
+  team: 'مجلس الإدارة / المديرون',
+  digital: 'الأدلة الرقمية',
 }
 
 const TOP_RISK: Record<string, string> = {
-  governance: 'No formal board / decisions ad-hoc',
-  financial: 'Audit / control gaps',
-  team: 'Inexperienced directors',
-  digital: 'No secure board portal',
+  governance: 'لا يوجد مجلس رسمي / قرارات ارتجالية',
+  financial: 'فجوات في التدقيق / الضوابط',
+  team: 'مديرون عديمو الخبرة',
+  digital: 'لا توجد بوابة آمنة لمجلس الإدارة',
+}
+
+const ZONE_LABEL: Record<string, string> = {
+  GREEN: 'آمنة',
+  YELLOW: 'تحذير',
+  ORANGE: 'خطر',
+  RED: 'حرجة',
 }
 
 export function GovernanceHubPage() {
@@ -46,7 +53,7 @@ export function GovernanceHubPage() {
       try {
         const { company } = await getMyFirstCompany()
         if (!company) {
-          toast.error('Complete the manager diagnostic first')
+          toast.error('أكمل تشخيص المدير أولاً')
           setLoading(false)
           return
         }
@@ -55,7 +62,7 @@ export function GovernanceHubPage() {
         if (cancel) return
         if (audit) setScore(audit.scores)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load governance data'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل بيانات الحوكمة'
         toast.error(msg)
       } finally {
         if (!cancel) setLoading(false)
@@ -79,16 +86,16 @@ export function GovernanceHubPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Governance hub"
-        description="Health, risks and recommended actions across the governance department."
+        title="مركز الحوكمة"
+        description="الصحة والمخاطر والإجراءات الموصى بها عبر قسم الحوكمة."
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
-          { label: 'Governance', to: '/manager/governance/audit' },
-          { label: 'Hub' },
+          { label: 'الأقسام', to: '/manager/select-dept' },
+          { label: 'الحوكمة', to: '/manager/governance/audit' },
+          { label: 'المركز' },
         ]}
         actions={
           <Link to="/manager/governance/audit" className={buttonVariants({ variant: 'outline' })}>
-            Re-take audit
+            إعادة التدقيق
           </Link>
         }
       />
@@ -96,59 +103,60 @@ export function GovernanceHubPage() {
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading…</CardTitle>
+            <CardTitle>جاري التحميل…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {!loading && !score && (
-        <Card>
+        <Card className="bg-gradient-to-br from-yellow-500/10 to-transparent border-yellow-200">
           <CardHeader>
-            <CardTitle>No audit found</CardTitle>
-            <CardDescription>Run the governance audit first to populate the hub.</CardDescription>
+            <CardTitle>لم يتم العثور على تدقيق</CardTitle>
+            <CardDescription>نفّذ تدقيق الحوكمة أولاً لتعبئة المركز.</CardDescription>
           </CardHeader>
         </Card>
       )}
 
       {score && (
         <>
-          <Card>
+          <Card className="overflow-hidden bg-gradient-to-br from-yellow-500/10 to-transparent border-yellow-200">
+            <div className="h-1.5 bg-gradient-to-l from-yellow-500 via-amber-500 to-orange-500" />
             <CardHeader>
-              <CardTitle>Governance health</CardTitle>
-              <CardDescription>Overall maturity from the most recent audit.</CardDescription>
+              <CardTitle>صحة الحوكمة</CardTitle>
+              <CardDescription>النضج الإجمالي من أحدث تدقيق.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="text-3xl font-semibold">{score.healthPct}%</div>
-                <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(score.dangerZone)}`}>{score.dangerZone}</span>
+                <div className="text-3xl font-semibold tabular-nums">{score.healthPct}%</div>
+                <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${dangerZoneColor(score.dangerZone)}`}>{ZONE_LABEL[score.dangerZone] ?? score.dangerZone}</span>
               </div>
-              <Progress value={score.healthPct} />
+              <Progress value={score.healthPct} className="h-2" />
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-200">
             <CardHeader>
-              <CardTitle>Risk matrix</CardTitle>
-              <CardDescription>Probability × impact per axis.</CardDescription>
+              <CardTitle>مصفوفة المخاطر</CardTitle>
+              <CardDescription>الاحتمالية × الأثر لكل محور.</CardDescription>
             </CardHeader>
             <CardContent>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2">Axis</th>
-                    <th className="py-2">Probability</th>
-                    <th className="py-2">Impact</th>
-                    <th className="py-2">Risk</th>
-                    <th className="py-2">Top risk identified</th>
+                  <tr className="border-b text-right text-muted-foreground">
+                    <th className="py-2">المحور</th>
+                    <th className="py-2">الاحتمالية</th>
+                    <th className="py-2">الأثر</th>
+                    <th className="py-2">الخطورة</th>
+                    <th className="py-2">أبرز خطر محدد</th>
                   </tr>
                 </thead>
                 <tbody>
                   {matrix.map((row) => (
                     <tr key={row.axis} className="border-b">
                       <td className="py-2 font-medium">{AXIS_LABEL[row.axis] ?? row.axis}</td>
-                      <td className="py-2">{row.probability}</td>
-                      <td className="py-2">{row.impact}</td>
-                      <td className="py-2 font-semibold">{row.risk}</td>
+                      <td className="py-2 tabular-nums">{row.probability}</td>
+                      <td className="py-2 tabular-nums">{row.impact}</td>
+                      <td className="py-2 font-semibold tabular-nums">{row.risk}</td>
                       <td className="py-2 text-muted-foreground">{row.topRisk}</td>
                     </tr>
                   ))}

@@ -18,7 +18,6 @@ import {
 interface Props {
   deptCode: DeptCode
   variant?: 'basic' | 'pro'
-  /** Optional extra content rendered after the wizard finishes (e.g. dept-specific tool). */
   afterResult?: (deptId: string) => React.ReactNode
 }
 
@@ -40,7 +39,7 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
         const { company } = await getMyFirstCompany()
         if (cancel) return
         if (!company) {
-          setError('No company linked yet. Complete the manager diagnostic first.')
+          setError('لم تربط شركة بعد. أكمل تشخيص المدير أولاً.')
           setLoading(false)
           return
         }
@@ -49,15 +48,13 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
         if (cancel) return
         setDeptId(dept.id)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load department'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل بيانات الإدارة'
         setError(msg)
       } finally {
         if (!cancel) setLoading(false)
       }
     })()
-    return () => {
-      cancel = true
-    }
+    return () => { cancel = true }
   }, [deptCode])
 
   async function requestSmart() {
@@ -65,9 +62,9 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
     setRequestingSmart(true)
     try {
       const { recommendations } = await submitDeptSmart(deptId)
-      toast.success(`${recommendations.kpis.length} KPI targets generated`)
+      toast.success(`تم توليد ${recommendations.kpis.length} مؤشر أداء`)
     } catch (err) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not generate KPIs'
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر توليد المؤشرات'
       toast.error(msg)
     } finally {
       setRequestingSmart(false)
@@ -77,16 +74,16 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={`${DEPT_ICON[deptCode]} ${DEPT_LABEL[deptCode]} audit${variant === 'pro' ? ' (Pro)' : ''}`}
-        description={`4-axis maturity assessment for ${company?.name ?? 'your company'}.`}
+        title={`${DEPT_ICON[deptCode]} تدقيق ${DEPT_LABEL[deptCode]}${variant === 'pro' ? ' (احترافي)' : ''}`}
+        description={`تقييم نضج عبر ٤ محاور لـ${company?.name ?? 'شركتك'}.`}
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
+          { label: 'الإدارات', to: '/manager/select-dept' },
           { label: DEPT_LABEL[deptCode] },
         ]}
         actions={
           score && deptId ? (
             <Button variant="outline" onClick={requestSmart} disabled={requestingSmart}>
-              {requestingSmart ? 'Generating…' : 'Generate KPI targets'}
+              {requestingSmart ? 'جاري التوليد…' : 'توليد مؤشرات الأداء'}
             </Button>
           ) : null
         }
@@ -95,20 +92,20 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading…</CardTitle>
+            <CardTitle>جاري التحميل…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {error && (
-        <Card>
+        <Card className="border-rose-200 bg-rose-50/50">
           <CardHeader>
-            <CardTitle>Cannot start audit</CardTitle>
-            <CardDescription>{error}</CardDescription>
+            <CardTitle className="text-rose-900">تعذّر بدء التدقيق</CardTitle>
+            <CardDescription className="text-rose-700">{error}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild={false} onClick={() => (window.location.href = '/manager/diagnostic')}>
-              Run manager diagnostic
+            <Button onClick={() => (window.location.href = '/manager/diagnostic')}>
+              تشغيل تشخيص المدير
             </Button>
           </CardContent>
         </Card>

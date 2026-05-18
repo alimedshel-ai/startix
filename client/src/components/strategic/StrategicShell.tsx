@@ -27,19 +27,20 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading…</CardTitle>
+            <CardTitle>جاري التحميل…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {!loading && error && (
-        <Card>
+        <Card className="border-rose-200 bg-rose-50/50">
           <CardHeader>
-            <CardTitle>Cannot load page</CardTitle>
-            <CardDescription>{error}</CardDescription>
+            <CardTitle className="text-rose-900">تعذّر تحميل الصفحة</CardTitle>
+            <CardDescription className="text-rose-700">{error}</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Owner accounts: run /diagnostic/owner. Manager accounts: run /manager/diagnostic.
+            حسابات المالك: شغّل التشخيص من <code className="rounded bg-muted px-1.5 py-0.5">/diagnostic/owner</code>.
+            حسابات المدير: شغّل التشخيص من <code className="rounded bg-muted px-1.5 py-0.5">/manager/diagnostic</code>.
           </CardContent>
         </Card>
       )}

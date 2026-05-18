@@ -10,7 +10,7 @@ export function ProjectsAuditPage() {
       afterResult={() => (
         <div className="flex justify-end">
           <Link to="/gantt-chart" className={buttonVariants({ variant: 'outline' })}>
-            View Gantt chart →
+            عرض مخطط جانت ←
           </Link>
         </div>
       )}

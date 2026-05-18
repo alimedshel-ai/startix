@@ -28,7 +28,7 @@ export function ComplianceReformPage() {
       try {
         const { company } = await getMyFirstCompany()
         if (!company) {
-          toast.error('Complete the manager diagnostic first')
+          toast.error('أكمل تشخيص المدير أولاً')
           setLoading(false)
           return
         }
@@ -43,7 +43,7 @@ export function ComplianceReformPage() {
         setPlan(reform)
         setPenalty(audit.penaltyEstimate ?? null)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load reform plan'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل خطة الإصلاح'
         toast.error(msg)
       } finally {
         if (!cancel) setLoading(false)
@@ -57,16 +57,16 @@ export function ComplianceReformPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Compliance reform plan"
-        description="12-week action plan auto-generated from the lowest-scoring compliance axes."
+        title="خطة الإصلاح للامتثال"
+        description="خطة عمل مدّتها 12 أسبوعاً تُولَّد تلقائياً من محاور الامتثال الأقل نقاطاً."
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
-          { label: 'Compliance', to: '/manager/compliance/audit' },
-          { label: 'Reform' },
+          { label: 'الأقسام', to: '/manager/select-dept' },
+          { label: 'الامتثال', to: '/manager/compliance/audit' },
+          { label: 'الإصلاح' },
         ]}
         actions={
           <Link to="/manager/compliance/audit-pro" className={buttonVariants({ variant: 'outline' })}>
-            Re-take Pro audit
+            إعادة التدقيق الاحترافي
           </Link>
         }
       />
@@ -74,20 +74,20 @@ export function ComplianceReformPage() {
       {loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Loading reform plan…</CardTitle>
+            <CardTitle>جاري تحميل خطة الإصلاح…</CardTitle>
           </CardHeader>
         </Card>
       )}
 
       {!loading && !plan && (
-        <Card>
+        <Card className="bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
           <CardHeader>
-            <CardTitle>No reform plan available</CardTitle>
-            <CardDescription>Run the Pro compliance audit first — the reform plan is generated from it.</CardDescription>
+            <CardTitle>لا توجد خطة إصلاح متاحة</CardTitle>
+            <CardDescription>نفّذ تدقيق الامتثال الاحترافي أولاً — تُولَّد خطة الإصلاح منه.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link to="/manager/compliance/audit-pro" className={buttonVariants()}>
-              Run Pro audit
+              تنفيذ التدقيق الاحترافي
             </Link>
           </CardContent>
         </Card>
@@ -96,30 +96,31 @@ export function ComplianceReformPage() {
       {plan && plan.length > 0 && (
         <>
           {penalty != null && (
-            <Card>
+            <Card className="overflow-hidden bg-gradient-to-br from-red-500/10 to-transparent border-red-200">
+              <div className="h-1.5 bg-gradient-to-l from-rose-500 via-red-500 to-orange-500" />
               <CardHeader>
-                <CardTitle>Estimated penalty exposure</CardTitle>
-                <CardDescription>The reform plan below targets the axes driving this exposure.</CardDescription>
+                <CardTitle>تعرّض الغرامات التقديري</CardTitle>
+                <CardDescription>خطة الإصلاح أدناه تستهدف المحاور التي تقود هذا التعرّض.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold text-red-700">
+                <div className="text-2xl font-semibold text-red-700 tabular-nums">
                   {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(penalty)}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          <Card>
+          <Card className="bg-gradient-to-br from-rose-500/10 to-transparent border-rose-200">
             <CardHeader>
-              <CardTitle>12-week schedule</CardTitle>
-              <CardDescription>{plan.length} actions. Owners are department leads — adjust to your team.</CardDescription>
+              <CardTitle>جدول الـ 12 أسبوعاً</CardTitle>
+              <CardDescription><span className="tabular-nums">{plan.length}</span> إجراءات. المسؤولون هم رؤساء الأقسام — عدّل بحسب فريقك.</CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
                 {plan.map((row) => (
-                  <li key={`${row.week}-${row.action}`} className="grid grid-cols-[70px_140px_1fr] items-start gap-3 border-b pb-2">
-                    <span className="font-semibold">Week {row.week}</span>
-                    <span className="text-muted-foreground text-xs uppercase">{row.axis}</span>
+                  <li key={`${row.week}-${row.action}`} className="grid grid-cols-[70px_140px_1fr] items-start gap-3 border-b pb-2 transition hover:-translate-y-0.5 hover:shadow-md">
+                    <span className="font-semibold tabular-nums">أسبوع {row.week}</span>
+                    <span className="text-muted-foreground text-xs">{row.axis}</span>
                     <span>
                       {row.action}
                       <span className="ml-2 text-xs text-muted-foreground">({row.owner})</span>

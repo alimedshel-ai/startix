@@ -17,16 +17,16 @@ export function MarketingAuditPage() {
           size="sm"
           onClick={() => setVariant('basic')}
         >
-          Basic
+          أساسي
         </Button>
         <Button
           variant={variant === 'pro' ? 'default' : 'outline'}
           size="sm"
           disabled={!proAllowed}
-          title={proAllowed ? '' : 'Requires Professional plan'}
+          title={proAllowed ? '' : 'يتطلّب خطة احترافية'}
           onClick={() => setVariant('pro')}
         >
-          Pro
+          احترافي
         </Button>
       </div>
       <DeptAuditPage deptCode="MARKETING" variant={variant} />

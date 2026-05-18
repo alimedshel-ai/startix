@@ -64,19 +64,19 @@ export interface Department {
 }
 
 export const DEPT_LABEL: Record<DeptCode, string> = {
-  HR: 'HR',
-  FINANCE: 'Finance',
-  SALES: 'Sales',
-  MARKETING: 'Marketing',
-  OPERATIONS: 'Operations',
-  IT: 'IT',
-  CUSTOMER_SERVICE: 'Customer service',
-  SUPPORT: 'Supply / support',
-  LOGISTICS: 'Logistics',
-  QUALITY: 'Quality',
-  PROJECTS: 'Projects',
-  GOVERNANCE: 'Governance',
-  COMPLIANCE: 'Compliance',
+  HR: 'الموارد البشرية',
+  FINANCE: 'المالية',
+  SALES: 'المبيعات',
+  MARKETING: 'التسويق',
+  OPERATIONS: 'العمليات',
+  IT: 'تقنية المعلومات',
+  CUSTOMER_SERVICE: 'خدمة العملاء',
+  SUPPORT: 'الإمداد والدعم',
+  LOGISTICS: 'اللوجستيات',
+  QUALITY: 'الجودة',
+  PROJECTS: 'المشاريع',
+  GOVERNANCE: 'الحوكمة',
+  COMPLIANCE: 'الامتثال',
 }
 
 export const DEPT_ICON: Record<DeptCode, string> = {

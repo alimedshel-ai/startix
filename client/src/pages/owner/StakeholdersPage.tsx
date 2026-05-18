@@ -22,9 +22,18 @@ interface StakeholderData {
 
 const EMPTY: StakeholderData = { rows: [] }
 
+const TYPE_OPTIONS = [
+  { value: 'internal',  label: 'داخلي' },
+  { value: 'customer',  label: 'عميل' },
+  { value: 'supplier',  label: 'مورد' },
+  { value: 'regulator', label: 'جهة تنظيمية' },
+  { value: 'investor',  label: 'مستثمر' },
+  { value: 'other',     label: 'آخر' },
+]
+
 export function StakeholdersPage() {
   return (
-    <StrategicShell title="Stakeholders" description="Map name × type × influence × interest. Plotted on a 2×2 quadrant chart.">
+    <StrategicShell title="أصحاب المصلحة" description="خريطة: الاسم × النوع × التأثير × الاهتمام، مع رسم على مصفوفة ٢×٢.">
       {(companyId) => <Editor companyId={companyId} />}
     </StrategicShell>
   )
@@ -52,9 +61,9 @@ function Editor({ companyId }: { companyId: string }) {
     setSaving(true)
     try {
       await upsertArtifact(companyId, 'STAKEHOLDERS', data)
-      toast.success('Stakeholders saved')
+      toast.success('تم حفظ أصحاب المصلحة')
     } catch (err) {
-      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Save failed')
+      toast.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'فشل الحفظ')
     } finally {
       setSaving(false)
     }
@@ -66,41 +75,36 @@ function Editor({ companyId }: { companyId: string }) {
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Stakeholders</CardTitle>
-          <CardDescription>{data.rows.length} entries.</CardDescription>
+          <CardTitle>الأصحاب</CardTitle>
+          <CardDescription>{data.rows.length} طرف.</CardDescription>
         </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2">Name</th>
-                <th className="py-2">Type</th>
-                <th className="py-2">Influence</th>
-                <th className="py-2">Interest</th>
+              <tr className="border-b text-right text-muted-foreground">
+                <th className="py-2">الاسم</th>
+                <th className="py-2">النوع</th>
+                <th className="py-2">التأثير</th>
+                <th className="py-2">الاهتمام</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r) => (
                 <tr key={r.id} className="border-b">
-                  <td className="py-1 pr-1"><Input value={r.name} onChange={(e) => set(r.id, { name: e.target.value })} placeholder="Name" /></td>
-                  <td className="py-1 pr-1">
-                    <select className="rounded border bg-background px-2 py-1 text-xs" value={r.type} onChange={(e) => set(r.id, { type: e.target.value })}>
-                      <option value="internal">Internal</option>
-                      <option value="customer">Customer</option>
-                      <option value="supplier">Supplier</option>
-                      <option value="regulator">Regulator</option>
-                      <option value="investor">Investor</option>
-                      <option value="other">Other</option>
+                  <td className="py-1 pl-1"><Input value={r.name} onChange={(e) => set(r.id, { name: e.target.value })} placeholder="الاسم" /></td>
+                  <td className="py-1 pl-1">
+                    <select className="rounded-md border bg-background px-2 py-1 text-xs" value={r.type} onChange={(e) => set(r.id, { type: e.target.value })}>
+                      {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </td>
-                  <td className="py-1 pr-1">
-                    <select className="rounded border bg-background px-2 py-1 text-xs" value={r.influence} onChange={(e) => set(r.id, { influence: Number(e.target.value) as Stakeholder['influence'] })}>
+                  <td className="py-1 pl-1">
+                    <select className="rounded-md border bg-background px-2 py-1 text-xs" value={r.influence} onChange={(e) => set(r.id, { influence: Number(e.target.value) as Stakeholder['influence'] })}>
                       {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </td>
-                  <td className="py-1 pr-1">
-                    <select className="rounded border bg-background px-2 py-1 text-xs" value={r.interest} onChange={(e) => set(r.id, { interest: Number(e.target.value) as Stakeholder['interest'] })}>
+                  <td className="py-1 pl-1">
+                    <select className="rounded-md border bg-background px-2 py-1 text-xs" value={r.interest} onChange={(e) => set(r.id, { interest: Number(e.target.value) as Stakeholder['interest'] })}>
                       {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </td>
@@ -110,23 +114,23 @@ function Editor({ companyId }: { companyId: string }) {
             </tbody>
           </table>
           <div className="mt-3 flex justify-between">
-            <Button variant="outline" size="sm" onClick={add}>+ Stakeholder</Button>
-            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+            <Button variant="outline" size="sm" onClick={add}>+ صاحب مصلحة</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ'}</Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="bg-gradient-to-br from-indigo-500/5 to-emerald-500/5">
         <CardHeader>
-          <CardTitle>Influence × Interest</CardTitle>
-          <CardDescription>Top-right: manage closely. Top-left: keep satisfied. Bottom-right: keep informed.</CardDescription>
+          <CardTitle>التأثير × الاهتمام</CardTitle>
+          <CardDescription>أعلى يمين: إدارة قريبة. أعلى يسار: إبقاؤهم راضين. أسفل يمين: إبقاؤهم مطّلعين.</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={340}>
             <ScatterChart>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" dataKey="interest" name="Interest" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} />
-              <YAxis type="number" dataKey="influence" name="Influence" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} />
+              <XAxis type="number" dataKey="interest" name="الاهتمام" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} />
+              <YAxis type="number" dataKey="influence" name="التأثير" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} />
               <ZAxis range={[80, 80]} />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} />
               <Scatter data={scatter} fill="hsl(220 90% 56%)" />

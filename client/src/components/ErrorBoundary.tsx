@@ -32,9 +32,10 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback(error, this.reset)
       return (
         <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center gap-4 p-6 text-center">
-          <h1 className="text-2xl font-semibold">Something went wrong</h1>
+          <div className="text-5xl">⚠️</div>
+          <h1 className="text-2xl font-bold">حدث خطأ ما</h1>
           <p className="text-sm text-muted-foreground">{error.message}</p>
-          <Button onClick={this.reset}>Try again</Button>
+          <Button onClick={this.reset}>إعادة المحاولة</Button>
         </div>
       )
     }

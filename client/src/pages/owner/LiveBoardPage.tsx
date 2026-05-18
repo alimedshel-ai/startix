@@ -1,5 +1,13 @@
 import { StubPage } from '@/components/StubPage'
 
 export function LiveBoardPage() {
-  return <StubPage title="Live board" description="Realtime tile board: KPIs, tasks, alerts." phase={8} />
+  return (
+    <StubPage
+      title="اللوحة الحية"
+      description="لوحة آنية: مقاييس، مهام، وتنبيهات تتحدث بشكل مباشر."
+      phase={8}
+      icon="⚡"
+      accent="amber"
+    />
+  )
 }

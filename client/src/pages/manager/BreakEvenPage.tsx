@@ -48,84 +48,85 @@ export function BreakEvenPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Break-even calculator"
-        description="Profitability analysis: how many units, and over what runway, until the business breaks even."
+        title="حاسبة نقطة التعادل"
+        description="تحليل الربحية: كم وحدة، وعلى أي مدى زمني، حتى تصل الأعمال إلى نقطة التعادل."
         breadcrumbs={[
-          { label: 'Departments', to: '/manager/select-dept' },
-          { label: 'Finance', to: '/manager/finance/audit' },
-          { label: 'Break-even' },
+          { label: 'الأقسام', to: '/manager/select-dept' },
+          { label: 'المالية', to: '/manager/finance/audit' },
+          { label: 'نقطة التعادل' },
         ]}
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-200">
           <CardHeader>
-            <CardTitle>Inputs</CardTitle>
-            <CardDescription>Monthly figures in SAR.</CardDescription>
+            <CardTitle>المدخلات</CardTitle>
+            <CardDescription>الأرقام الشهرية بالريال السعودي.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="fc">Fixed costs / month</Label>
+              <Label htmlFor="fc">التكاليف الثابتة / شهر</Label>
               <Input id="fc" type="number" {...bind('fixedCosts')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="pu">Price per unit</Label>
+              <Label htmlFor="pu">سعر الوحدة</Label>
               <Input id="pu" type="number" {...bind('pricePerUnit')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="vc">Variable cost per unit</Label>
+              <Label htmlFor="vc">التكلفة المتغيرة للوحدة</Label>
               <Input id="vc" type="number" {...bind('variableCostPerUnit')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="mv">Monthly volume (units)</Label>
+              <Label htmlFor="mv">الحجم الشهري (وحدات)</Label>
               <Input id="mv" type="number" {...bind('monthlyVolume')} />
             </div>
-            <Button variant="outline" onClick={() => setInputs(DEFAULTS)}>Reset</Button>
+            <Button variant="outline" onClick={() => setInputs(DEFAULTS)}>إعادة تعيين</Button>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-200">
+          <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-amber-500" />
           <CardHeader>
-            <CardTitle>Result</CardTitle>
-            <CardDescription>Updates as you change inputs.</CardDescription>
+            <CardTitle>النتيجة</CardTitle>
+            <CardDescription>تتحدّث مع تغيير المدخلات.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Row label="Contribution margin / unit" value={formatSAR(result.contribution)} />
-            <Row label="Contribution ratio" value={`${Math.round(result.cmRatio * 100)}%`} />
+            <Row label="هامش المساهمة / وحدة" value={formatSAR(result.contribution)} />
+            <Row label="نسبة المساهمة" value={`${Math.round(result.cmRatio * 100)}%`} />
             <Row
-              label="Break-even units"
-              value={Number.isFinite(result.beUnits) ? result.beUnits.toLocaleString() : '∞ (price ≤ variable cost)'}
+              label="وحدات نقطة التعادل"
+              value={Number.isFinite(result.beUnits) ? result.beUnits.toLocaleString() : '∞ (السعر ≤ التكلفة المتغيرة)'}
             />
             <Row
-              label="Break-even revenue"
+              label="إيرادات نقطة التعادل"
               value={Number.isFinite(result.beRevenue) ? formatSAR(result.beRevenue) : '—'}
             />
             <Row
-              label="Months to break-even"
-              value={Number.isFinite(result.monthsToBE) ? `${result.monthsToBE} months` : '—'}
+              label="أشهر للوصول لنقطة التعادل"
+              value={Number.isFinite(result.monthsToBE) ? `${result.monthsToBE} شهر` : '—'}
             />
-            <Row label="Projected monthly profit" value={formatSAR(result.projectedProfit)} highlight />
+            <Row label="الربح الشهري المتوقع" value={formatSAR(result.projectedProfit)} highlight />
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-200">
         <CardHeader>
-          <CardTitle>Liquidity health</CardTitle>
-          <CardDescription>How comfortable is the runway at this contribution margin?</CardDescription>
+          <CardTitle>صحة السيولة</CardTitle>
+          <CardDescription>كم هي مريحة المدة الزمنية عند هامش المساهمة هذا؟</CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
           {result.contribution <= 0 && (
-            <p className="text-red-700">Negative contribution — every unit sold loses money. Raise price or cut variable cost.</p>
+            <p className="text-red-700">هامش مساهمة سالب — كل وحدة تُباع تُكبّد خسارة. ارفع السعر أو خفّض التكلفة المتغيرة.</p>
           )}
           {result.contribution > 0 && result.projectedProfit < 0 && (
             <p className="text-orange-700">
-              Below break-even at the current volume. Volume must grow{' '}
-              {Math.max(0, Math.ceil((Math.abs(result.projectedProfit) + 1) / result.contribution)).toLocaleString()} units/month to reach zero.
+              أقل من نقطة التعادل عند الحجم الحالي. يجب أن ينمو الحجم{' '}
+              <span className="tabular-nums">{Math.max(0, Math.ceil((Math.abs(result.projectedProfit) + 1) / result.contribution)).toLocaleString()}</span> وحدة/شهر للوصول إلى الصفر.
             </p>
           )}
           {result.projectedProfit >= 0 && (
-            <p className="text-emerald-700">Profitable at current volume. Reserve {formatSAR(inputs.fixedCosts * 3)} (3 months fixed costs) as a cash cushion.</p>
+            <p className="text-emerald-700">مربح عند الحجم الحالي. احتفظ بـ {formatSAR(inputs.fixedCosts * 3)} (تكاليف ثابتة لـ 3 أشهر) كاحتياطي نقدي.</p>
           )}
         </CardContent>
       </Card>
@@ -137,7 +138,7 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
   return (
     <div className={`flex items-center justify-between border-b pb-2 ${highlight ? 'text-base font-semibold' : ''}`}>
       <span className="text-muted-foreground">{label}</span>
-      <span>{value}</span>
+      <span className="tabular-nums">{value}</span>
     </div>
   )
 }

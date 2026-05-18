@@ -10,7 +10,7 @@ export function GovernanceAuditPage() {
       afterResult={() => (
         <div className="flex justify-end">
           <Link to="/manager/governance/hub" className={buttonVariants({ variant: 'outline' })}>
-            Open governance hub →
+            فتح مركز الحوكمة ←
           </Link>
         </div>
       )}

@@ -8,10 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
 const PROMPTS = [
-  'What is the single biggest constraint holding this department back today?',
-  'Which process feels brittle, and what would it cost if it failed tomorrow?',
-  'If you could automate or eliminate one task in this department, what would it be?',
-  'What good practice is well established here that deserves to be expanded?',
+  'ما هو القيد الأكبر الذي يعيق هذا القسم اليوم؟',
+  'أي عملية تبدو هشّة، وكم ستكلّف لو فشلت غداً؟',
+  'لو كنت تستطيع أتمتة مهمة واحدة أو حذفها في هذا القسم، فماذا ستكون؟',
+  'ما هي الممارسة الجيدة الراسخة هنا والتي تستحق التوسّع؟',
 ]
 
 export function DeptDeepPage() {
@@ -20,42 +20,42 @@ export function DeptDeepPage() {
   function save() {
     const written = Object.values(answers).filter(Boolean).length
     if (written === 0) {
-      toast.error('Write at least one answer before saving.')
+      toast.error('اكتب إجابة واحدة على الأقل قبل الحفظ.')
       return
     }
     // Phase 5 keeps this local (no model linked yet); Phase 7 will pipe it
     // through the AI layer.
-    toast.success(`${written} answer${written === 1 ? '' : 's'} saved locally.`)
+    toast.success(`تم حفظ ${written} إجابة محلياً.`)
   }
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Department deep dive"
-        description="Free-text reflection. Feeds the AI layer in Phase 7; for now it's kept locally."
+        title="تحليل عميق للقسم"
+        description="تأمل بنص حر. يُغذّي طبقة الذكاء الاصطناعي في المرحلة 7؛ يُحفظ محلياً مؤقتاً."
       />
 
       {PROMPTS.map((p, i) => (
-        <Card key={i}>
+        <Card key={i} className="bg-gradient-to-br from-indigo-500/10 to-transparent border-indigo-200 transition hover:-translate-y-0.5 hover:shadow-md">
           <CardHeader>
-            <CardTitle className="text-base">Prompt {i + 1}</CardTitle>
+            <CardTitle className="text-base">السؤال {i + 1}</CardTitle>
             <CardDescription>{p}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Label htmlFor={`p_${i}`} className="sr-only">Answer to prompt {i + 1}</Label>
+            <Label htmlFor={`p_${i}`} className="sr-only">الإجابة على السؤال {i + 1}</Label>
             <Textarea
               id={`p_${i}`}
               value={answers[i] ?? ''}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
               rows={4}
-              placeholder="Type your answer…"
+              placeholder="اكتب إجابتك…"
             />
           </CardContent>
         </Card>
       ))}
 
       <div className="flex justify-end">
-        <Button onClick={save}>Save</Button>
+        <Button onClick={save}>حفظ</Button>
       </div>
     </div>
   )

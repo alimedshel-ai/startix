@@ -15,6 +15,13 @@ import {
   type Department,
 } from '@/lib/deptApi'
 
+const ZONE_LABEL: Record<string, string> = {
+  GREEN:  'آمنة',
+  YELLOW: 'تحذير',
+  ORANGE: 'خطر',
+  RED:    'حرجة',
+}
+
 export function DeptDashboardPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,7 +32,7 @@ export function DeptDashboardPage() {
       try {
         const { company } = await getMyFirstCompany()
         if (!company) {
-          toast.error('Complete the manager diagnostic first')
+          toast.error('أكمل تشخيص المدير أولاً')
           setLoading(false)
           return
         }
@@ -33,15 +40,13 @@ export function DeptDashboardPage() {
         if (cancel) return
         setDepartments(list)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not load departments'
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل الإدارات'
         toast.error(msg)
       } finally {
         if (!cancel) setLoading(false)
       }
     })()
-    return () => {
-      cancel = true
-    }
+    return () => { cancel = true }
   }, [])
 
   const average = departments.length === 0
@@ -51,36 +56,36 @@ export function DeptDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Department dashboard"
-        description="Audited departments across this company — health, danger zones and quick links."
+        title="لوحة الإدارة"
+        description="الإدارات المدققة في الشركة — الصحة، مناطق الخطر، والروابط السريعة."
         actions={
           <Link to="/manager/select-dept" className={buttonVariants({ variant: 'outline' })}>
-            Add / audit department
+            إضافة / تدقيق إدارة
           </Link>
         }
       />
 
-      <Card>
+      <Card className="overflow-hidden border-emerald-200 bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <CardHeader>
-          <CardTitle>Overall health</CardTitle>
-          <CardDescription>{departments.length} audited departments.</CardDescription>
+          <CardTitle>الصحة العامة</CardTitle>
+          <CardDescription>{departments.length} إدارة مدققة.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="text-3xl font-semibold">{average}%</div>
-          <Progress value={average} />
+          <div className="text-3xl font-bold tabular-nums text-emerald-700">{average}%</div>
+          <Progress value={average} className="h-2" />
         </CardContent>
       </Card>
 
-      {loading && <Card><CardHeader><CardTitle>Loading…</CardTitle></CardHeader></Card>}
+      {loading && <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>}
 
       {!loading && departments.length === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>No departments yet</CardTitle>
-            <CardDescription>Pick a department and run its audit.</CardDescription>
+            <CardTitle>لا توجد إدارات بعد</CardTitle>
+            <CardDescription>اختر إدارة وابدأ تدقيقها.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/manager/select-dept" className={buttonVariants()}>Select department</Link>
+            <Link to="/manager/select-dept" className={buttonVariants()}>اختر إدارة</Link>
           </CardContent>
         </Card>
       )}
@@ -90,19 +95,21 @@ export function DeptDashboardPage() {
           const zone = d.auditData?.dangerZone ?? 'GREEN'
           const score = d.auditData?.healthPct ?? d.auditScore ?? 0
           return (
-            <Card key={d.id}>
+            <Card key={d.id} className="transition hover:-translate-y-0.5 hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <span aria-hidden>{DEPT_ICON[d.type]}</span>
                   {DEPT_LABEL[d.type]}
                 </CardTitle>
                 <CardDescription>
-                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${dangerZoneColor(zone)}`}>{zone}</span>
+                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${dangerZoneColor(zone)}`}>
+                    {ZONE_LABEL[zone] ?? zone}
+                  </span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-2xl font-semibold">{Math.round(score)}%</div>
-                <Progress value={score} />
+                <div className="text-2xl font-semibold tabular-nums">{Math.round(score)}%</div>
+                <Progress value={score} className="h-2" />
               </CardContent>
             </Card>
           )
