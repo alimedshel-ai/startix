@@ -24,6 +24,7 @@ import {
   listReviews, createReview,
   listCorrections, updateCorrection,
   activityFeed,
+  alertsList,
 } from '../controllers/lifecycle';
 
 const router = Router();
@@ -89,5 +90,8 @@ router.patch('/corrections/:id', requireAuth, updateCorrection);
 
 // Activity feed
 router.get('/activity/:companyId', requireAuth, activityFeed);
+
+// Alerts aggregator
+router.get('/alerts/:companyId', requireAuth, alertsList);
 
 export default router;

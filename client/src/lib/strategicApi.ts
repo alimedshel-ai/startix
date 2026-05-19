@@ -299,6 +299,20 @@ export async function listActivity(companyId: string): Promise<ActivityRow[]> {
   return data
 }
 
+export interface Alert {
+  id: string
+  kind: 'kpi_at_risk' | 'overdue_task' | 'overdue_correction' | 'no_review'
+  severity: 'low' | 'medium' | 'high'
+  title: string
+  detail: string
+  at: string
+}
+
+export async function listAlerts(companyId: string): Promise<Alert[]> {
+  const { data } = await api.get(`/api/strategic/alerts/${companyId}`)
+  return data
+}
+
 // ─── Helpers shared with Phase 5 ───────────────────────────────────────────
 export type { Company }
 export { getMyFirstCompany } from './deptApi'

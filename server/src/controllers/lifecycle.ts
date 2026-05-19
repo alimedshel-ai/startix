@@ -538,6 +538,109 @@ export const updateCorrection: RequestHandler = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ─── Alerts aggregator — auto-generated warnings ────────────────────────────
+export const alertsList: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000);
+
+    const [kpis, tasks, corrections, latestReview] = await Promise.all([
+      prisma.kPI.findMany({ where: { companyId } }),
+      prisma.task.findMany({ where: { companyId, status: { not: 'done' } } }),
+      prisma.correction.findMany({ where: { companyId, status: { not: 'done' } } }),
+      prisma.review.findFirst({ where: { companyId }, orderBy: { reviewedAt: 'desc' } }),
+    ]);
+
+    interface Alert {
+      id: string;
+      kind: 'kpi_at_risk' | 'overdue_task' | 'overdue_correction' | 'no_review';
+      severity: 'low' | 'medium' | 'high';
+      title: string;
+      detail: string;
+      at: string;
+    }
+
+    const alerts: Alert[] = [];
+
+    // KPIs below 50% of target
+    for (const k of kpis) {
+      if (!k.targetValue) continue;
+      const pct = (k.currentValue / k.targetValue) * 100;
+      if (pct < 50) {
+        alerts.push({
+          id: `kpi-${k.id}`,
+          kind: 'kpi_at_risk',
+          severity: pct < 30 ? 'high' : 'medium',
+          title: `مؤشر ${k.name} تحت الحد`,
+          detail: `القيمة الحالية ${k.currentValue} ${k.unit}، الهدف ${k.targetValue} (${Math.round(pct)}%).`,
+          at: now.toISOString(),
+        });
+      }
+    }
+
+    // Overdue tasks
+    for (const t of tasks) {
+      if (!t.dueDate) continue;
+      if (new Date(t.dueDate).getTime() < now.getTime()) {
+        const daysOverdue = Math.floor((now.getTime() - new Date(t.dueDate).getTime()) / 86400000);
+        alerts.push({
+          id: `task-${t.id}`,
+          kind: 'overdue_task',
+          severity: daysOverdue > 14 ? 'high' : daysOverdue > 7 ? 'medium' : 'low',
+          title: `مهمة متأخرة: ${t.title}`,
+          detail: `متأخرة منذ ${daysOverdue} يوم.`,
+          at: t.dueDate.toISOString(),
+        });
+      }
+    }
+
+    // Overdue corrections
+    for (const c of corrections) {
+      if (!c.dueDate) continue;
+      if (new Date(c.dueDate).getTime() < now.getTime()) {
+        const daysOverdue = Math.floor((now.getTime() - new Date(c.dueDate).getTime()) / 86400000);
+        alerts.push({
+          id: `corr-${c.id}`,
+          kind: 'overdue_correction',
+          severity: daysOverdue > 14 ? 'high' : 'medium',
+          title: `إجراء تصحيحي متأخر: ${c.title}`,
+          detail: `متأخر منذ ${daysOverdue} يوم${c.owner ? ` — مسؤول: ${c.owner}` : ''}.`,
+          at: c.dueDate.toISOString(),
+        });
+      }
+    }
+
+    // No review in last 90 days
+    if (!latestReview || latestReview.reviewedAt < ninetyDaysAgo) {
+      alerts.push({
+        id: 'no-review',
+        kind: 'no_review',
+        severity: 'medium',
+        title: 'لم تجرَ مراجعة دورية',
+        detail: latestReview
+          ? `آخر مراجعة في ${latestReview.reviewedAt.toISOString().slice(0, 10)}.`
+          : 'لم تُسجّل أي مراجعة بعد.',
+        at: (latestReview?.reviewedAt ?? ninetyDaysAgo).toISOString(),
+      });
+    }
+
+    // Sort: high → medium → low, then newest
+    const severityOrder = { high: 0, medium: 1, low: 2 };
+    alerts.sort((a, b) => {
+      if (a.severity !== b.severity) return severityOrder[a.severity] - severityOrder[b.severity];
+      return new Date(b.at).getTime() - new Date(a.at).getTime();
+    });
+
+    res.json(alerts);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Activity feed — aggregated stream ──────────────────────────────────────
 export const activityFeed: RequestHandler = async (req, res, next) => {
   try {

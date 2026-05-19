@@ -372,16 +372,198 @@ export const smartGuide: RequestHandler = async (req, res, next) => {
   }
 };
 
-// ─── Placeholders for Batch 3 ───────────────────────────────────────────────
+// ─── GET /api/ai/predictions/:companyId — 90-day forecast per KPI ───────────
+
+interface SeriesPoint { date: string; value: number }
+interface ForecastSeries {
+  kpiId: string;
+  name: string;
+  unit: string;
+  target: number;
+  history: SeriesPoint[];
+  forecast: SeriesPoint[];
+  slopePerDay: number;
+}
+
+function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number } {
+  const n = points.length;
+  if (n < 2) return { slope: 0, intercept: points[0]?.y ?? 0 };
+  const sumX = points.reduce((s, p) => s + p.x, 0);
+  const sumY = points.reduce((s, p) => s + p.y, 0);
+  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sumXX = points.reduce((s, p) => s + p.x * p.x, 0);
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return { slope: 0, intercept: sumY / n };
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
 
 export const getPredictions: RequestHandler = async (req, res, next) => {
   try {
-    z.object({ companyId: z.string().uuid() }).parse({ companyId: paramOf(req, 'companyId') });
-    res.status(501).json({ error: 'سيُنفّذ في الدفعة 3' });
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const companyId = z.string().uuid().parse(paramOf(req, 'companyId'));
+    await assertCompanyAccess(req.auth.sub, companyId);
+
+    const kpis = await prisma.kPI.findMany({
+      where: { companyId },
+      include: { entries: { orderBy: { enteredAt: 'asc' } } },
+    });
+
+    const series: ForecastSeries[] = kpis.map((k) => {
+      const entries = k.entries;
+      if (entries.length < 2) {
+        // Not enough data to forecast — synthesize flat line from currentValue
+        const today = new Date();
+        const history: SeriesPoint[] = entries.map((e) => ({
+          date: e.enteredAt.toISOString(),
+          value: e.value,
+        }));
+        const forecast: SeriesPoint[] = [30, 60, 90].map((d) => ({
+          date: new Date(today.getTime() + d * 86400000).toISOString(),
+          value: k.currentValue,
+        }));
+        return { kpiId: k.id, name: k.name, unit: k.unit, target: k.targetValue, history, forecast, slopePerDay: 0 };
+      }
+      const first = entries[0].enteredAt.getTime();
+      const last = entries[entries.length - 1].enteredAt.getTime();
+      const spanDays = (last - first) / 86400000;
+      const today = new Date();
+      const lastValue = entries[entries.length - 1].value;
+
+      // Need at least 7 days of span to compute a meaningful daily slope.
+      // Otherwise project a flat line at the latest value.
+      let slope = 0;
+      let intercept = lastValue;
+      if (spanDays >= 7) {
+        const points = entries.map((e) => ({
+          x: (e.enteredAt.getTime() - first) / 86400000,
+          y: e.value,
+        }));
+        const lr = linearRegression(points);
+        slope = lr.slope;
+        intercept = lr.intercept;
+        // Clamp daily slope to ≤ 50% of the latest value per 30 days
+        // (prevents runaway forecasts on noisy short series).
+        const maxMonthlySwing = Math.max(1, Math.abs(lastValue) * 0.5);
+        const maxDailySlope = maxMonthlySwing / 30;
+        if (slope > maxDailySlope) slope = maxDailySlope;
+        if (slope < -maxDailySlope) slope = -maxDailySlope;
+      }
+
+      const forecast: SeriesPoint[] = [30, 60, 90].map((d) => {
+        const x = spanDays + d;
+        const projected = spanDays >= 7 ? intercept + slope * x : lastValue;
+        return {
+          date: new Date(today.getTime() + d * 86400000).toISOString(),
+          value: Math.max(0, projected),
+        };
+      });
+      return {
+        kpiId: k.id,
+        name: k.name,
+        unit: k.unit,
+        target: k.targetValue,
+        history: entries.map((e) => ({ date: e.enteredAt.toISOString(), value: e.value })),
+        forecast,
+        slopePerDay: slope,
+      };
+    });
+
+    let narrative: string | null = null;
+    if (claudeConfigured() && series.length > 0) {
+      try {
+        const { ctx, latestPath } = await loadCompanyContext(companyId);
+        const summary = series.map((s) => {
+          const last = s.history[s.history.length - 1]?.value ?? null;
+          const ninetyDay = s.forecast[s.forecast.length - 1]?.value ?? null;
+          const onTrack = last !== null && ninetyDay !== null && ninetyDay >= s.target;
+          return `- ${s.name}: حالي ${last ?? '—'} ${s.unit}، توقّع 90 يوم ${ninetyDay?.toFixed(1) ?? '—'}، هدف ${s.target}، ${onTrack ? 'في المسار' : 'ليس في المسار'}`;
+        }).join('\n');
+        narrative = await claudeText({
+          system: 'أنت محلل بيانات. اللغة عربية واضحة. لا تستعمل قوائم؛ فقرة قصيرة فقط (3-5 جمل).',
+          prompt: `${companyDescriptor(ctx, latestPath)}\n\nتوقعات ٩٠ يوم للمؤشرات:\n${summary}\n\nاكتب فقرة تلخّص: ما المؤشرات الأكثر إيجابية، الأكثر خطورة، وما الإجراء العاجل المقترح. فقرة واحدة بدون قوائم.`,
+          maxTokens: 500,
+          model: CLAUDE_FAST_MODEL,
+        });
+      } catch {
+        narrative = null;
+      }
+    }
+
+    res.json({ series, narrative });
   } catch (err) {
     next(err);
   }
 };
-export const runSimulation: RequestHandler = async (_req, res) => {
-  res.status(501).json({ error: 'سيُنفّذ في الدفعة 3' });
+
+// ─── POST /api/ai/simulate — what-if math + optional Claude narrative ───────
+
+const simulateSchema = z.object({
+  companyId: z.string().uuid(),
+  revenueGrowthPct: z.number().min(-100).max(500),
+  costReductionPct: z.number().min(-100).max(100),
+  baseRevenue: z.number().min(0),
+  baseCost: z.number().min(0),
+  investment: z.number().min(0),
+});
+
+export const runSimulation: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const body = simulateSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+
+    const projectedRevenue = body.baseRevenue * (1 + body.revenueGrowthPct / 100);
+    const projectedCost = body.baseCost * (1 - body.costReductionPct / 100);
+    const currentProfit = body.baseRevenue - body.baseCost;
+    const projectedProfit = projectedRevenue - projectedCost;
+    const netBenefit = projectedProfit - currentProfit;
+    const roi = body.investment > 0 ? netBenefit / body.investment : 0;
+    const paybackMonths = netBenefit > 0 ? body.investment / (netBenefit / 12) : Number.POSITIVE_INFINITY;
+
+    let narrative: string | undefined;
+    if (claudeConfigured()) {
+      try {
+        const { ctx, latestPath } = await loadCompanyContext(body.companyId);
+        narrative = await claudeText({
+          system: 'أنت مستشار مالي. اللغة عربية. لا تستعمل قوائم. 2-3 جمل قصيرة فقط.',
+          prompt: [
+            companyDescriptor(ctx, latestPath),
+            '',
+            'سيناريو محاكاة:',
+            `- الإيراد الحالي: ${body.baseRevenue.toLocaleString('en-US')} SAR`,
+            `- التكلفة الحالية: ${body.baseCost.toLocaleString('en-US')} SAR`,
+            `- نمو الإيراد المفترض: ${body.revenueGrowthPct}%`,
+            `- تخفيض التكلفة المفترض: ${body.costReductionPct}%`,
+            `- الاستثمار المطلوب: ${body.investment.toLocaleString('en-US')} SAR`,
+            '',
+            'النتائج:',
+            `- إيراد متوقع: ${projectedRevenue.toFixed(0)}`,
+            `- تكلفة متوقعة: ${projectedCost.toFixed(0)}`,
+            `- صافي الفائدة: ${netBenefit.toFixed(0)}`,
+            `- العائد على الاستثمار: ${(roi * 100).toFixed(1)}%`,
+            `- الاسترداد: ${Number.isFinite(paybackMonths) ? `${paybackMonths.toFixed(1)} شهر` : 'غير قابل للاسترداد'}`,
+            '',
+            'اكتب 2-3 جمل بالعربية تقيّم جدوى السيناريو وتقترح المخاطر / الفرصة.',
+          ].join('\n'),
+          maxTokens: 350,
+          model: CLAUDE_FAST_MODEL,
+        });
+      } catch {
+        narrative = undefined;
+      }
+    }
+
+    res.json({
+      projectedRevenue,
+      projectedCost,
+      netBenefit,
+      roi,
+      paybackMonths: Number.isFinite(paybackMonths) ? paybackMonths : null,
+      narrative,
+    });
+  } catch (err) {
+    next(err);
+  }
 };

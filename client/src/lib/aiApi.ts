@@ -101,22 +101,31 @@ export async function aiSmartGuide(payload: { companyId: string; path: string })
   return data as { suggestion: string | null; configured: boolean }
 }
 
+export interface PredictionSeries {
+  kpiId: string
+  name: string
+  unit: string
+  target: number
+  history: { date: string; value: number }[]
+  forecast: { date: string; value: number }[]
+  slopePerDay: number
+}
+
 export async function aiPredictions(companyId: string) {
   const { data } = await api.get(`/api/ai/predictions/${companyId}`)
-  return data as {
-    series: { kpiId: string; name: string; unit: string; history: { date: string; value: number }[]; forecast: { date: string; value: number; lower?: number; upper?: number }[] }[]
-    narrative: string
-  }
+  return data as { series: PredictionSeries[]; narrative: string | null }
+}
+
+export interface SimulationResult {
+  projectedRevenue: number
+  projectedCost: number
+  netBenefit: number
+  roi: number
+  paybackMonths: number | null
+  narrative?: string
 }
 
 export async function aiSimulate(payload: { companyId: string; revenueGrowthPct: number; costReductionPct: number; baseRevenue: number; baseCost: number; investment: number }) {
   const { data } = await api.post('/api/ai/simulate', payload)
-  return data as {
-    projectedRevenue: number
-    projectedCost: number
-    netBenefit: number
-    roi: number
-    paybackMonths: number
-    narrative?: string
-  }
+  return data as SimulationResult
 }
