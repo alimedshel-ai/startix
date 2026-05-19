@@ -7,6 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { aiTowsSuggestions } from '@/lib/aiApi'
 import { getSWOT, putTOWS, suggestTOWS } from '@/lib/strategicApi'
 
 type Quad = 'so' | 'wo' | 'st' | 'wt'
@@ -49,11 +50,19 @@ function Editor({ companyId }: { companyId: string }) {
   const [suggesting, setSuggesting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [hasSwot, setHasSwot] = useState(true)
+  const [swotData, setSwotData] = useState<{ strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] } | null>(null)
+  const [useAI, setUseAI] = useState(true)
 
   useEffect(() => {
     getSWOT(companyId).then((s) => {
       const empty = (s.strengths.length + s.weaknesses.length + s.opportunities.length + s.threats.length) === 0
       setHasSwot(!empty)
+      setSwotData({
+        strengths: s.strengths ?? [],
+        weaknesses: s.weaknesses ?? [],
+        opportunities: s.opportunities ?? [],
+        threats: s.threats ?? [],
+      })
       if (s.tows) {
         setData({
           so: s.tows.so ?? [],
@@ -68,14 +77,16 @@ function Editor({ companyId }: { companyId: string }) {
   async function generate() {
     setSuggesting(true)
     try {
-      const tows = await suggestTOWS(companyId)
+      const tows = useAI && swotData
+        ? await aiTowsSuggestions({ companyId, swot: swotData })
+        : await suggestTOWS(companyId)
       setData({
         so: [...data.so, ...(tows.so ?? [])],
         wo: [...data.wo, ...(tows.wo ?? [])],
         st: [...data.st, ...(tows.st ?? [])],
         wt: [...data.wt, ...(tows.wt ?? [])],
       })
-      toast.success('تم توليد المقترحات')
+      toast.success(useAI ? 'تم توليد مقترحات Claude' : 'تم توليد المقترحات')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر توليد المقترحات'))
     } finally {
@@ -107,15 +118,29 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
-      <Card className="overflow-hidden bg-gradient-to-bl from-primary/5 to-violet-500/5">
+      <Card className="overflow-hidden bg-gradient-to-bl from-violet-500/10 via-primary/5 to-transparent">
+        <div className="h-1.5 bg-gradient-to-l from-violet-500 via-fuchsia-500 to-rose-500" />
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle>توليد آلي من SWOT</CardTitle>
-            <CardDescription>سيقترح النظام استراتيجيات بناءً على تقاطعات SWOT الحالية.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <span className="text-xl">{useAI ? '🤖' : '🔀'}</span>
+              {useAI ? 'توليد بالذكاء الاصطناعي' : 'توليد آلي بسيط'}
+            </CardTitle>
+            <CardDescription>
+              {useAI
+                ? 'Claude يحلل تقاطعات SWOT ويقترح 8–12 استراتيجية تنفيذية.'
+                : 'تقاطعات تلقائية حسابياً (بدون ذكاء اصطناعي).'}
+            </CardDescription>
           </div>
-          <Button onClick={generate} disabled={suggesting || !hasSwot}>
-            {suggesting ? 'جاري التوليد…' : '✨ توليد مقترحات'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs">
+              <input type="checkbox" checked={useAI} onChange={(e) => setUseAI(e.target.checked)} />
+              استخدم Claude
+            </label>
+            <Button onClick={generate} disabled={suggesting || !hasSwot}>
+              {suggesting ? 'جاري التوليد…' : '✨ توليد مقترحات'}
+            </Button>
+          </div>
         </CardHeader>
         {!hasSwot && (
           <CardContent className="text-sm">

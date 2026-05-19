@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { SmartGuide } from '@/components/SmartGuide'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -16,6 +17,7 @@ export function MainLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <SmartGuide />
     </div>
   )
 }

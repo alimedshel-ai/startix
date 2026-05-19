@@ -93,7 +93,12 @@ export async function aiPresentation(payload: { companyId: string }) {
 
 export async function aiPainScreen(payload: { companyId: string; answers: { question: string; answer: string }[] }) {
   const { data } = await api.post('/api/ai/pain-screen', payload)
-  return data as { pains: { title: string; severity: number; recommendedTools: { label: string; to: string }[] }[] }
+  return data as { pains: { title: string; severity: number; rootCause?: string; recommendedTools: { label: string; to: string }[] }[] }
+}
+
+export async function aiSmartGuide(payload: { companyId: string; path: string }) {
+  const { data } = await api.post('/api/ai/smart-guide', payload)
+  return data as { suggestion: string | null; configured: boolean }
 }
 
 export async function aiPredictions(companyId: string) {
