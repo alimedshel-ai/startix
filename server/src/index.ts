@@ -12,6 +12,7 @@ import departmentsRouter from './routes/departments';
 import complianceRouter from './routes/compliance';
 import strategicRouter from './routes/strategic';
 import companiesRouter from './routes/companies';
+import aiRouter from './routes/ai';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -44,6 +45,7 @@ app.use('/api/departments', departmentsRouter);
 app.use('/api/compliance', complianceRouter);
 app.use('/api/strategic', strategicRouter);
 app.use('/api/companies', companiesRouter);
+app.use('/api/ai', aiRouter);
 
 app.use(notFound);
 app.use(errorHandler);

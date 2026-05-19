@@ -113,7 +113,13 @@ const ownerNav: NavSection[] = [
   {
     title: 'الذكاء الاصطناعي',
     accent: 'violet',
-    items: [{ to: '/ai-center', label: 'مركز الذكاء', icon: '🤖' }],
+    items: [
+      { to: '/ai-center',       label: 'مركز الذكاء',         icon: '🤖' },
+      { to: '/ai/advisor',      label: 'المستشار',             icon: '💬' },
+      { to: '/ai/presentation', label: 'مولّد العروض',         icon: '🎞️' },
+      { to: '/ai/pain-screen',  label: 'فحص نقاط الألم',       icon: '🩺' },
+      { to: '/ai/simulation',   label: 'مختبر المحاكاة',       icon: '🧪' },
+    ],
   },
 ]
 

@@ -57,6 +57,10 @@ import { ReviewsPage } from '@/pages/owner/ReviewsPage'
 import { CorrectionsPage } from '@/pages/owner/CorrectionsPage'
 import { ReportsPage } from '@/pages/owner/ReportsPage'
 import { AICenterPage } from '@/pages/owner/AICenterPage'
+import { AdvisorPage } from '@/pages/owner/AdvisorPage'
+import { PresentationPage } from '@/pages/owner/PresentationPage'
+import { PainScreenPage } from '@/pages/owner/PainScreenPage'
+import { SimulationLabPage } from '@/pages/owner/SimulationLabPage'
 import { AnalyticsDashboardPage } from '@/pages/owner/AnalyticsDashboardPage'
 
 // --- Manager pages -------------------------------------------------------
@@ -157,6 +161,10 @@ export const router = createBrowserRouter([
               { path: '/corrections', element: <CorrectionsPage /> },
               { path: '/reports', element: <ReportsPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
+              { path: '/ai/advisor', element: <AdvisorPage /> },
+              { path: '/ai/presentation', element: <PresentationPage /> },
+              { path: '/ai/pain-screen', element: <PainScreenPage /> },
+              { path: '/ai/simulation', element: <SimulationLabPage /> },
               { path: '/analytics-dashboard', element: <AnalyticsDashboardPage /> },
             ],
           },
