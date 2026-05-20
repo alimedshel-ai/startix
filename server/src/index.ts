@@ -44,6 +44,23 @@ app.get('/health/db', async (_req: Request, res: Response, next) => {
   }
 });
 
+app.get('/health/config', (_req: Request, res: Response) => {
+  res.json({
+    node: process.env.NODE_ENV ?? 'development',
+    integrations: {
+      anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
+      stripeWebhook: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      stripePriceProfessional: Boolean(process.env.STRIPE_PRICE_PROFESSIONAL),
+      stripePriceEnterprise: Boolean(process.env.STRIPE_PRICE_ENTERPRISE),
+      ses: Boolean(process.env.SES_FROM_ADDRESS),
+      s3: Boolean(process.env.S3_BUCKET),
+      jwt: Boolean(process.env.JWT_SECRET),
+    },
+    clientUrl: process.env.CLIENT_URL ?? 'http://localhost:5173',
+  });
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/diagnostic', diagnosticRouter);
 app.use('/api/departments', departmentsRouter);

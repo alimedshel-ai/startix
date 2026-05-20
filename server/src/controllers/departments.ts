@@ -179,7 +179,9 @@ export const submitDeptAuditPro: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'Not authenticated');
     if (req.auth.plan === 'BASIC') {
-      throw new HttpError(402, 'Audit Pro requires a Professional plan');
+      throw new HttpError(402, 'تدقيق Pro يتطلب الباقة الاحترافية', {
+        requiredPlan: 'PROFESSIONAL', currentPlan: 'BASIC', upgradeUrl: '/pricing',
+      });
     }
     const dept = await getDeptOr404(paramId(req, 'id'));
     await assertCompanyAccess(req.auth.sub, dept.companyId);

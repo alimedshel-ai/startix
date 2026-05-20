@@ -113,7 +113,9 @@ export const submitCompliancePro: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'Not authenticated');
     if (req.auth.plan === 'BASIC') {
-      throw new HttpError(402, 'Compliance Pro audit requires a Professional plan');
+      throw new HttpError(402, 'تدقيق الامتثال Pro يتطلب الباقة الاحترافية', {
+        requiredPlan: 'PROFESSIONAL', currentPlan: 'BASIC', upgradeUrl: '/pricing',
+      });
     }
     const company = await getCompanyOr404((req.params as { companyId: string }).companyId);
     await assertCompanyAccess(req.auth.sub, company.id);

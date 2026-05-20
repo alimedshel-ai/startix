@@ -48,15 +48,23 @@ api.interceptors.response.use(
   }
 )
 
+interface ApiErrorBody {
+  error?: string
+  issues?: { message: string }[]
+  details?: {
+    requiredPlan?: 'PROFESSIONAL' | 'ENTERPRISE'
+    currentPlan?: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE'
+    upgradeUrl?: string
+  }
+}
+
 /**
  * Pull a user-friendly message off an axios error. Distinguishes network
  * failures (CORS / server down) from API-level errors so the UI can show
  * the real cause instead of a generic "failed" toast.
  */
 export function apiErrorMessage(err: unknown, fallback: string): string {
-  const e = err as AxiosError<{ error?: string; issues?: { message: string }[] }>
-  // Network error: no response, no status — usually CORS, server down, or
-  // wrong port.
+  const e = err as AxiosError<ApiErrorBody>
   if (!e?.response && e?.message) {
     if (e.code === 'ERR_NETWORK') {
       return `تعذّر الاتصال بالخادم على ${baseURL}. تأكد أن السيرفر يعمل ثم أعد المحاولة.`
@@ -67,4 +75,21 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   if (data?.error) return data.error
   if (data?.issues?.length) return data.issues.map((i) => i.message).join('، ')
   return fallback
+}
+
+/**
+ * Returns plan-upgrade details if the response is a 402 from the planGuard
+ * middleware. Pages can use this to surface an "Upgrade" CTA instead of a
+ * plain error toast.
+ */
+export function planUpgradeFromError(err: unknown): { requiredPlan: string; currentPlan: string; upgradeUrl: string } | null {
+  const e = err as AxiosError<ApiErrorBody>
+  if (e?.response?.status !== 402) return null
+  const d = e.response.data?.details
+  if (!d?.requiredPlan) return null
+  return {
+    requiredPlan: d.requiredPlan,
+    currentPlan: d.currentPlan ?? 'BASIC',
+    upgradeUrl: d.upgradeUrl ?? '/pricing',
+  }
 }
