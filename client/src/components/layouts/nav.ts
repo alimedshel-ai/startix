@@ -22,6 +22,9 @@ const ownerNav: NavSection[] = [
     items: [
       { to: '/dashboard',           label: 'لوحة القيادة',         icon: '🏠' },
       { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي',  icon: '👔' },
+      { to: '/exec-dashboard',      label: 'لوحة الفريق التنفيذي',  icon: '👥' },
+      { to: '/board-dashboard',     label: 'لوحة المجلس',           icon: '🏛️' },
+      { to: '/admin-dashboard',     label: 'لوحة المسؤول',          icon: '🛠️' },
       { to: '/live-board',          label: 'اللوحة الحية',          icon: '⚡' },
       { to: '/analytics-dashboard', label: 'التحليلات',             icon: '📈' },
       { to: '/activity-feed',       label: 'سجل النشاط',            icon: '📰' },

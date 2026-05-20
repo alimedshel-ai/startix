@@ -13,6 +13,9 @@ import { MainLayout } from '@/components/layouts/MainLayout'
 // --- Owner pages ---------------------------------------------------------
 import { DashboardPage } from '@/pages/owner/DashboardPage'
 import { CEODashboardPage } from '@/pages/owner/CEODashboardPage'
+import { ExecDashboardPage } from '@/pages/owner/ExecDashboardPage'
+import { BoardDashboardPage } from '@/pages/owner/BoardDashboardPage'
+import { AdminDashboardPage } from '@/pages/owner/AdminDashboardPage'
 import { CompaniesListPage } from '@/pages/owner/CompaniesListPage'
 import { AddCompanyPage } from '@/pages/owner/AddCompanyPage'
 import { DiagnosticOwnerPage } from '@/pages/owner/DiagnosticOwnerPage'
@@ -117,6 +120,9 @@ export const router = createBrowserRouter([
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
               { path: '/ceo-dashboard', element: <CEODashboardPage /> },
+              { path: '/exec-dashboard', element: <ExecDashboardPage /> },
+              { path: '/board-dashboard', element: <BoardDashboardPage /> },
+              { path: '/admin-dashboard', element: <AdminDashboardPage /> },
               { path: '/companies', element: <CompaniesListPage /> },
               { path: '/companies/add', element: <AddCompanyPage /> },
               { path: '/diagnostic/owner', element: <DiagnosticOwnerPage /> },
