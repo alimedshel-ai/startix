@@ -15,6 +15,8 @@ import companiesRouter from './routes/companies';
 import aiRouter from './routes/ai';
 import adminRouter from './routes/admin';
 import reportsRouter from './routes/reports';
+import paymentsRouter from './routes/payments';
+import { stripeWebhook } from './controllers/payments';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -23,8 +25,9 @@ app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(cookieParser());
 
-// Stripe webhooks need the raw body, so register that route before express.json().
-// app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+// Stripe webhook MUST receive the raw body so we can verify the signature.
+// Mounted before express.json() so it bypasses the global JSON parser.
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
 app.use(express.json({ limit: '2mb' }));
 
@@ -50,6 +53,7 @@ app.use('/api/companies', companiesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/payments', paymentsRouter);
 
 app.use(notFound);
 app.use(errorHandler);
