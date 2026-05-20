@@ -59,6 +59,7 @@ import { StrategicCalendarPage } from '@/pages/owner/StrategicCalendarPage'
 import { ReviewsPage } from '@/pages/owner/ReviewsPage'
 import { CorrectionsPage } from '@/pages/owner/CorrectionsPage'
 import { ReportsPage } from '@/pages/owner/ReportsPage'
+import { ReportPrintPage } from '@/pages/owner/ReportPrintPage'
 import { AICenterPage } from '@/pages/owner/AICenterPage'
 import { AdvisorPage } from '@/pages/owner/AdvisorPage'
 import { PresentationPage } from '@/pages/owner/PresentationPage'
@@ -226,6 +227,14 @@ export const router = createBrowserRouter([
           },
         ],
       },
+    ],
+  },
+
+  // Printable report — gated by ProtectedRoute but no MainLayout chrome
+  {
+    element: <ProtectedRoute />,
+    children: [
+      { path: '/reports/:id/print', element: <ReportPrintPage /> },
     ],
   },
 

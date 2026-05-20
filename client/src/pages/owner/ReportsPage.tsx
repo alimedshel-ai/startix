@@ -93,6 +93,33 @@ function Inner({ companyId }: { companyId: string }) {
     URL.revokeObjectURL(url)
   }
 
+  function openPrintTab() {
+    if (!opened) return
+    window.open(`/reports/${opened.id}/print`, '_blank', 'noopener,noreferrer')
+  }
+
+  async function downloadExcel() {
+    if (!opened) return
+    try {
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+      const res = await fetch(`${base}/api/reports/${opened.id}/excel`, { credentials: 'include' })
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${opened.title.replace(/\s+/g, '-')}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('تم تنزيل الملف')
+    } catch (err) {
+      toast.error((err as Error).message || 'فشل التنزيل')
+    }
+  }
+
   return (
     <>
       <Card className="overflow-hidden bg-gradient-to-bl from-orange-500/10 via-amber-500/5 to-transparent">
@@ -170,9 +197,22 @@ function Inner({ companyId }: { companyId: string }) {
                 {TYPE_LABEL[opened.type] ?? opened.type} · {new Date(opened.createdAt).toLocaleString('en-US')}
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={downloadJson}>تنزيل JSON</Button>
-              <Button variant="outline" size="sm" onClick={() => window.print()}>طباعة</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={openPrintTab}>
+                📄 تنزيل PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadExcel}>
+                📊 Excel
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadJson}>
+                JSON
+              </Button>
+              <a
+                href="/ai/presentation"
+                className="inline-flex h-8 items-center rounded-md border bg-card px-3 text-xs transition hover:bg-accent"
+              >
+                🎞️ عرض تقديمي
+              </a>
               <Button variant="ghost" size="sm" onClick={() => setOpened(null)}>إغلاق</Button>
             </div>
           </CardHeader>

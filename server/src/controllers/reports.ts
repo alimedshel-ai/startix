@@ -280,3 +280,26 @@ export const deleteReport: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── GET /api/reports/:id/excel — stream xlsx binary ────────────────────────
+export const downloadReportExcel: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    const id = paramOf(req, 'id');
+    const report = await prisma.report.findUnique({ where: { id } });
+    if (!report) throw new HttpError(404, 'Report not found');
+    await assertCompanyAccess(req.auth.sub, report.companyId);
+
+    // Lazy import to keep cold-start light when this endpoint isn't hit
+    const { reportToExcel } = await import('../services/excelExport');
+    const buffer = await reportToExcel(report.type, report.title, report.data);
+
+    const safe = report.title.replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s+/g, '-');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="report.xlsx"; filename*=UTF-8''${encodeURIComponent(safe)}.xlsx`);
+    res.setHeader('Content-Length', buffer.byteLength.toString());
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
+};
