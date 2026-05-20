@@ -14,6 +14,7 @@ import strategicRouter from './routes/strategic';
 import companiesRouter from './routes/companies';
 import aiRouter from './routes/ai';
 import adminRouter from './routes/admin';
+import reportsRouter from './routes/reports';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -48,6 +49,7 @@ app.use('/api/strategic', strategicRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/reports', reportsRouter);
 
 app.use(notFound);
 app.use(errorHandler);
