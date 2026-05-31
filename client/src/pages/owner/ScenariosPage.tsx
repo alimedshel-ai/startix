@@ -5,7 +5,6 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
 import { createScenario, deleteScenario, listScenarios, type Scenario, type ScenarioProjection } from '@/lib/strategicApi'
 
@@ -128,7 +127,7 @@ function Editor({ companyId }: { companyId: string }) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" />
                 <YAxis />
-                <Tooltip formatter={(v: number) => new Intl.NumberFormat('en-US', { notation: 'compact' }).format(v)} />
+                <Tooltip formatter={(v) => new Intl.NumberFormat('en-US', { notation: 'compact' }).format(Number(v))} />
                 <Legend />
                 {scenarios.map((s, i) => (
                   <Line key={s.id} type="monotone" dataKey={s.name} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />

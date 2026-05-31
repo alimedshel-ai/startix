@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { PageHeader } from '@/components/PageHeader'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface Tool {
   to: string

@@ -1,0 +1,11 @@
+# Files NOT shipped to Elastic Beanstalk. Anything not listed here gets
+# uploaded — so node_modules is excluded so EB re-installs on Linux.
+node_modules
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+src
+tsconfig.json
+nodemon.json
