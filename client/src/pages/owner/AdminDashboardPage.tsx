@@ -167,7 +167,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent: 
 function Mini({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border bg-card p-3 text-center">
-      <div className="text-2xl font-bold tabular-nums">{value.toLocaleString('en-US')}</div>
+      <div className="text-2xl font-bold tabular-nums">{value.toLocaleString('ar-SA')}</div>
       <div className="text-[11px] text-muted-foreground">{label}</div>
     </div>
   )

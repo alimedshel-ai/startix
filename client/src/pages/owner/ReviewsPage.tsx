@@ -223,7 +223,7 @@ function Editor({ companyId }: { companyId: string }) {
                     <span className="text-sm font-semibold">مراجعة {tLabel(r.type)}</span>
                     <span className="rounded-md border bg-card px-2 py-0.5 text-[10px]">{oLabel(r.outcome)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground tabular-nums">{new Date(r.reviewedAt).toLocaleDateString('en-US')}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{new Date(r.reviewedAt).toLocaleDateString('ar-SA')}</span>
                 </div>
                 {r.notes && <p className="mt-2 text-sm leading-relaxed">{r.notes}</p>}
               </li>

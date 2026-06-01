@@ -127,7 +127,7 @@ function Editor({ companyId }: { companyId: string }) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" />
                 <YAxis />
-                <Tooltip formatter={(v) => new Intl.NumberFormat('en-US', { notation: 'compact' }).format(Number(v))} />
+                <Tooltip formatter={(v) => new Intl.NumberFormat('ar-SA', { notation: 'compact' }).format(Number(v))} />
                 <Legend />
                 {scenarios.map((s, i) => (
                   <Line key={s.id} type="monotone" dataKey={s.name} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />
@@ -173,8 +173,8 @@ function Editor({ companyId }: { companyId: string }) {
                       {s.projections.map((p) => (
                         <tr key={p.year} className="border-t">
                           <td className="py-1 tabular-nums">{p.year}</td>
-                          <td className="py-1 tabular-nums">{new Intl.NumberFormat('en-US', { notation: 'compact' }).format(p.revenue)}</td>
-                          <td className="py-1 tabular-nums">{new Intl.NumberFormat('en-US', { notation: 'compact' }).format(p.profit)}</td>
+                          <td className="py-1 tabular-nums">{new Intl.NumberFormat('ar-SA', { notation: 'compact' }).format(p.revenue)}</td>
+                          <td className="py-1 tabular-nums">{new Intl.NumberFormat('ar-SA', { notation: 'compact' }).format(p.profit)}</td>
                         </tr>
                       ))}
                     </tbody>

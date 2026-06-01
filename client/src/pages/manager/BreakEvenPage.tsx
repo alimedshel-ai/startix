@@ -21,7 +21,7 @@ const DEFAULTS: Inputs = {
 }
 
 function formatSAR(value: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(value)
+  return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(value)
 }
 
 export function BreakEvenPage() {

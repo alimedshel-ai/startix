@@ -209,7 +209,7 @@ async function buildExecutiveSummary(companyId: string) {
 
 export const generateReport: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const body = generateSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
 
@@ -239,7 +239,7 @@ export const generateReport: RequestHandler = async (req, res, next) => {
 
 export const listReports: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
 
@@ -256,10 +256,10 @@ export const listReports: RequestHandler = async (req, res, next) => {
 
 export const getReport: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const id = paramOf(req, 'id');
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) throw new HttpError(404, 'Report not found');
+    if (!report) throw new HttpError(404, 'التقرير غير موجود');
     await assertCompanyAccess(req.auth.sub, report.companyId);
     res.json(report);
   } catch (err) {
@@ -269,10 +269,10 @@ export const getReport: RequestHandler = async (req, res, next) => {
 
 export const deleteReport: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const id = paramOf(req, 'id');
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) throw new HttpError(404, 'Report not found');
+    if (!report) throw new HttpError(404, 'التقرير غير موجود');
     await assertCompanyAccess(req.auth.sub, report.companyId);
     await prisma.report.delete({ where: { id } });
     res.status(204).end();
@@ -284,10 +284,10 @@ export const deleteReport: RequestHandler = async (req, res, next) => {
 // ─── GET /api/reports/:id/excel — stream xlsx binary ────────────────────────
 export const downloadReportExcel: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const id = paramOf(req, 'id');
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) throw new HttpError(404, 'Report not found');
+    if (!report) throw new HttpError(404, 'التقرير غير موجود');
     await assertCompanyAccess(req.auth.sub, report.companyId);
 
     // Lazy import to keep cold-start light when this endpoint isn't hit

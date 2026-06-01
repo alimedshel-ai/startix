@@ -24,7 +24,7 @@ function fmtRelative(iso: string): string {
   if (hours < 24) return `قبل ${hours} س`
   const days = Math.floor(hours / 24)
   if (days < 7) return `قبل ${days} يوم`
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
 }
 
 export function ActivityFeedPage() {
@@ -97,7 +97,7 @@ function Feed({ companyId }: { companyId: string }) {
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
                       {r.type === 'task'       && <>المهمة الآن: <span className="font-medium">{r.status ?? '—'}</span></>}
-                      {r.type === 'kpi_entry'  && <>القيمة المسجلة: <span className="tabular-nums font-medium">{r.value?.toLocaleString('en-US') ?? '—'}</span></>}
+                      {r.type === 'kpi_entry'  && <>القيمة المسجلة: <span className="tabular-nums font-medium">{r.value?.toLocaleString('ar-SA') ?? '—'}</span></>}
                       {r.type === 'review'     && <>مخرج: <span className="font-medium">{r.outcome ?? '—'}</span></>}
                       {r.type === 'correction' && <>الحالة: <span className="font-medium">{r.status ?? '—'}</span></>}
                     </div>

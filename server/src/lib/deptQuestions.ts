@@ -1,8 +1,7 @@
-// Department audit question banks. Each department has a basic audit and
-// (for departments that support it) an audit-pro with more questions. Every
-// question is tagged with an axis — governance, financial, team, digital —
-// and a Likert 0..3 score per option. The auditEngine scales raw axis scores
-// to the per-axis cap (governance/financial 30, team/digital 20).
+// بنوك أسئلة تدقيق الأقسام. لكل قسم تدقيق أساسي و(للأقسام التي تدعمها)
+// تدقيق Pro بأسئلة أعمق. كل سؤال موسوم بمحور — حوكمة، مالية، فريق، رقمي —
+// مع تقييم Likert 0..3 لكل خيار. auditEngine يضبط النقاط الخام لسقف
+// المحور (حوكمة/مالية 30، فريق/رقمي 20).
 
 export type AuditAxis = 'governance' | 'financial' | 'team' | 'digital';
 
@@ -39,8 +38,8 @@ export interface DeptBank {
   pro?: DeptQuestion[];
 }
 
-// Compact builder so the file stays readable. Every question is a
-// 4-option Likert (none / partial / good / great → 0..3).
+// مولّد مختصر لكي يبقى الملف قابلاً للقراءة. كل سؤال 4 خيارات Likert
+// (none / partial / good / great → 0..3).
 function q(
   id: string,
   axis: AuditAxis,
@@ -61,267 +60,267 @@ function q(
 }
 
 const STANDARD_LIKERT: [string, string, string, string] = [
-  'Not in place',
-  'Partial / ad-hoc',
-  'In place and documented',
-  'Optimized + measured',
+  'غير موجود',
+  'جزئي / غير منتظم',
+  'موجود وموثّق',
+  'محسّن ومُقاس',
 ];
 
-// ─── HR ──────────────────────────────────────────────────────────────────────
+// ─── الموارد البشرية ─────────────────────────────────────────────────────────
 const HR: DeptBank = {
   basic: [
-    q('hr_gov_1', 'governance', 'Written HR policies (hiring, termination, leave)', STANDARD_LIKERT),
-    q('hr_gov_2', 'governance', 'Documented org chart and roles', STANDARD_LIKERT),
-    q('hr_gov_3', 'governance', 'Performance review cycle', STANDARD_LIKERT),
-    q('hr_fin_1', 'financial', 'Payroll process and accuracy', STANDARD_LIKERT),
-    q('hr_fin_2', 'financial', 'Compensation benchmarking', STANDARD_LIKERT),
-    q('hr_fin_3', 'financial', 'HR cost tracking per headcount', STANDARD_LIKERT),
-    q('hr_team_1', 'team', 'Onboarding program for new hires', STANDARD_LIKERT),
-    q('hr_team_2', 'team', 'Training and development plan', STANDARD_LIKERT),
-    q('hr_team_3', 'team', 'Employee engagement / pulse surveys', STANDARD_LIKERT),
-    q('hr_dig_1', 'digital', 'HR information system (HRIS)', STANDARD_LIKERT),
-    q('hr_dig_2', 'digital', 'Digital leave / attendance tracking', STANDARD_LIKERT),
-    q('hr_dig_3', 'digital', 'Self-service portal for employees', STANDARD_LIKERT),
+    q('hr_gov_1', 'governance', 'سياسات موارد بشرية مكتوبة (توظيف، إنهاء، إجازات)', STANDARD_LIKERT),
+    q('hr_gov_2', 'governance', 'هيكل تنظيمي ومسؤوليات موثّقة', STANDARD_LIKERT),
+    q('hr_gov_3', 'governance', 'دورة تقييم أداء', STANDARD_LIKERT),
+    q('hr_fin_1', 'financial', 'عملية الرواتب ودقّتها', STANDARD_LIKERT),
+    q('hr_fin_2', 'financial', 'مقارنة مرجعية للأجور', STANDARD_LIKERT),
+    q('hr_fin_3', 'financial', 'تتبّع تكلفة الموارد البشرية لكل موظف', STANDARD_LIKERT),
+    q('hr_team_1', 'team', 'برنامج تأهيل للموظفين الجدد', STANDARD_LIKERT),
+    q('hr_team_2', 'team', 'خطة تدريب وتطوير', STANDARD_LIKERT),
+    q('hr_team_3', 'team', 'استطلاعات اندماج / نبض الموظفين', STANDARD_LIKERT),
+    q('hr_dig_1', 'digital', 'نظام معلومات الموارد البشرية (HRIS)', STANDARD_LIKERT),
+    q('hr_dig_2', 'digital', 'تتبّع رقمي للإجازات والحضور', STANDARD_LIKERT),
+    q('hr_dig_3', 'digital', 'بوّابة خدمة ذاتية للموظفين', STANDARD_LIKERT),
   ],
   pro: [
-    q('hr_pro_gov_1', 'governance', 'Succession plan for key roles', STANDARD_LIKERT),
-    q('hr_pro_gov_2', 'governance', 'Code of conduct + grievance process', STANDARD_LIKERT),
-    q('hr_pro_fin_1', 'financial', 'Variable pay / incentives tied to KPIs', STANDARD_LIKERT),
-    q('hr_pro_fin_2', 'financial', 'Total reward statement issued annually', STANDARD_LIKERT),
-    q('hr_pro_team_1', 'team', 'Leadership development pipeline', STANDARD_LIKERT),
-    q('hr_pro_team_2', 'team', 'Diversity & inclusion targets tracked', STANDARD_LIKERT),
-    q('hr_pro_dig_1', 'digital', 'People analytics dashboard', STANDARD_LIKERT),
-    q('hr_pro_dig_2', 'digital', 'Learning management system', STANDARD_LIKERT),
+    q('hr_pro_gov_1', 'governance', 'خطة تعاقب للأدوار الرئيسية', STANDARD_LIKERT),
+    q('hr_pro_gov_2', 'governance', 'ميثاق سلوك مهني وعملية تظلّمات', STANDARD_LIKERT),
+    q('hr_pro_fin_1', 'financial', 'أجر متغيّر / حوافز مربوطة بمؤشرات الأداء', STANDARD_LIKERT),
+    q('hr_pro_fin_2', 'financial', 'بيان مكافآت إجمالية يُصدر سنوياً', STANDARD_LIKERT),
+    q('hr_pro_team_1', 'team', 'خط أنابيب تطوير قيادي', STANDARD_LIKERT),
+    q('hr_pro_team_2', 'team', 'تتبّع أهداف التنوّع والشمول', STANDARD_LIKERT),
+    q('hr_pro_dig_1', 'digital', 'لوحة تحليلات الموظفين', STANDARD_LIKERT),
+    q('hr_pro_dig_2', 'digital', 'نظام إدارة التعلّم', STANDARD_LIKERT),
   ],
 };
 
-// ─── Finance ─────────────────────────────────────────────────────────────────
+// ─── المالية ─────────────────────────────────────────────────────────────────
 const FINANCE: DeptBank = {
   basic: [
-    q('fin_gov_1', 'governance', 'Approval matrix for spend', STANDARD_LIKERT),
-    q('fin_gov_2', 'governance', 'Segregation of duties (AP / AR / treasury)', STANDARD_LIKERT),
-    q('fin_gov_3', 'governance', 'External audit performed', STANDARD_LIKERT),
-    q('fin_fin_1', 'financial', 'Monthly close cycle on time', STANDARD_LIKERT),
-    q('fin_fin_2', 'financial', 'Cash-flow forecast (13-week rolling)', STANDARD_LIKERT),
-    q('fin_fin_3', 'financial', 'Budget vs actual variance tracking', STANDARD_LIKERT),
-    q('fin_team_1', 'team', 'Qualified finance staff (CPA/CMA)', STANDARD_LIKERT),
-    q('fin_team_2', 'team', 'Cross-training within finance team', STANDARD_LIKERT),
-    q('fin_team_3', 'team', 'Continuous learning / CPE hours', STANDARD_LIKERT),
-    q('fin_dig_1', 'digital', 'Accounting software (ERP / cloud)', STANDARD_LIKERT),
-    q('fin_dig_2', 'digital', 'Automated bank reconciliation', STANDARD_LIKERT),
-    q('fin_dig_3', 'digital', 'BI dashboard for finance KPIs', STANDARD_LIKERT),
+    q('fin_gov_1', 'governance', 'مصفوفة اعتماد للإنفاق', STANDARD_LIKERT),
+    q('fin_gov_2', 'governance', 'الفصل بين المهام (موردين / عملاء / خزينة)', STANDARD_LIKERT),
+    q('fin_gov_3', 'governance', 'تدقيق خارجي منجز', STANDARD_LIKERT),
+    q('fin_fin_1', 'financial', 'دورة الإقفال الشهري في موعدها', STANDARD_LIKERT),
+    q('fin_fin_2', 'financial', 'تنبؤ تدفّق نقدي متجدد لـ 13 أسبوعاً', STANDARD_LIKERT),
+    q('fin_fin_3', 'financial', 'تتبّع فروقات الموازنة مقابل الفعلي', STANDARD_LIKERT),
+    q('fin_team_1', 'team', 'موظفو مالية مؤهلون (CPA/CMA)', STANDARD_LIKERT),
+    q('fin_team_2', 'team', 'تدريب متبادل داخل فريق المالية', STANDARD_LIKERT),
+    q('fin_team_3', 'team', 'تعليم مستمر / ساعات CPE', STANDARD_LIKERT),
+    q('fin_dig_1', 'digital', 'برنامج محاسبة (ERP / سحابي)', STANDARD_LIKERT),
+    q('fin_dig_2', 'digital', 'مطابقة بنكية آلية', STANDARD_LIKERT),
+    q('fin_dig_3', 'digital', 'لوحة ذكاء أعمال لمؤشرات المالية', STANDARD_LIKERT),
   ],
 };
 
-// ─── Sales ───────────────────────────────────────────────────────────────────
+// ─── المبيعات ────────────────────────────────────────────────────────────────
 const SALES: DeptBank = {
   basic: [
-    q('sales_gov_1', 'governance', 'Documented sales process / playbook', STANDARD_LIKERT),
-    q('sales_gov_2', 'governance', 'Pricing approval workflow', STANDARD_LIKERT),
-    q('sales_gov_3', 'governance', 'Contract review process', STANDARD_LIKERT),
-    q('sales_fin_1', 'financial', 'Quota / target setting per rep', STANDARD_LIKERT),
-    q('sales_fin_2', 'financial', 'Commission plan documented + paid on time', STANDARD_LIKERT),
-    q('sales_fin_3', 'financial', 'Pipeline value vs quota tracked', STANDARD_LIKERT),
-    q('sales_team_1', 'team', 'Onboarding program for new sales reps', STANDARD_LIKERT),
-    q('sales_team_2', 'team', 'Regular sales coaching', STANDARD_LIKERT),
-    q('sales_team_3', 'team', 'Win/loss reviews', STANDARD_LIKERT),
-    q('sales_dig_1', 'digital', 'CRM in active use', STANDARD_LIKERT),
-    q('sales_dig_2', 'digital', 'Sales analytics / forecast accuracy', STANDARD_LIKERT),
-    q('sales_dig_3', 'digital', 'Lead-to-cash automation', STANDARD_LIKERT),
+    q('sales_gov_1', 'governance', 'عملية مبيعات / دليل لعب موثّق', STANDARD_LIKERT),
+    q('sales_gov_2', 'governance', 'سير عمل اعتماد الأسعار', STANDARD_LIKERT),
+    q('sales_gov_3', 'governance', 'عملية مراجعة العقود', STANDARD_LIKERT),
+    q('sales_fin_1', 'financial', 'تحديد الحصص / المستهدفات لكل مندوب', STANDARD_LIKERT),
+    q('sales_fin_2', 'financial', 'خطة عمولات موثّقة ومدفوعة في موعدها', STANDARD_LIKERT),
+    q('sales_fin_3', 'financial', 'تتبّع قيمة الفرص مقابل الحصة', STANDARD_LIKERT),
+    q('sales_team_1', 'team', 'برنامج تأهيل لمندوبي المبيعات الجدد', STANDARD_LIKERT),
+    q('sales_team_2', 'team', 'تدريب مبيعات منتظم', STANDARD_LIKERT),
+    q('sales_team_3', 'team', 'مراجعات الفوز / الخسارة', STANDARD_LIKERT),
+    q('sales_dig_1', 'digital', 'نظام CRM مستخدم فعلياً', STANDARD_LIKERT),
+    q('sales_dig_2', 'digital', 'تحليلات مبيعات / دقة التنبؤ', STANDARD_LIKERT),
+    q('sales_dig_3', 'digital', 'أتمتة من العميل المحتمل إلى السداد', STANDARD_LIKERT),
   ],
   pro: [
-    q('sales_pro_gov_1', 'governance', 'Account segmentation strategy', STANDARD_LIKERT),
-    q('sales_pro_fin_1', 'financial', 'Margin per deal tracked', STANDARD_LIKERT),
-    q('sales_pro_team_1', 'team', 'Sales enablement function staffed', STANDARD_LIKERT),
-    q('sales_pro_dig_1', 'digital', 'Predictive lead scoring', STANDARD_LIKERT),
+    q('sales_pro_gov_1', 'governance', 'استراتيجية تقسيم الحسابات', STANDARD_LIKERT),
+    q('sales_pro_fin_1', 'financial', 'تتبّع الهامش لكل صفقة', STANDARD_LIKERT),
+    q('sales_pro_team_1', 'team', 'وظيفة تمكين مبيعات مأهولة', STANDARD_LIKERT),
+    q('sales_pro_dig_1', 'digital', 'تقييم تنبؤي للعملاء المحتملين', STANDARD_LIKERT),
   ],
 };
 
-// ─── Marketing ───────────────────────────────────────────────────────────────
+// ─── التسويق ─────────────────────────────────────────────────────────────────
 const MARKETING: DeptBank = {
   basic: [
-    q('mkt_gov_1', 'governance', 'Brand guidelines documented', STANDARD_LIKERT),
-    q('mkt_gov_2', 'governance', 'Marketing strategy aligned to business goals', STANDARD_LIKERT),
-    q('mkt_gov_3', 'governance', 'Approval flow for campaigns', STANDARD_LIKERT),
-    q('mkt_fin_1', 'financial', 'Annual marketing budget set', STANDARD_LIKERT),
-    q('mkt_fin_2', 'financial', 'ROI / CAC tracked per channel', STANDARD_LIKERT),
-    q('mkt_fin_3', 'financial', 'Attribution / source-of-truth tool', STANDARD_LIKERT),
-    q('mkt_team_1', 'team', 'Marketing roles defined + filled', STANDARD_LIKERT),
-    q('mkt_team_2', 'team', 'Agency relationships managed', STANDARD_LIKERT),
-    q('mkt_team_3', 'team', 'Training in modern channels', STANDARD_LIKERT),
-    q('mkt_dig_1', 'digital', 'Website + SEO baseline', STANDARD_LIKERT),
-    q('mkt_dig_2', 'digital', 'Marketing automation tool', STANDARD_LIKERT),
-    q('mkt_dig_3', 'digital', 'Social media presence + analytics', STANDARD_LIKERT),
+    q('mkt_gov_1', 'governance', 'إرشادات هوية موثّقة', STANDARD_LIKERT),
+    q('mkt_gov_2', 'governance', 'استراتيجية تسويق متوافقة مع أهداف الأعمال', STANDARD_LIKERT),
+    q('mkt_gov_3', 'governance', 'سير اعتماد الحملات', STANDARD_LIKERT),
+    q('mkt_fin_1', 'financial', 'موازنة تسويق سنوية محدّدة', STANDARD_LIKERT),
+    q('mkt_fin_2', 'financial', 'تتبّع العائد على الاستثمار / تكلفة الاستحواذ لكل قناة', STANDARD_LIKERT),
+    q('mkt_fin_3', 'financial', 'أداة إسناد / مصدر حقيقة', STANDARD_LIKERT),
+    q('mkt_team_1', 'team', 'أدوار تسويق محدّدة ومأهولة', STANDARD_LIKERT),
+    q('mkt_team_2', 'team', 'إدارة علاقات مع الوكالات', STANDARD_LIKERT),
+    q('mkt_team_3', 'team', 'تدريب على القنوات الحديثة', STANDARD_LIKERT),
+    q('mkt_dig_1', 'digital', 'موقع إلكتروني + خط أساس SEO', STANDARD_LIKERT),
+    q('mkt_dig_2', 'digital', 'أداة أتمتة تسويق', STANDARD_LIKERT),
+    q('mkt_dig_3', 'digital', 'حضور وتحليلات على وسائل التواصل', STANDARD_LIKERT),
   ],
   pro: [
-    q('mkt_pro_gov_1', 'governance', 'Product marketing + positioning playbook', STANDARD_LIKERT),
-    q('mkt_pro_fin_1', 'financial', 'MQL→SQL conversion measured', STANDARD_LIKERT),
-    q('mkt_pro_team_1', 'team', 'Content team or content calendar', STANDARD_LIKERT),
-    q('mkt_pro_dig_1', 'digital', 'CDP / unified customer view', STANDARD_LIKERT),
+    q('mkt_pro_gov_1', 'governance', 'دليل لعب تسويق المنتج والتموضع', STANDARD_LIKERT),
+    q('mkt_pro_fin_1', 'financial', 'قياس تحويل MQL → SQL', STANDARD_LIKERT),
+    q('mkt_pro_team_1', 'team', 'فريق محتوى أو تقويم محتوى', STANDARD_LIKERT),
+    q('mkt_pro_dig_1', 'digital', 'منصة بيانات عملاء موحّدة (CDP)', STANDARD_LIKERT),
   ],
 };
 
-// ─── Operations ──────────────────────────────────────────────────────────────
+// ─── العمليات ────────────────────────────────────────────────────────────────
 const OPERATIONS: DeptBank = {
   basic: [
-    q('ops_gov_1', 'governance', 'Documented SOPs for core processes', STANDARD_LIKERT),
-    q('ops_gov_2', 'governance', 'Continuous improvement / Kaizen reviews', STANDARD_LIKERT),
-    q('ops_gov_3', 'governance', 'Incident-management process', STANDARD_LIKERT),
-    q('ops_fin_1', 'financial', 'Unit cost / cost per output tracked', STANDARD_LIKERT),
-    q('ops_fin_2', 'financial', 'Capacity vs demand planning', STANDARD_LIKERT),
-    q('ops_fin_3', 'financial', 'Operational budget owned by manager', STANDARD_LIKERT),
-    q('ops_team_1', 'team', 'Cross-training across operations', STANDARD_LIKERT),
-    q('ops_team_2', 'team', 'Daily / weekly huddles', STANDARD_LIKERT),
-    q('ops_team_3', 'team', 'Skills matrix maintained', STANDARD_LIKERT),
-    q('ops_dig_1', 'digital', 'Workflow / BPM tool', STANDARD_LIKERT),
-    q('ops_dig_2', 'digital', 'Operational dashboard live', STANDARD_LIKERT),
-    q('ops_dig_3', 'digital', 'Automation of repetitive tasks', STANDARD_LIKERT),
+    q('ops_gov_1', 'governance', 'إجراءات تشغيل قياسية (SOP) للعمليات الجوهرية', STANDARD_LIKERT),
+    q('ops_gov_2', 'governance', 'مراجعات تحسين مستمر / كايزن', STANDARD_LIKERT),
+    q('ops_gov_3', 'governance', 'عملية إدارة الحوادث', STANDARD_LIKERT),
+    q('ops_fin_1', 'financial', 'تتبّع تكلفة الوحدة / تكلفة المخرج', STANDARD_LIKERT),
+    q('ops_fin_2', 'financial', 'تخطيط الطاقة مقابل الطلب', STANDARD_LIKERT),
+    q('ops_fin_3', 'financial', 'موازنة تشغيل يمتلكها المدير', STANDARD_LIKERT),
+    q('ops_team_1', 'team', 'تدريب متبادل عبر العمليات', STANDARD_LIKERT),
+    q('ops_team_2', 'team', 'اجتماعات يومية / أسبوعية', STANDARD_LIKERT),
+    q('ops_team_3', 'team', 'مصفوفة مهارات محدّثة', STANDARD_LIKERT),
+    q('ops_dig_1', 'digital', 'أداة سير عمل / BPM', STANDARD_LIKERT),
+    q('ops_dig_2', 'digital', 'لوحة تشغيل مباشرة', STANDARD_LIKERT),
+    q('ops_dig_3', 'digital', 'أتمتة المهام المتكرّرة', STANDARD_LIKERT),
   ],
 };
 
-// ─── IT ──────────────────────────────────────────────────────────────────────
+// ─── تقنية المعلومات ────────────────────────────────────────────────────────
 const IT: DeptBank = {
   basic: [
-    q('it_gov_1', 'governance', 'IT policy + access management', STANDARD_LIKERT),
-    q('it_gov_2', 'governance', 'Vendor / SaaS register maintained', STANDARD_LIKERT),
-    q('it_gov_3', 'governance', 'Information security policy', STANDARD_LIKERT),
-    q('it_fin_1', 'financial', 'IT budget tracked', STANDARD_LIKERT),
-    q('it_fin_2', 'financial', 'Software licensing reviewed yearly', STANDARD_LIKERT),
-    q('it_fin_3', 'financial', 'Cost per user / TCO measured', STANDARD_LIKERT),
-    q('it_team_1', 'team', 'IT staff coverage / on-call', STANDARD_LIKERT),
-    q('it_team_2', 'team', 'Security awareness training', STANDARD_LIKERT),
-    q('it_team_3', 'team', 'Certifications / skills upkeep', STANDARD_LIKERT),
-    q('it_dig_1', 'digital', 'Backups + restore tested', STANDARD_LIKERT),
-    q('it_dig_2', 'digital', 'Endpoint protection + MFA', STANDARD_LIKERT),
-    q('it_dig_3', 'digital', 'Cloud / infrastructure monitoring', STANDARD_LIKERT),
+    q('it_gov_1', 'governance', 'سياسة تقنية المعلومات وإدارة الوصول', STANDARD_LIKERT),
+    q('it_gov_2', 'governance', 'سجل الموردين / SaaS محدّث', STANDARD_LIKERT),
+    q('it_gov_3', 'governance', 'سياسة أمن المعلومات', STANDARD_LIKERT),
+    q('it_fin_1', 'financial', 'تتبّع موازنة تقنية المعلومات', STANDARD_LIKERT),
+    q('it_fin_2', 'financial', 'مراجعة تراخيص البرمجيات سنوياً', STANDARD_LIKERT),
+    q('it_fin_3', 'financial', 'قياس تكلفة المستخدم / إجمالي ملكية', STANDARD_LIKERT),
+    q('it_team_1', 'team', 'تغطية فريق تقنية المعلومات / استدعاء', STANDARD_LIKERT),
+    q('it_team_2', 'team', 'تدريب توعوي على الأمن', STANDARD_LIKERT),
+    q('it_team_3', 'team', 'شهادات / صيانة مهارات', STANDARD_LIKERT),
+    q('it_dig_1', 'digital', 'نسخ احتياطية واستعادة مختبرة', STANDARD_LIKERT),
+    q('it_dig_2', 'digital', 'حماية الأجهزة الطرفية + MFA', STANDARD_LIKERT),
+    q('it_dig_3', 'digital', 'مراقبة السحابة / البنية التحتية', STANDARD_LIKERT),
   ],
 };
 
-// ─── Customer Service ───────────────────────────────────────────────────────
+// ─── خدمة العملاء ───────────────────────────────────────────────────────────
 const CUSTOMER_SERVICE: DeptBank = {
   basic: [
-    q('cs_gov_1', 'governance', 'Service-level agreements documented', STANDARD_LIKERT),
-    q('cs_gov_2', 'governance', 'Escalation matrix', STANDARD_LIKERT),
-    q('cs_gov_3', 'governance', 'Complaint policy and root-cause review', STANDARD_LIKERT),
-    q('cs_fin_1', 'financial', 'Cost per ticket measured', STANDARD_LIKERT),
-    q('cs_fin_2', 'financial', 'Cost vs CSAT correlation tracked', STANDARD_LIKERT),
-    q('cs_fin_3', 'financial', 'Service budget reviewed quarterly', STANDARD_LIKERT),
-    q('cs_team_1', 'team', 'CSR onboarding curriculum', STANDARD_LIKERT),
-    q('cs_team_2', 'team', 'Coaching from QA scores', STANDARD_LIKERT),
-    q('cs_team_3', 'team', 'Empowered to resolve without escalation', STANDARD_LIKERT),
-    q('cs_dig_1', 'digital', 'Helpdesk / ticketing system', STANDARD_LIKERT),
-    q('cs_dig_2', 'digital', 'Knowledge base for agents + customers', STANDARD_LIKERT),
-    q('cs_dig_3', 'digital', 'Omnichannel (voice/chat/email/social)', STANDARD_LIKERT),
+    q('cs_gov_1', 'governance', 'اتفاقيات مستوى خدمة موثّقة', STANDARD_LIKERT),
+    q('cs_gov_2', 'governance', 'مصفوفة تصعيد', STANDARD_LIKERT),
+    q('cs_gov_3', 'governance', 'سياسة الشكاوى ومراجعة الأسباب الجذرية', STANDARD_LIKERT),
+    q('cs_fin_1', 'financial', 'قياس تكلفة كل تذكرة', STANDARD_LIKERT),
+    q('cs_fin_2', 'financial', 'تتبّع علاقة التكلفة برضا العميل', STANDARD_LIKERT),
+    q('cs_fin_3', 'financial', 'مراجعة موازنة الخدمة فصلياً', STANDARD_LIKERT),
+    q('cs_team_1', 'team', 'منهج تأهيل لممثلي الخدمة', STANDARD_LIKERT),
+    q('cs_team_2', 'team', 'تدريب مبني على درجات الجودة', STANDARD_LIKERT),
+    q('cs_team_3', 'team', 'تمكين الممثل من الحلّ بدون تصعيد', STANDARD_LIKERT),
+    q('cs_dig_1', 'digital', 'نظام دعم / تذاكر', STANDARD_LIKERT),
+    q('cs_dig_2', 'digital', 'قاعدة معرفة للموظفين والعملاء', STANDARD_LIKERT),
+    q('cs_dig_3', 'digital', 'قنوات متعددة (صوت/دردشة/إيميل/تواصل)', STANDARD_LIKERT),
   ],
 };
 
-// ─── Supply / Support ───────────────────────────────────────────────────────
+// ─── المشتريات والدعم ───────────────────────────────────────────────────────
 const SUPPORT: DeptBank = {
   basic: [
-    q('sup_gov_1', 'governance', 'Supplier evaluation framework', STANDARD_LIKERT),
-    q('sup_gov_2', 'governance', 'Master supplier list maintained', STANDARD_LIKERT),
-    q('sup_gov_3', 'governance', 'Procurement policy + thresholds', STANDARD_LIKERT),
-    q('sup_fin_1', 'financial', 'Price benchmarking / multi-quote', STANDARD_LIKERT),
-    q('sup_fin_2', 'financial', 'Payment terms negotiated', STANDARD_LIKERT),
-    q('sup_fin_3', 'financial', 'Spend analytics by category', STANDARD_LIKERT),
-    q('sup_team_1', 'team', 'Buyers trained in negotiation', STANDARD_LIKERT),
-    q('sup_team_2', 'team', 'Supplier relationship managers assigned', STANDARD_LIKERT),
-    q('sup_team_3', 'team', 'Cross-functional sourcing committee', STANDARD_LIKERT),
-    q('sup_dig_1', 'digital', 'e-Procurement / PO system', STANDARD_LIKERT),
-    q('sup_dig_2', 'digital', 'Supplier portal / EDI', STANDARD_LIKERT),
-    q('sup_dig_3', 'digital', 'Performance scorecards automated', STANDARD_LIKERT),
+    q('sup_gov_1', 'governance', 'إطار تقييم الموردين', STANDARD_LIKERT),
+    q('sup_gov_2', 'governance', 'قائمة موردين رئيسية محدّثة', STANDARD_LIKERT),
+    q('sup_gov_3', 'governance', 'سياسة مشتريات وحدودها', STANDARD_LIKERT),
+    q('sup_fin_1', 'financial', 'مقارنة أسعار / عروض متعددة', STANDARD_LIKERT),
+    q('sup_fin_2', 'financial', 'شروط دفع متفاوض عليها', STANDARD_LIKERT),
+    q('sup_fin_3', 'financial', 'تحليلات إنفاق حسب الفئة', STANDARD_LIKERT),
+    q('sup_team_1', 'team', 'تدريب المشترين على التفاوض', STANDARD_LIKERT),
+    q('sup_team_2', 'team', 'مدراء علاقات موردين معيّنون', STANDARD_LIKERT),
+    q('sup_team_3', 'team', 'لجنة مشتريات متعددة الوظائف', STANDARD_LIKERT),
+    q('sup_dig_1', 'digital', 'مشتريات إلكترونية / نظام أوامر شراء', STANDARD_LIKERT),
+    q('sup_dig_2', 'digital', 'بوّابة موردين / EDI', STANDARD_LIKERT),
+    q('sup_dig_3', 'digital', 'بطاقات أداء آلية', STANDARD_LIKERT),
   ],
 };
 
-// ─── Logistics ──────────────────────────────────────────────────────────────
+// ─── اللوجستيات ─────────────────────────────────────────────────────────────
 const LOGISTICS: DeptBank = {
   basic: [
-    q('log_gov_1', 'governance', 'Inventory policy + cycle counts', STANDARD_LIKERT),
-    q('log_gov_2', 'governance', 'Carrier contracts + SLAs', STANDARD_LIKERT),
-    q('log_gov_3', 'governance', 'Returns / reverse-logistics policy', STANDARD_LIKERT),
-    q('log_fin_1', 'financial', 'Shipping cost per order tracked', STANDARD_LIKERT),
-    q('log_fin_2', 'financial', 'Inventory carrying cost monitored', STANDARD_LIKERT),
-    q('log_fin_3', 'financial', 'On-time-in-full (OTIF) KPI', STANDARD_LIKERT),
-    q('log_team_1', 'team', 'Warehouse safety training', STANDARD_LIKERT),
-    q('log_team_2', 'team', 'Pickers / drivers performance reviewed', STANDARD_LIKERT),
-    q('log_team_3', 'team', 'Cross-shift handover ritual', STANDARD_LIKERT),
-    q('log_dig_1', 'digital', 'WMS / inventory system in use', STANDARD_LIKERT),
-    q('log_dig_2', 'digital', 'Route optimization tool', STANDARD_LIKERT),
-    q('log_dig_3', 'digital', 'Real-time shipment tracking', STANDARD_LIKERT),
+    q('log_gov_1', 'governance', 'سياسة مخزون وجرد دوري', STANDARD_LIKERT),
+    q('log_gov_2', 'governance', 'عقود ناقلين واتفاقيات مستوى', STANDARD_LIKERT),
+    q('log_gov_3', 'governance', 'سياسة إرجاع / لوجستيات عكسية', STANDARD_LIKERT),
+    q('log_fin_1', 'financial', 'تتبّع تكلفة الشحن لكل طلب', STANDARD_LIKERT),
+    q('log_fin_2', 'financial', 'مراقبة تكلفة حمل المخزون', STANDARD_LIKERT),
+    q('log_fin_3', 'financial', 'مؤشر التسليم في الموعد وبالكامل (OTIF)', STANDARD_LIKERT),
+    q('log_team_1', 'team', 'تدريب سلامة المستودع', STANDARD_LIKERT),
+    q('log_team_2', 'team', 'مراجعة أداء العاملين والسائقين', STANDARD_LIKERT),
+    q('log_team_3', 'team', 'تسليم بين المناوبات', STANDARD_LIKERT),
+    q('log_dig_1', 'digital', 'نظام إدارة مستودع / مخزون مستخدم', STANDARD_LIKERT),
+    q('log_dig_2', 'digital', 'أداة تحسين مسارات', STANDARD_LIKERT),
+    q('log_dig_3', 'digital', 'تتبّع شحنات لحظي', STANDARD_LIKERT),
   ],
 };
 
-// ─── Quality ────────────────────────────────────────────────────────────────
+// ─── الجودة ─────────────────────────────────────────────────────────────────
 const QUALITY: DeptBank = {
   basic: [
-    q('qa_gov_1', 'governance', 'Quality management system (e.g. ISO 9001)', STANDARD_LIKERT),
-    q('qa_gov_2', 'governance', 'Documented quality policy', STANDARD_LIKERT),
-    q('qa_gov_3', 'governance', 'Non-conformance / CAPA process', STANDARD_LIKERT),
-    q('qa_fin_1', 'financial', 'Cost of poor quality (CoPQ) tracked', STANDARD_LIKERT),
-    q('qa_fin_2', 'financial', 'Quality budget separate from operations', STANDARD_LIKERT),
-    q('qa_fin_3', 'financial', 'Warranty / rework cost monitored', STANDARD_LIKERT),
-    q('qa_team_1', 'team', 'Quality champions in each function', STANDARD_LIKERT),
-    q('qa_team_2', 'team', 'Six Sigma / Lean training', STANDARD_LIKERT),
-    q('qa_team_3', 'team', 'Daily quality huddles', STANDARD_LIKERT),
-    q('qa_dig_1', 'digital', 'Statistical process control tool', STANDARD_LIKERT),
-    q('qa_dig_2', 'digital', 'Defect tracking system', STANDARD_LIKERT),
-    q('qa_dig_3', 'digital', 'Customer-feedback loop digitized', STANDARD_LIKERT),
+    q('qa_gov_1', 'governance', 'نظام إدارة جودة (مثل ISO 9001)', STANDARD_LIKERT),
+    q('qa_gov_2', 'governance', 'سياسة جودة موثّقة', STANDARD_LIKERT),
+    q('qa_gov_3', 'governance', 'عملية عدم المطابقة / CAPA', STANDARD_LIKERT),
+    q('qa_fin_1', 'financial', 'تتبّع تكلفة الجودة المنخفضة (CoPQ)', STANDARD_LIKERT),
+    q('qa_fin_2', 'financial', 'موازنة جودة منفصلة عن العمليات', STANDARD_LIKERT),
+    q('qa_fin_3', 'financial', 'مراقبة تكلفة الضمان / إعادة العمل', STANDARD_LIKERT),
+    q('qa_team_1', 'team', 'أبطال جودة في كل وظيفة', STANDARD_LIKERT),
+    q('qa_team_2', 'team', 'تدريب Six Sigma / Lean', STANDARD_LIKERT),
+    q('qa_team_3', 'team', 'اجتماعات جودة يومية', STANDARD_LIKERT),
+    q('qa_dig_1', 'digital', 'أداة ضبط إحصائي للعمليات', STANDARD_LIKERT),
+    q('qa_dig_2', 'digital', 'نظام تتبّع العيوب', STANDARD_LIKERT),
+    q('qa_dig_3', 'digital', 'حلقة تغذية راجعة من العملاء مرقمنة', STANDARD_LIKERT),
   ],
 };
 
-// ─── Projects ───────────────────────────────────────────────────────────────
+// ─── المشاريع ───────────────────────────────────────────────────────────────
 const PROJECTS: DeptBank = {
   basic: [
-    q('prj_gov_1', 'governance', 'Project methodology (Agile / PMBOK)', STANDARD_LIKERT),
-    q('prj_gov_2', 'governance', 'Steering committee / sponsor cadence', STANDARD_LIKERT),
-    q('prj_gov_3', 'governance', 'Stage-gate / approval process', STANDARD_LIKERT),
-    q('prj_fin_1', 'financial', 'Budget vs actuals per project', STANDARD_LIKERT),
-    q('prj_fin_2', 'financial', 'Earned-value tracking', STANDARD_LIKERT),
-    q('prj_fin_3', 'financial', 'Resource utilization tracked', STANDARD_LIKERT),
-    q('prj_team_1', 'team', 'Certified PMs / Scrum Masters', STANDARD_LIKERT),
-    q('prj_team_2', 'team', 'Cross-functional teams', STANDARD_LIKERT),
-    q('prj_team_3', 'team', 'Retrospectives after each project', STANDARD_LIKERT),
-    q('prj_dig_1', 'digital', 'Project tool (Jira / MS Project / Asana)', STANDARD_LIKERT),
-    q('prj_dig_2', 'digital', 'Gantt / portfolio view available', STANDARD_LIKERT),
-    q('prj_dig_3', 'digital', 'Automated status reporting', STANDARD_LIKERT),
+    q('prj_gov_1', 'governance', 'منهجية مشاريع (Agile / PMBOK)', STANDARD_LIKERT),
+    q('prj_gov_2', 'governance', 'إيقاع لجنة توجيه / راعي', STANDARD_LIKERT),
+    q('prj_gov_3', 'governance', 'عملية بوابات / اعتمادات', STANDARD_LIKERT),
+    q('prj_fin_1', 'financial', 'موازنة مقابل فعلي لكل مشروع', STANDARD_LIKERT),
+    q('prj_fin_2', 'financial', 'تتبّع القيمة المكتسبة', STANDARD_LIKERT),
+    q('prj_fin_3', 'financial', 'تتبّع استغلال الموارد', STANDARD_LIKERT),
+    q('prj_team_1', 'team', 'مدراء مشاريع / Scrum Masters معتمدون', STANDARD_LIKERT),
+    q('prj_team_2', 'team', 'فرق متعددة الوظائف', STANDARD_LIKERT),
+    q('prj_team_3', 'team', 'استرجاعات بعد كل مشروع', STANDARD_LIKERT),
+    q('prj_dig_1', 'digital', 'أداة مشاريع (Jira / MS Project / Asana)', STANDARD_LIKERT),
+    q('prj_dig_2', 'digital', 'عرض Gantt / محفظة متاح', STANDARD_LIKERT),
+    q('prj_dig_3', 'digital', 'تقارير حالة آلية', STANDARD_LIKERT),
   ],
 };
 
-// ─── Governance ─────────────────────────────────────────────────────────────
+// ─── الحوكمة ────────────────────────────────────────────────────────────────
 const GOVERNANCE: DeptBank = {
   basic: [
-    q('gov_gov_1', 'governance', 'Board / advisory body active', STANDARD_LIKERT),
-    q('gov_gov_2', 'governance', 'Charter, bylaws, and committees documented', STANDARD_LIKERT),
-    q('gov_gov_3', 'governance', 'Conflict of interest policy', STANDARD_LIKERT),
-    q('gov_fin_1', 'financial', 'Internal audit function or equivalent', STANDARD_LIKERT),
-    q('gov_fin_2', 'financial', 'Financial controls reviewed yearly', STANDARD_LIKERT),
-    q('gov_fin_3', 'financial', 'External auditor engaged', STANDARD_LIKERT),
-    q('gov_team_1', 'team', 'Directors with independent qualifications', STANDARD_LIKERT),
-    q('gov_team_2', 'team', 'Annual board evaluation', STANDARD_LIKERT),
-    q('gov_team_3', 'team', 'Training for directors', STANDARD_LIKERT),
-    q('gov_dig_1', 'digital', 'Board portal / secure document sharing', STANDARD_LIKERT),
-    q('gov_dig_2', 'digital', 'Compliance / risk register digital', STANDARD_LIKERT),
-    q('gov_dig_3', 'digital', 'KPI dashboard for board', STANDARD_LIKERT),
+    q('gov_gov_1', 'governance', 'مجلس / جهة استشارية فعّالة', STANDARD_LIKERT),
+    q('gov_gov_2', 'governance', 'ميثاق ولوائح ولجان موثّقة', STANDARD_LIKERT),
+    q('gov_gov_3', 'governance', 'سياسة تعارض مصالح', STANDARD_LIKERT),
+    q('gov_fin_1', 'financial', 'وظيفة مراجعة داخلية أو ما يكافئها', STANDARD_LIKERT),
+    q('gov_fin_2', 'financial', 'مراجعة الضوابط المالية سنوياً', STANDARD_LIKERT),
+    q('gov_fin_3', 'financial', 'مدقّق خارجي معيّن', STANDARD_LIKERT),
+    q('gov_team_1', 'team', 'أعضاء مجلس بمؤهلات مستقلة', STANDARD_LIKERT),
+    q('gov_team_2', 'team', 'تقييم سنوي للمجلس', STANDARD_LIKERT),
+    q('gov_team_3', 'team', 'تدريب للأعضاء', STANDARD_LIKERT),
+    q('gov_dig_1', 'digital', 'بوّابة مجلس / مشاركة مستندات آمنة', STANDARD_LIKERT),
+    q('gov_dig_2', 'digital', 'سجل امتثال / مخاطر رقمي', STANDARD_LIKERT),
+    q('gov_dig_3', 'digital', 'لوحة مؤشرات للمجلس', STANDARD_LIKERT),
   ],
 };
 
-// ─── Compliance basic (8 questions per plan §5.3) ───────────────────────────
+// ─── الامتثال الأساسي (8 أسئلة حسب خطة §5.3) ────────────────────────────────
 const COMPLIANCE_BASIC: DeptQuestion[] = [
-  q('cmp_basic_1', 'governance', 'Commercial registration valid and up to date', STANDARD_LIKERT),
-  q('cmp_basic_2', 'governance', 'Sector-specific licenses (CST, SFDA, …) renewed', STANDARD_LIKERT),
-  q('cmp_basic_3', 'governance', 'Saudization (Nitaqat) status tracked', STANDARD_LIKERT),
-  q('cmp_basic_4', 'financial', 'VAT / Zakat returns filed on time', STANDARD_LIKERT),
-  q('cmp_basic_5', 'financial', 'GOSI contributions paid', STANDARD_LIKERT),
-  q('cmp_basic_6', 'team', 'Labor-law contracts in place for every employee', STANDARD_LIKERT),
-  q('cmp_basic_7', 'digital', 'PDPL / data-privacy program', STANDARD_LIKERT),
-  q('cmp_basic_8', 'digital', 'Cybersecurity controls (NCA ECC)', STANDARD_LIKERT),
+  q('cmp_basic_1', 'governance', 'السجل التجاري ساري ومحدّث', STANDARD_LIKERT),
+  q('cmp_basic_2', 'governance', 'تراخيص قطاعية (CST، SFDA…) مجدّدة', STANDARD_LIKERT),
+  q('cmp_basic_3', 'governance', 'تتبّع وضع نطاقات للسعودة', STANDARD_LIKERT),
+  q('cmp_basic_4', 'financial', 'إقرارات ضريبة القيمة المضافة / الزكاة في موعدها', STANDARD_LIKERT),
+  q('cmp_basic_5', 'financial', 'سداد اشتراكات التأمينات', STANDARD_LIKERT),
+  q('cmp_basic_6', 'team', 'عقود نظام عمل موجودة لكل موظف', STANDARD_LIKERT),
+  q('cmp_basic_7', 'digital', 'برنامج حماية البيانات (PDPL)', STANDARD_LIKERT),
+  q('cmp_basic_8', 'digital', 'ضوابط أمن سيبراني (ECC)', STANDARD_LIKERT),
 ];
 
 const COMPLIANCE: DeptBank = {
   basic: COMPLIANCE_BASIC,
 };
 
-// ─── Registry ───────────────────────────────────────────────────────────────
+// ─── السجل ──────────────────────────────────────────────────────────────────
 export const DEPT_BANKS: Record<DeptCode, DeptBank> = {
   HR,
   FINANCE,

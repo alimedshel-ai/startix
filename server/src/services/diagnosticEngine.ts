@@ -152,46 +152,54 @@ export function calculateOwnerPath(answers: OwnerAnswers): OwnerDiagnosticResult
 }
 
 const ACTION_BY_KEY: Record<keyof OwnerAnswers, (label: string) => RoadmapAction> = {
-  companyName: (label) => ({ title: 'Confirm legal entity', detail: 'Verify trade name and CR.', source: 'companyName' }),
-  sector: (label) => ({ title: 'Sharpen sector positioning', detail: 'Pick a primary sector and 2-line value prop.', source: 'sector' }),
-  stage: (label) => ({
-    title: 'Stabilize the operating cadence',
-    detail: 'Run a weekly leadership huddle for 8 weeks; track 3 critical KPIs.',
+  companyName: () => ({
+    title: 'أكّد الكيان القانوني',
+    detail: 'تحقّق من الاسم التجاري ورقم السجل التجاري.',
+    source: 'companyName',
+  }),
+  sector: () => ({
+    title: 'حدّد موقعك في القطاع',
+    detail: 'اختر قطاعاً رئيسياً واكتب عرض القيمة في سطرين.',
+    source: 'sector',
+  }),
+  stage: () => ({
+    title: 'ثبّت إيقاع التشغيل',
+    detail: 'اجتماع قيادي أسبوعي لمدة 8 أسابيع، وتتبّع 3 مؤشرات حرجة.',
     source: 'stage',
   }),
-  size: (label) => ({
-    title: 'Right-size the team',
-    detail: 'Map roles to revenue per head; defer hires until utilization exceeds 70%.',
+  size: () => ({
+    title: 'اضبط حجم الفريق',
+    detail: 'اربط كل وظيفة بالإيراد لكل رأس، وأجّل التوظيف حتى تتجاوز نسبة الإشغال 70%.',
     source: 'size',
   }),
-  ownerDependency: (label) => ({
-    title: 'Reduce owner dependency',
-    detail: 'Document top-10 decisions and delegate three within 30 days.',
+  ownerDependency: () => ({
+    title: 'قلّل الاعتماد على المالك',
+    detail: 'وثّق أهم 10 قرارات وفوّض ثلاثة منها خلال 30 يوماً.',
     source: 'ownerDependency',
   }),
-  financialTracking: (label) => ({
-    title: 'Close the books monthly',
-    detail: 'Stand up an accounting system + a 5-line P&L by next month-end.',
+  financialTracking: () => ({
+    title: 'أقفل الدفاتر شهرياً',
+    detail: 'فعّل نظام محاسبة + قائمة أرباح من 5 أسطر مع نهاية الشهر القادم.',
     source: 'financialTracking',
   }),
-  liquidity: (label) => ({
-    title: 'Buy runway',
-    detail: 'Cut discretionary spend 20% and target 90+ days of cash within 60 days.',
+  liquidity: () => ({
+    title: 'اشتر مدى زمنياً للشركة',
+    detail: 'اخفض المصروفات الاختيارية 20% واستهدف سيولة 90+ يوماً خلال 60 يوماً.',
     source: 'liquidity',
   }),
-  governance: (label) => ({
-    title: 'Install lightweight governance',
-    detail: 'Adopt a 1-page delegation matrix and run a monthly business review.',
+  governance: () => ({
+    title: 'ركّب حوكمة خفيفة',
+    detail: 'اعتمد مصفوفة تفويض من صفحة واحدة، واعقد مراجعة شهرية للأعمال.',
     source: 'governance',
   }),
-  scalability: (label) => ({
-    title: 'Productize the highest-margin offering',
-    detail: 'Pick one offering and remove all custom paths from delivery.',
+  scalability: () => ({
+    title: 'حوّل أعلى عرض ربحية إلى منتج',
+    detail: 'اختر عرضاً واحداً واحذف كل المسارات المخصّصة من التسليم.',
     source: 'scalability',
   }),
-  exitStrategy: (label) => ({
-    title: 'Pick a directional exit story',
-    detail: 'Choose IPO / M&A / family and align reporting to that audience.',
+  exitStrategy: () => ({
+    title: 'اختر اتجاه قصة الخروج',
+    detail: 'اختر بين الطرح العام / الاستحواذ / العائلة، وحاذِ التقارير مع الجمهور المناسب.',
     source: 'exitStrategy',
   }),
 };
@@ -204,61 +212,61 @@ const SCENARIOS_BY_PATH: Record<StrategicPath, ScenarioPreview[]> = {
   EMERGENCY_RISK: [
     {
       name: 'optimistic',
-      headline: 'Survive the next 90 days',
-      detail: 'Execute cash-protection plan; reach break-even by end of quarter.',
+      headline: 'النجاة في الـ 90 يوماً القادمة',
+      detail: 'نفّذ خطة حماية النقد وصِل لنقطة التعادل قبل نهاية الربع.',
     },
     {
       name: 'pessimistic',
-      headline: 'Forced restructuring',
-      detail: 'Without intervention, layoffs or distressed sale within 3 months.',
+      headline: 'إعادة هيكلة قسرية',
+      detail: 'بدون تدخّل سريع، تسريح موظفين أو بيع اضطراري خلال 3 أشهر.',
     },
   ],
   NASCENT_CAUTIOUS: [
     {
       name: 'optimistic',
-      headline: 'Reach product-market fit',
-      detail: 'Lock in 5 paying customers and a repeatable acquisition channel within 90 days.',
+      headline: 'الوصول لملاءمة المنتج للسوق',
+      detail: 'احصل على 5 عملاء يدفعون وقناة استحواذ قابلة للتكرار خلال 90 يوماً.',
     },
     {
       name: 'pessimistic',
-      headline: 'Stuck in pilot loop',
-      detail: 'Burn rate outpaces validation; pivot or shut down within 2 quarters.',
+      headline: 'العَلَق في حلقة التجارب',
+      detail: 'معدّل الإنفاق يتجاوز إثبات الفرضيات؛ تحوّل في الاتجاه أو إغلاق خلال ربعين.',
     },
   ],
   GROWING_CHAOTIC: [
     {
       name: 'optimistic',
-      headline: 'Operationalize the growth',
-      detail: 'Quality drops disappear; gross margin recovers as systems catch up.',
+      headline: 'تأطير النموّ تشغيلياً',
+      detail: 'انهيارات الجودة تختفي، وهامش الربح الإجمالي يستردّ مع لحاق الأنظمة.',
     },
     {
       name: 'pessimistic',
-      headline: 'Growth-induced collapse',
-      detail: 'Churn spikes, top talent leaves, growth stalls within 2 quarters.',
+      headline: 'انهيار ناتج عن النموّ',
+      detail: 'ارتفاع التسرّب، خروج المواهب القيادية، وتوقّف النموّ خلال ربعين.',
     },
   ],
   MATURE_COMPETITIVE: [
     {
       name: 'optimistic',
-      headline: 'Compound the moat',
-      detail: 'Adjacent expansion adds 15-25% revenue without new fixed cost.',
+      headline: 'تعميق الميزة التنافسية',
+      detail: 'توسّع جانبي يضيف 15–25% من الإيرادات بدون تكاليف ثابتة جديدة.',
     },
     {
       name: 'pessimistic',
-      headline: 'Slow erosion',
-      detail: 'A nimbler entrant captures share; price competition trims margin.',
+      headline: 'تآكل بطيء',
+      detail: 'منافس أكثر مرونة يستحوذ على حصة، وضغط الأسعار يقلّص الهامش.',
     },
   ],
   DEFAULT_STRATEGIC: [
     {
       name: 'optimistic',
-      headline: 'Pick a clear direction',
-      detail: 'Commit to one strategic path within 30 days and align resources.',
+      headline: 'اختيار اتجاه واضح',
+      detail: 'التزم بمسار استراتيجي واحد خلال 30 يوماً وحاذِ الموارد معه.',
     },
     {
       name: 'pessimistic',
-      headline: 'Drift continues',
-      detail: 'Without a chosen path, energy fragments and momentum stalls.',
+      headline: 'استمرار التشتّت',
+      detail: 'بدون مسار محدّد، تتشظّى الطاقة ويتوقّف الزخم.',
     },
   ],
 };

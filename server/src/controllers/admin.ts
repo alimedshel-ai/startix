@@ -10,7 +10,7 @@ import { HttpError } from '../middleware/error';
  */
 export const adminStats: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
 
     const since30 = new Date(Date.now() - 30 * 86400000);
 

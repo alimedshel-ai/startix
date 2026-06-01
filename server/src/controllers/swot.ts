@@ -37,7 +37,7 @@ async function getOrCreateSWOT(companyId: string) {
 // ─── PUT /api/swot/:companyId — upsert the SWOT ─────────────────────────────
 export const upsertSWOT: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const body = swotSchema.parse(req.body);
@@ -61,7 +61,7 @@ export const upsertSWOT: RequestHandler = async (req, res, next) => {
 // ─── GET /api/swot/:companyId ──────────────────────────────────────────────
 export const getSWOT: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const swot = await getOrCreateSWOT(companyId);
@@ -74,7 +74,7 @@ export const getSWOT: RequestHandler = async (req, res, next) => {
 // ─── PUT /api/swot/:companyId/tows — update TOWS strategies ────────────────
 export const upsertTOWS: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const body = towsSchema.parse(req.body);
@@ -92,7 +92,7 @@ export const upsertTOWS: RequestHandler = async (req, res, next) => {
 // ─── POST /api/swot/:companyId/tows/suggest — auto-fill TOWS from SWOT ─────
 export const suggestTOWS: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const swot = await getOrCreateSWOT(companyId);

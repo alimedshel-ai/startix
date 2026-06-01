@@ -20,11 +20,11 @@ export interface StructuredReport {
 
 export function buildReport(input: ReportInput): StructuredReport {
   const sections: StructuredReport['sections'] = [];
-  if (input.diagnostics) sections.push({ title: 'Diagnostics', data: input.diagnostics });
-  if (input.audits) sections.push({ title: 'Department audits', data: input.audits });
+  if (input.diagnostics) sections.push({ title: 'التشخيصات', data: input.diagnostics });
+  if (input.audits) sections.push({ title: 'تدقيقات الأقسام', data: input.audits });
   if (input.swot) sections.push({ title: 'SWOT / TOWS', data: input.swot });
-  if (input.okrs) sections.push({ title: 'OKRs & KPIs', data: input.okrs });
-  if (input.reviews) sections.push({ title: 'Reviews', data: input.reviews });
+  if (input.okrs) sections.push({ title: 'الأهداف والمؤشرات', data: input.okrs });
+  if (input.reviews) sections.push({ title: 'المراجعات', data: input.reviews });
   return {
     type: input.type,
     generatedAt: new Date().toISOString(),

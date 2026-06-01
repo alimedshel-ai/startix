@@ -24,10 +24,10 @@ export interface SmartRecommendations {
 }
 
 const PHRASE: Record<SmartInsight['axis'], string> = {
-  governance: 'Governance is below target — add policies, documented delegations and a review cadence.',
-  financial: 'Financial controls are weak — tighten cost tracking, forecasting and budget ownership.',
-  team: 'Team capabilities are below target — invest in training, onboarding and skills matrices.',
-  digital: 'Digital maturity is below target — adopt or fully use the systems the function relies on.',
+  governance: 'الحوكمة دون المستهدف — أضف سياسات وتفويضات موثّقة ودورة مراجعة منتظمة.',
+  financial: 'الضوابط المالية ضعيفة — أحكم تتبّع التكاليف والتنبؤات وملكية الموازنة.',
+  team: 'قدرات الفريق دون المستهدف — استثمر في التدريب والتأهيل ومصفوفات المهارات.',
+  digital: 'النضج الرقمي دون المستهدف — اعتمد الأنظمة التي يحتاجها هذا القسم واستخدمها بالكامل.',
 };
 
 function severity(scorePct: number): SmartInsight['severity'] {

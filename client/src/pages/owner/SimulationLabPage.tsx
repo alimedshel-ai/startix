@@ -25,7 +25,7 @@ const DEFAULTS: Inputs = {
   costReductionPct: 10,
 }
 
-const SAR = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 })
+const SAR = new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 })
 
 function compute(i: Inputs): SimulationResult {
   const projectedRevenue = i.baseRevenue * (1 + i.revenueGrowthPct / 100)

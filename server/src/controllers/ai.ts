@@ -29,7 +29,7 @@ async function loadCompanyContext(companyId: string): Promise<{ ctx: CompanyCont
     where: { id: companyId },
     select: { id: true, name: true, sector: true, size: true, stage: true },
   });
-  if (!company) throw new HttpError(404, 'Company not found');
+  if (!company) throw new HttpError(404, 'الشركة غير موجودة');
   const diagnostic = await prisma.diagnostic.findFirst({
     where: { companyId },
     orderBy: { createdAt: 'desc' },
@@ -80,7 +80,7 @@ function advisorSystem(ctx: CompanyContext, path: string | null): string {
 
 export const advisorChat: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureClaude();
     const body = advisorSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
@@ -140,7 +140,7 @@ interface TOWSResult {
 
 export const towsSuggestions: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureClaude();
     const body = towsBodySchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
@@ -205,7 +205,7 @@ interface PresentationResult {
 
 export const generatePresentation: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureClaude();
     const body = presentationSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
@@ -298,7 +298,7 @@ const ROUTE_HINTS: { label: string; to: string }[] = [
 
 export const painScreen: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureClaude();
     const body = painScreenSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
@@ -342,7 +342,7 @@ const smartGuideSchema = z.object({
 
 export const smartGuide: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     if (!claudeConfigured()) {
       res.json({ suggestion: null, configured: false });
       return;
@@ -401,7 +401,7 @@ function linearRegression(points: { x: number; y: number }[]): { slope: number; 
 
 export const getPredictions: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = z.string().uuid().parse(paramOf(req, 'companyId'));
     await assertCompanyAccess(req.auth.sub, companyId);
 
@@ -510,7 +510,7 @@ const simulateSchema = z.object({
 
 export const runSimulation: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const body = simulateSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
 

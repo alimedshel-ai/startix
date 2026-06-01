@@ -175,7 +175,7 @@ function Inner({ companyId }: { companyId: string }) {
                   <span className="font-medium">{r.title}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="tabular-nums">{new Date(r.createdAt).toLocaleDateString('en-US')}</span>
+                  <span className="tabular-nums">{new Date(r.createdAt).toLocaleDateString('ar-SA')}</span>
                   <Button variant="outline" size="sm" onClick={() => open(r.id)} disabled={openingId === r.id}>
                     {openingId === r.id ? 'فتح…' : 'عرض'}
                   </Button>
@@ -194,7 +194,7 @@ function Inner({ companyId }: { companyId: string }) {
             <div>
               <CardTitle>{opened.title}</CardTitle>
               <CardDescription>
-                {TYPE_LABEL[opened.type] ?? opened.type} · {new Date(opened.createdAt).toLocaleString('en-US')}
+                {TYPE_LABEL[opened.type] ?? opened.type} · {new Date(opened.createdAt).toLocaleString('ar-SA')}
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -352,7 +352,7 @@ function ComplianceBody({ d }: { d: AnyRec }) {
       </Section>
       <Section title="تدقيق احترافي">
         {pro ? (
-          <p>النضج: <b>{pro.maturityPct}%</b> · المنطقة: <b>{pro.dangerZone}</b> · تعرّض الغرامات: <b className="tabular-nums">{pro.penaltyEstimate?.toLocaleString('en-US') ?? '—'} SAR</b></p>
+          <p>النضج: <b>{pro.maturityPct}%</b> · المنطقة: <b>{pro.dangerZone}</b> · تعرّض الغرامات: <b className="tabular-nums">{pro.penaltyEstimate?.toLocaleString('ar-SA') ?? '—'} SAR</b></p>
         ) : <p className="text-muted-foreground">لم يجرَ التدقيق الاحترافي بعد.</p>}
       </Section>
       {pro?.reformPlan && pro.reformPlan.length > 0 && (

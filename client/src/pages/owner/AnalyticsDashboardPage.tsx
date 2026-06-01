@@ -32,7 +32,7 @@ function trendIcon(slope: number): { icon: string; color: string } {
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
 }
 
 function alertTint(s: Alert['severity']): { tint: string; chip: string } {
@@ -153,7 +153,7 @@ function Dashboard({ companyId }: { companyId: string }) {
                 <CardTitle>توقعات ٩٠ يوم</CardTitle>
                 <CardDescription>
                   {selectedSeries
-                    ? `${selectedSeries.name} — هدف ${selectedSeries.target.toLocaleString('en-US')} ${selectedSeries.unit}`
+                    ? `${selectedSeries.name} — هدف ${selectedSeries.target.toLocaleString('ar-SA')} ${selectedSeries.unit}`
                     : 'لا توجد مؤشرات بعد'}
                 </CardDescription>
               </div>
@@ -255,9 +255,9 @@ function Dashboard({ companyId }: { companyId: string }) {
                       <span className="truncate text-xs font-medium">{s.name}</span>
                       <span className={`text-xl font-bold tabular-nums ${t.color}`}>{t.icon}</span>
                     </div>
-                    <div className="mt-1 text-lg font-bold tabular-nums">{last.toLocaleString('en-US')} <span className="text-xs text-muted-foreground">{s.unit}</span></div>
+                    <div className="mt-1 text-lg font-bold tabular-nums">{last.toLocaleString('ar-SA')} <span className="text-xs text-muted-foreground">{s.unit}</span></div>
                     <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                      <span>الهدف {s.target.toLocaleString('en-US')}</span>
+                      <span>الهدف {s.target.toLocaleString('ar-SA')}</span>
                       <span className="tabular-nums">{pct}%</span>
                     </div>
                     <Progress value={Math.min(100, pct)} className="mt-1 h-1" />

@@ -197,8 +197,8 @@ function Editor({ companyId }: { companyId: string }) {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold tabular-nums">{k.currentValue.toLocaleString('en-US')}</span>
-                  <span className="text-sm text-muted-foreground tabular-nums">/ {k.targetValue.toLocaleString('en-US')} {k.unit}</span>
+                  <span className="text-3xl font-bold tabular-nums">{k.currentValue.toLocaleString('ar-SA')}</span>
+                  <span className="text-sm text-muted-foreground tabular-nums">/ {k.targetValue.toLocaleString('ar-SA')} {k.unit}</span>
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">

@@ -53,7 +53,7 @@ export function ReportPrintPage() {
     <div dir="rtl" className="mx-auto max-w-3xl bg-white p-8 text-base text-black print:p-0">
       <header className="mb-8 border-b pb-4">
         <div className="mb-2 text-xs text-gray-500">
-          {TYPE_LABEL[report.type] ?? report.type} · {new Date(report.createdAt).toLocaleString('en-US')}
+          {TYPE_LABEL[report.type] ?? report.type} · {new Date(report.createdAt).toLocaleString('ar-SA')}
         </div>
         <h1 className="text-3xl font-bold">{report.title}</h1>
       </header>
@@ -61,7 +61,7 @@ export function ReportPrintPage() {
       <Body type={report.type} data={d} />
 
       <footer className="mt-12 border-t pt-4 text-center text-xs text-gray-500">
-        صادر من منصة ستارتكس — {new Date().toLocaleDateString('en-US')}
+        صادر من منصة ستارتكس — {new Date().toLocaleDateString('ar-SA')}
       </footer>
     </div>
   )
@@ -234,7 +234,7 @@ function Compliance({ d }: { d: AnyRec }) {
         <KV label="تدقيق أساسي — المنطقة" value={basic?.dangerZone ?? '—'} />
         <KV label="تدقيق احترافي — النضج" value={pro?.maturityPct != null ? `${pro.maturityPct}%` : '—'} />
         <KV label="تدقيق احترافي — المنطقة" value={pro?.dangerZone ?? '—'} />
-        <KV label="تعرّض الغرامات (SAR)" value={pro?.penaltyEstimate != null ? pro.penaltyEstimate.toLocaleString('en-US') : '—'} />
+        <KV label="تعرّض الغرامات (SAR)" value={pro?.penaltyEstimate != null ? pro.penaltyEstimate.toLocaleString('ar-SA') : '—'} />
       </ul>
 
       {pro?.reformPlan && pro.reformPlan.length > 0 && (

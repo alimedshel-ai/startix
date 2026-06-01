@@ -178,7 +178,7 @@ function Inner({ companyId }: { companyId: string }) {
                     <span className={`size-2.5 shrink-0 rounded-full ${STATUS_TINT[t.status] ?? 'bg-slate-500'}`} />
                     <span className="flex-1">{t.title}</span>
                     <span className={`text-xs tabular-nums ${overdue ? 'text-rose-700 font-semibold' : 'text-muted-foreground'}`}>
-                      {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {due.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })}
                       {overdue && ' · متأخر'}
                     </span>
                   </li>

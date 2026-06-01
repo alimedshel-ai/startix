@@ -139,7 +139,7 @@ function Editor({ companyId }: { companyId: string }) {
               <div>
                 <CardTitle>القرار مُثبَّت</CardTitle>
                 <CardDescription>
-                  مأخوذ في {new Date(choice.decidedAt!).toLocaleDateString('en-US')}.
+                  مأخوذ في {new Date(choice.decidedAt!).toLocaleDateString('ar-SA')}.
                 </CardDescription>
               </div>
             </div>

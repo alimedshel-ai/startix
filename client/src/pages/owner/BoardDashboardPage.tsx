@@ -122,7 +122,7 @@ function Inner({ companyId }: { companyId: string }) {
                     <li key={k.id} className="rounded-lg border bg-card p-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{k.name}</span>
-                        <span className="tabular-nums">{k.currentValue.toLocaleString('en-US')} / {k.targetValue.toLocaleString('en-US')} {k.unit}</span>
+                        <span className="tabular-nums">{k.currentValue.toLocaleString('ar-SA')} / {k.targetValue.toLocaleString('ar-SA')} {k.unit}</span>
                       </div>
                       <Progress value={Math.min(100, p)} className="mt-1 h-1.5" />
                     </li>

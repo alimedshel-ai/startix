@@ -21,7 +21,7 @@ function sMeta(s: string) {
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 function isOverdue(c: Correction): boolean {

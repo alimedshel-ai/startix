@@ -38,7 +38,7 @@ const upsertSchema = z.object({
 // ─── PUT /api/strategic/:companyId/:type — upsert ───────────────────────────
 export const upsertArtifact: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     const type = typeSchema.parse(paramOf(req, 'type'));
     await assertCompanyAccess(req.auth.sub, companyId);
@@ -57,7 +57,7 @@ export const upsertArtifact: RequestHandler = async (req, res, next) => {
 // ─── GET /api/strategic/:companyId/:type ───────────────────────────────────
 export const getArtifact: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     const type = typeSchema.parse(paramOf(req, 'type'));
     await assertCompanyAccess(req.auth.sub, companyId);
@@ -73,7 +73,7 @@ export const getArtifact: RequestHandler = async (req, res, next) => {
 // ─── GET /api/strategic/:companyId ── list all ─────────────────────────────
 export const listArtifacts: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const artifacts = await prisma.strategicArtifact.findMany({

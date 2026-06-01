@@ -109,7 +109,7 @@ function Chart({ companyId }: { companyId: string }) {
         <CardHeader>
           <CardTitle>الفترة الزمنية</CardTitle>
           <CardDescription>
-            من {range.start.toLocaleDateString('en-US')} إلى {range.end.toLocaleDateString('en-US')} ·{' '}
+            من {range.start.toLocaleDateString('ar-SA')} إلى {range.end.toLocaleDateString('ar-SA')} ·{' '}
             {projects.length} مشروع · {tasks.filter((t) => t.dueDate).length} مهمة بتاريخ.
           </CardDescription>
         </CardHeader>
@@ -168,7 +168,7 @@ function Chart({ companyId }: { companyId: string }) {
               {tasks.filter((t) => t.dueDate && !t.projectId).map((t) => (
                 <li key={t.id} className="flex items-center justify-between rounded-md border bg-card p-2">
                   <span>{t.title}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{new Date(t.dueDate!).toLocaleDateString('en-US')}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{new Date(t.dueDate!).toLocaleDateString('ar-SA')}</span>
                 </li>
               ))}
             </ul>
@@ -221,7 +221,7 @@ function ProjectRow({
               key={t.id}
               className="absolute top-0 h-full w-1 rounded bg-amber-500"
               style={{ insetInlineStart: `${left}%` }}
-              title={`${t.title} — ${new Date(t.dueDate!).toLocaleDateString('en-US')}`}
+              title={`${t.title} — ${new Date(t.dueDate!).toLocaleDateString('ar-SA')}`}
             />
           )
         })}

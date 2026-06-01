@@ -69,9 +69,9 @@ async function ensureCompanyForUser(
 
 export const submitOwnerDiagnostic: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     if (req.auth.userType !== 'OWNER') {
-      throw new HttpError(403, 'Owner diagnostic is only for OWNER accounts');
+      throw new HttpError(403, 'تشخيص المالك متاح فقط لحسابات المالك');
     }
     const answers = ownerSchema.parse(req.body) as OwnerAnswers;
 
@@ -131,9 +131,9 @@ const managerSchema = z.object({
 
 export const submitManagerDiagnostic: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     if (req.auth.userType !== 'MANAGER') {
-      throw new HttpError(403, 'Manager diagnostic is only for MANAGER accounts');
+      throw new HttpError(403, 'تشخيص المدير متاح فقط لحسابات المدير');
     }
     const answers = managerSchema.parse(req.body);
 
@@ -178,9 +178,9 @@ const investorSchema = z.object({
 
 export const submitInvestorDiagnostic: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     if (req.auth.userType !== 'INVESTOR') {
-      throw new HttpError(403, 'Investor diagnostic is only for INVESTOR accounts');
+      throw new HttpError(403, 'تشخيص المستثمر متاح فقط لحسابات المستثمر');
     }
     const answers = investorSchema.parse(req.body);
 
@@ -216,19 +216,19 @@ export const submitInvestorDiagnostic: RequestHandler = async (req, res, next) =
 
 export const getLatestDiagnostic: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = (req.params as { companyId: string }).companyId;
 
     const link = await prisma.companyUser.findFirst({
       where: { userId: req.auth.sub, companyId },
     });
-    if (!link) throw new HttpError(404, 'Company not found');
+    if (!link) throw new HttpError(404, 'الشركة غير موجودة');
 
     const latest = await prisma.diagnostic.findFirst({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
     });
-    if (!latest) throw new HttpError(404, 'No diagnostic recorded for this company');
+    if (!latest) throw new HttpError(404, 'لا يوجد تشخيص مسجّل لهذه الشركة');
 
     // Owner diagnostics re-compute the full result so the client can rebuild
     // the result page after a refresh without persisting pathScores/breakdown.
@@ -252,7 +252,7 @@ export const getLatestDiagnostic: RequestHandler = async (req, res, next) => {
 // after a page refresh.
 export const getMyLatestDiagnostic: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const link = await prisma.companyUser.findFirst({
       where: { userId: req.auth.sub },
       orderBy: { id: 'asc' },

@@ -72,7 +72,7 @@ export const register: RequestHandler = async (req, res, next) => {
     const data = registerSchema.parse(req.body);
 
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new HttpError(409, 'Email already registered');
+    if (existing) throw new HttpError(409, 'البريد الإلكتروني مسجّل مسبقاً');
 
     const passwordHash = await bcrypt.hash(data.password, 10);
     const verificationToken = generateVerificationToken();
@@ -145,10 +145,10 @@ export const login: RequestHandler = async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: data.email } });
-    if (!user) throw new HttpError(401, 'Invalid email or password');
+    if (!user) throw new HttpError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
 
     const ok = await bcrypt.compare(data.password, user.passwordHash);
-    if (!ok) throw new HttpError(401, 'Invalid email or password');
+    if (!ok) throw new HttpError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
 
     const { accessToken } = await issueSession(
       res,
@@ -182,14 +182,14 @@ export const refresh: RequestHandler = async (req, res, next) => {
   try {
     const cookies = (req as { cookies?: Record<string, string> }).cookies ?? {};
     const refresh = cookies.refresh_token ?? (req.body as { refreshToken?: string })?.refreshToken;
-    if (!refresh) throw new HttpError(401, 'Missing refresh token');
+    if (!refresh) throw new HttpError(401, 'رمز التحديث مفقود');
 
     const session = await prisma.session.findUnique({
       where: { tokenHash: hashToken(refresh) },
       include: { user: true },
     });
     if (!session || session.expiresAt < new Date()) {
-      throw new HttpError(401, 'Invalid or expired refresh token');
+      throw new HttpError(401, 'رمز التحديث غير صالح أو منتهي');
     }
 
     await prisma.session.delete({ where: { id: session.id } });
@@ -244,7 +244,7 @@ export const resetPassword: RequestHandler = async (req, res, next) => {
       where: { passwordResetToken: data.token },
     });
     if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
-      throw new HttpError(400, 'Invalid or expired reset token');
+      throw new HttpError(400, 'رمز إعادة التعيين غير صالح أو منتهي');
     }
     const passwordHash = await bcrypt.hash(data.password, 10);
     await prisma.$transaction([
@@ -269,7 +269,7 @@ export const verifyEmail: RequestHandler = async (req, res, next) => {
   try {
     const raw = req.params.token;
     const token = Array.isArray(raw) ? raw[0] : raw;
-    if (!token) throw new HttpError(400, 'Missing verification token');
+    if (!token) throw new HttpError(400, 'رمز التحقق مفقود');
 
     const user = await prisma.user.findUnique({
       where: { emailVerificationToken: token },
@@ -279,7 +279,7 @@ export const verifyEmail: RequestHandler = async (req, res, next) => {
       !user.emailVerificationExpiresAt ||
       user.emailVerificationExpiresAt < new Date()
     ) {
-      throw new HttpError(400, 'Invalid or expired verification token');
+      throw new HttpError(400, 'رمز التحقق غير صالح أو منتهي');
     }
     await prisma.user.update({
       where: { id: user.id },
@@ -297,9 +297,9 @@ export const verifyEmail: RequestHandler = async (req, res, next) => {
 
 export const me: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const user = await prisma.user.findUnique({ where: { id: req.auth.sub } });
-    if (!user) throw new HttpError(404, 'User not found');
+    if (!user) throw new HttpError(404, 'المستخدم غير موجود');
     res.json({ user: publicUser(user) });
   } catch (err) {
     next(err);
@@ -314,7 +314,7 @@ const updateMeSchema = z.object({
 
 export const updateMe: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const data = updateMeSchema.parse(req.body);
     const user = await prisma.user.update({
       where: { id: req.auth.sub },

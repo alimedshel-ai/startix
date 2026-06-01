@@ -42,7 +42,7 @@ export const listPlans: RequestHandler = async (_req, res) => {
 // ─── POST /api/payments/create-checkout ─────────────────────────────────────
 export const createCheckout: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureStripe();
     const body = checkoutSchema.parse(req.body);
     const plan = PLANS.find((p) => p.tier === body.plan);
@@ -51,7 +51,7 @@ export const createCheckout: RequestHandler = async (req, res, next) => {
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.auth.sub } });
-    if (!user) throw new HttpError(404, 'User not found');
+    if (!user) throw new HttpError(404, 'المستخدم غير موجود');
 
     const session = await stripe().checkout.sessions.create({
       mode: 'subscription',
@@ -76,10 +76,10 @@ export const createCheckout: RequestHandler = async (req, res, next) => {
 // ─── GET /api/payments/portal — Stripe Billing Portal ───────────────────────
 export const billingPortal: RequestHandler = async (req, res, next) => {
   try {
-    if (!req.auth) throw new HttpError(401, 'Not authenticated');
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
     ensureStripe();
     const user = await prisma.user.findUnique({ where: { id: req.auth.sub } });
-    if (!user) throw new HttpError(404, 'User not found');
+    if (!user) throw new HttpError(404, 'المستخدم غير موجود');
 
     // Find existing customer by email (one customer per email is fine for v1)
     const customers = await stripe().customers.list({ email: user.email, limit: 1 });
@@ -103,7 +103,7 @@ export const billingPortal: RequestHandler = async (req, res, next) => {
 // mounted *before* the global JSON parser. See server/src/index.ts.
 export const stripeWebhook: RequestHandler = async (req, res) => {
   if (!stripeConfigured() || !stripeWebhookConfigured()) {
-    res.status(503).json({ error: 'Stripe not configured' });
+    res.status(503).json({ error: 'Stripe غير مفعّل على السيرفر' });
     return;
   }
   const signature = req.headers['stripe-signature'];
@@ -171,6 +171,6 @@ export const stripeWebhook: RequestHandler = async (req, res) => {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[stripe webhook]', err);
     }
-    res.status(500).json({ error: 'Webhook handler error' });
+    res.status(500).json({ error: 'خطأ في معالج الـ webhook' });
   }
 };

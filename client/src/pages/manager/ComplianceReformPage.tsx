@@ -104,7 +104,7 @@ export function ComplianceReformPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold text-red-700 tabular-nums">
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(penalty)}
+                  {new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(penalty)}
                 </div>
               </CardContent>
             </Card>

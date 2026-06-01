@@ -150,7 +150,7 @@ function Editor({ companyId }: { companyId: string }) {
                           <div className="flex-1">
                             <div className="text-sm font-medium">{k.keyResult}</div>
                             <div className="mt-1 text-xs text-muted-foreground tabular-nums">
-                              الهدف: {k.targetValue.toLocaleString('en-US')}{k.unit ? ` ${k.unit}` : ''}
+                              الهدف: {k.targetValue.toLocaleString('ar-SA')}{k.unit ? ` ${k.unit}` : ''}
                             </div>
                           </div>
                           <span className="rounded-md border bg-card px-2 py-1 text-xs font-bold tabular-nums">{p}%</span>

@@ -37,7 +37,7 @@ interface KOLicense {
   axis: string
 }
 
-const PENALTY_FMT = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 })
+const PENALTY_FMT = new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 })
 
 const ZONE_LABEL: Record<string, string> = {
   GREEN: 'آمنة',

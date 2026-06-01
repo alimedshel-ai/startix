@@ -108,7 +108,7 @@ function Board({ companyId }: { companyId: string }) {
           </div>
           {lastRefresh && (
             <span className="text-xs text-muted-foreground tabular-nums">
-              آخر تحديث: {lastRefresh.toLocaleTimeString('en-US')}
+              آخر تحديث: {lastRefresh.toLocaleTimeString('ar-SA')}
             </span>
           )}
         </CardHeader>
@@ -179,7 +179,7 @@ function Board({ companyId }: { companyId: string }) {
                       <div className={`mt-1 text-2xl font-bold tabular-nums ${t.text}`}>{p}%</div>
                       <Progress value={Math.min(100, p)} className="mt-1 h-1.5" />
                       <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-                        {k.currentValue.toLocaleString('en-US')} / {k.targetValue.toLocaleString('en-US')} {k.unit}
+                        {k.currentValue.toLocaleString('ar-SA')} / {k.targetValue.toLocaleString('ar-SA')} {k.unit}
                       </div>
                     </div>
                   )

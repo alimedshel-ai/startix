@@ -12,7 +12,7 @@ import { apiErrorMessage } from '@/lib/api'
 import { createKPIEntry, listKPIEntries, listKPIs, type KPI, type KPIEntry } from '@/lib/strategicApi'
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 export function KPIEntriesPage() {
@@ -81,7 +81,7 @@ function Editor({ companyId }: { companyId: string }) {
     return [...entries]
       .sort((a, b) => new Date(a.enteredAt).getTime() - new Date(b.enteredAt).getTime())
       .map((e) => ({
-        date: new Date(e.enteredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: new Date(e.enteredAt).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' }),
         value: e.value,
       }))
   }, [entries])
@@ -126,14 +126,14 @@ function Editor({ companyId }: { companyId: string }) {
             <Card className="border-sky-200 bg-sky-50/60">
               <CardHeader>
                 <CardDescription>القيمة الحالية</CardDescription>
-                <CardTitle className="text-2xl tabular-nums text-sky-700">{kpi.currentValue.toLocaleString('en-US')}</CardTitle>
+                <CardTitle className="text-2xl tabular-nums text-sky-700">{kpi.currentValue.toLocaleString('ar-SA')}</CardTitle>
                 <p className="text-xs text-muted-foreground">{kpi.unit}</p>
               </CardHeader>
             </Card>
             <Card className="border-emerald-200 bg-emerald-50/60">
               <CardHeader>
                 <CardDescription>المستهدف</CardDescription>
-                <CardTitle className="text-2xl tabular-nums text-emerald-700">{kpi.targetValue.toLocaleString('en-US')}</CardTitle>
+                <CardTitle className="text-2xl tabular-nums text-emerald-700">{kpi.targetValue.toLocaleString('ar-SA')}</CardTitle>
                 <p className="text-xs text-muted-foreground">{kpi.unit}</p>
               </CardHeader>
             </Card>
@@ -210,7 +210,7 @@ function Editor({ companyId }: { companyId: string }) {
                     {entries.map((e) => (
                       <tr key={e.id} className="border-b">
                         <td className="py-2 tabular-nums text-xs">{fmtDate(e.enteredAt)}</td>
-                        <td className="py-2 tabular-nums font-medium">{e.value.toLocaleString('en-US')} {kpi.unit}</td>
+                        <td className="py-2 tabular-nums font-medium">{e.value.toLocaleString('ar-SA')} {kpi.unit}</td>
                         <td className="py-2 text-xs text-muted-foreground">{e.notes ?? '—'}</td>
                       </tr>
                     ))}
