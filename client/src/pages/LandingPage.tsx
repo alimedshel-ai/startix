@@ -74,13 +74,16 @@ export function LandingPage() {
               تحليل ذكي، ومراجعات ربعية.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <Link to="/select-type" className={buttonVariants({ size: 'lg' })}>
-                ابدأ مجاناً
+              <Link to="/quick-check" className={buttonVariants({ size: 'lg' })}>
+                جرّب التشخيص الأولي · مجاناً
               </Link>
               <Link to="/pricing" className={buttonVariants({ size: 'lg', variant: 'outline' })}>
                 عرض الأسعار
               </Link>
             </div>
+            <p className="text-xs text-muted-foreground">
+              5 أسئلة · نتيجة فورية · بدون تسجيل
+            </p>
 
             <div className="mt-12 grid w-full max-w-3xl grid-cols-2 gap-6 sm:grid-cols-4">
               {STATS.map((s) => (
@@ -124,7 +127,7 @@ export function LandingPage() {
             <p className="max-w-xl text-muted-foreground">
               ابدأ بتشخيص مجاني واكتشف مسارك الاستراتيجي خلال خمس دقائق.
             </p>
-            <Link to="/select-type" className={buttonVariants({ size: 'lg' })}>
+            <Link to="/quick-check" className={buttonVariants({ size: 'lg' })}>
               ابدأ التشخيص المجاني
             </Link>
           </div>
