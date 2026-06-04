@@ -27,21 +27,21 @@ function readToken(req: Parameters<RequestHandler>[0]): string | null {
 
 export const requireAuth: RequestHandler = (req, _res, next) => {
   const token = readToken(req);
-  if (!token) return next(new HttpError(401, 'Missing access token'));
+  if (!token) return next(new HttpError(401, 'رمز الوصول مفقود'));
   const secret = process.env.JWT_SECRET;
-  if (!secret) return next(new HttpError(500, 'JWT_SECRET not configured'));
+  if (!secret) return next(new HttpError(500, 'JWT_SECRET غير مُعدّ على السيرفر'));
 
   try {
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload & AuthPayload;
     req.auth = { sub: decoded.sub!, userType: decoded.userType, plan: decoded.plan };
     next();
   } catch {
-    next(new HttpError(401, 'Invalid or expired token'));
+    next(new HttpError(401, 'رمز الوصول غير صالح أو منتهي'));
   }
 };
 
 export function signAuthToken(payload: AuthPayload, expiresIn: string = '15m'): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret) throw new HttpError(500, 'JWT_SECRET not configured');
+  if (!secret) throw new HttpError(500, 'JWT_SECRET غير مُعدّ على السيرفر');
   return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
 }

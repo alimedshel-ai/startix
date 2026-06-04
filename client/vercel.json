@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://startix-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health/:path*",
+      "destination": "https://startix-api.onrender.com/health/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://startix-api.onrender.com/health"
+    },
+    {
+      "source": "/((?!api|health).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

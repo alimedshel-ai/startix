@@ -1,7 +1,11 @@
 import axios, { AxiosError } from 'axios'
 
-const FALLBACK_BASE = 'http://localhost:5001'
-const baseURL = import.meta.env.VITE_API_URL || FALLBACK_BASE
+// In production the SPA is served by Vercel and /api/* is rewritten by
+// vercel.json to the Render API — so we use a relative base, which keeps
+// the request same-origin and cookies first-party. In dev we hit the
+// local Express server explicitly.
+const DEV_FALLBACK = 'http://localhost:5001'
+const baseURL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : DEV_FALLBACK)
 
 export const api = axios.create({
   baseURL,
