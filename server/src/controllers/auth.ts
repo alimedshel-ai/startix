@@ -18,17 +18,20 @@ import { sendEmail, verificationEmail, passwordResetEmail } from '../lib/ses';
 const isProd = process.env.NODE_ENV === 'production';
 const CLIENT_URL = process.env.CLIENT_URL ?? 'http://localhost:5173';
 
+// In production the API and the web app live on different sites (Render and
+// Vercel), so cookies must be SameSite=None + Secure for the browser to send
+// them on cross-site XHR. In dev (localhost) we keep Lax for the simpler flow.
 const accessCookie: CookieOptions = {
   httpOnly: true,
   secure: isProd,
-  sameSite: 'lax',
+  sameSite: isProd ? 'none' : 'lax',
   maxAge: 1000 * 60 * 15,
 };
 
 const refreshCookie: CookieOptions = {
   httpOnly: true,
   secure: isProd,
-  sameSite: 'lax',
+  sameSite: isProd ? 'none' : 'lax',
   maxAge: REFRESH_TOKEN_TTL_MS,
 };
 
