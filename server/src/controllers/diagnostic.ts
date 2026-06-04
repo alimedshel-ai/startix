@@ -67,6 +67,18 @@ async function ensureCompanyForUser(
   });
 }
 
+// نقطة عامة بدون auth لمعاينة نتيجة التشخيص قبل التسجيل.
+// نفس منطق التقييم — لكن لا تكتب على قاعدة البيانات.
+export const previewOwnerDiagnostic: RequestHandler = async (req, res, next) => {
+  try {
+    const answers = ownerSchema.parse(req.body) as OwnerAnswers;
+    const result = calculateOwnerPath(answers);
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const submitOwnerDiagnostic: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');

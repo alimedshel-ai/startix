@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,8 +9,10 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
+import type { OwnerDiagnosticResult } from '@/lib/diagnosticQuestions'
 import { useAuthStore } from '@/store/authStore'
+import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { User, UserType } from '@/types/user'
 
 const schema = z.object({
@@ -37,6 +39,33 @@ export function OnboardingPage() {
   const setUser = useAuthStore((s) => s.setUser)
   const logout = useAuthStore((s) => s.logout)
   const [submitting, setSubmitting] = useState(false)
+
+  // لو الزائر سوّى تشخيص قبل التسجيل، احفظه في حسابه أوّل ما يدخل.
+  const { draft, pendingPersist, setResult, clearPendingPersist } = useDiagnosticStore()
+  const persistAttempted = useRef(false)
+  useEffect(() => {
+    if (persistAttempted.current) return
+    if (!user || user.userType !== 'OWNER') return
+    if (!pendingPersist) return
+    // تأكد أن الـ draft مكتمل
+    const required = ['companyName', 'sector', 'stage', 'size', 'ownerDependency',
+      'financialTracking', 'liquidity', 'governance', 'scalability', 'exitStrategy'] as const
+    if (required.some((k) => !draft[k])) return
+
+    persistAttempted.current = true
+    ;(async () => {
+      try {
+        const { data } = await api.post<{ result: OwnerDiagnosticResult }>('/api/diagnostic/owner', draft)
+        setResult(data.result)
+        clearPendingPersist()
+        toast.success('تم حفظ تشخيصك في حسابك')
+        navigate('/diagnostic/result')
+      } catch (err: unknown) {
+        toast.error(apiErrorMessage(err, 'تعذّر حفظ تشخيصك السابق'))
+        clearPendingPersist()
+      }
+    })()
+  }, [user, pendingPersist, draft, navigate, setResult, clearPendingPersist])
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),

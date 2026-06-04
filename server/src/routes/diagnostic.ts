@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  previewOwnerDiagnostic,
   submitOwnerDiagnostic,
   submitManagerDiagnostic,
   submitInvestorDiagnostic,
@@ -10,6 +11,7 @@ import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
+router.post('/preview', previewOwnerDiagnostic);
 router.post('/owner', requireAuth, submitOwnerDiagnostic);
 router.post('/manager', requireAuth, submitManagerDiagnostic);
 router.post('/investor', requireAuth, submitInvestorDiagnostic);

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { LandingPage } from '@/pages/LandingPage'
+import { TryDiagnosticPage } from '@/pages/TryDiagnosticPage'
 import { SelectTypePage } from '@/pages/SelectTypePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { JoinPage } from '@/pages/JoinPage'
@@ -102,6 +103,7 @@ import { CompanyDetailPage } from '@/pages/investor/CompanyDetailPage'
 export const router = createBrowserRouter([
   // Public
   { path: '/', element: <LandingPage /> },
+  { path: '/diagnostic/try', element: <TryDiagnosticPage /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/join', element: <JoinPage /> },
   { path: '/select-type', element: <SelectTypePage /> },
