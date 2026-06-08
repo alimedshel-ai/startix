@@ -72,8 +72,9 @@ export function OnboardingPage() {
           toast.success('تم حفظ تشخيصك في حسابك')
           navigate('/diagnostic/result')
         } else if (role === 'MANAGER') {
-          const required = ['departmentType', 'experienceYears', 'teamSize', 'toolingMaturity', 'topChallenge'] as const
-          if (required.some((k) => managerDraft[k] === undefined || managerDraft[k] === '')) {
+          const required = ['departmentType', 'teamSize', 'experienceLevel', 'operationalMaturity',
+            'toolingMaturity', 'reportingQuality', 'decisionAuthority'] as const
+          if (required.some((k) => !managerDraft[k])) {
             persistAttempted.current = false
             return
           }
@@ -81,7 +82,8 @@ export function OnboardingPage() {
           clearPendingPersist()
           toast.success('تم حفظ تقييمك في حسابك')
         } else if (role === 'INVESTOR') {
-          const required = ['portfolioSize', 'investmentStage', 'monitoringCadence'] as const
+          const required = ['portfolioSize', 'investmentStage', 'monitoringCadence',
+            'sectorFocus', 'involvementType', 'ticketSize'] as const
           if (required.some((k) => !investorDraft[k])) {
             persistAttempted.current = false
             return

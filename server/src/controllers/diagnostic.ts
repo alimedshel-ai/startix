@@ -91,10 +91,12 @@ const managerPreviewSchema = z.object({
     'CUSTOMER_SERVICE', 'SUPPORT', 'LOGISTICS', 'QUALITY',
     'PROJECTS', 'GOVERNANCE', 'COMPLIANCE',
   ]),
-  experienceYears: z.number().int().min(0).max(60),
-  teamSize: z.number().int().min(0).max(10000),
+  teamSize: z.enum(['micro', 'small', 'medium', 'large']),
+  experienceLevel: z.enum(['junior', 'mid', 'senior', 'expert']),
+  operationalMaturity: z.enum(['none', 'partial', 'good', 'great']),
   toolingMaturity: z.enum(['none', 'basic', 'modern', 'advanced']),
-  topChallenge: z.string().min(3).max(280),
+  reportingQuality: z.enum(['none', 'partial', 'good', 'great']),
+  decisionAuthority: z.enum(['operational', 'tactical', 'strategic']),
 });
 
 export const previewManagerDiagnostic: RequestHandler = async (req, res, next) => {
@@ -111,6 +113,9 @@ const investorPreviewSchema = z.object({
   portfolioSize: z.enum(['1', '2-5', '6-15', '16+']),
   investmentStage: z.enum(['seed', 'early', 'growth', 'late']),
   monitoringCadence: z.enum(['monthly', 'quarterly', 'annual']),
+  sectorFocus: z.enum(['single', 'diverse', 'opportunistic']),
+  involvementType: z.enum(['active_board', 'observer', 'passive']),
+  ticketSize: z.enum(['under_100k', '100k_1m', '1m_10m', '10m_plus']),
 });
 
 export const previewInvestorDiagnostic: RequestHandler = async (req, res, next) => {
@@ -165,24 +170,16 @@ export const submitOwnerDiagnostic: RequestHandler = async (req, res, next) => {
 const managerSchema = z.object({
   companyName: z.string().min(1).max(120).optional(),
   departmentType: z.enum([
-    'HR',
-    'FINANCE',
-    'SALES',
-    'MARKETING',
-    'OPERATIONS',
-    'IT',
-    'CUSTOMER_SERVICE',
-    'SUPPORT',
-    'LOGISTICS',
-    'QUALITY',
-    'PROJECTS',
-    'GOVERNANCE',
-    'COMPLIANCE',
+    'HR', 'FINANCE', 'SALES', 'MARKETING', 'OPERATIONS', 'IT',
+    'CUSTOMER_SERVICE', 'SUPPORT', 'LOGISTICS', 'QUALITY',
+    'PROJECTS', 'GOVERNANCE', 'COMPLIANCE',
   ]),
-  experienceYears: z.number().int().min(0).max(60),
-  teamSize: z.number().int().min(0).max(10000),
+  teamSize: z.enum(['micro', 'small', 'medium', 'large']),
+  experienceLevel: z.enum(['junior', 'mid', 'senior', 'expert']),
+  operationalMaturity: z.enum(['none', 'partial', 'good', 'great']),
   toolingMaturity: z.enum(['none', 'basic', 'modern', 'advanced']),
-  topChallenge: z.string().min(3).max(280),
+  reportingQuality: z.enum(['none', 'partial', 'good', 'great']),
+  decisionAuthority: z.enum(['operational', 'tactical', 'strategic']),
 });
 
 export const submitManagerDiagnostic: RequestHandler = async (req, res, next) => {
@@ -230,6 +227,9 @@ const investorSchema = z.object({
   portfolioSize: z.enum(['1', '2-5', '6-15', '16+']),
   investmentStage: z.enum(['seed', 'early', 'growth', 'late']),
   monitoringCadence: z.enum(['monthly', 'quarterly', 'annual']),
+  sectorFocus: z.enum(['single', 'diverse', 'opportunistic']),
+  involvementType: z.enum(['active_board', 'observer', 'passive']),
+  ticketSize: z.enum(['under_100k', '100k_1m', '1m_10m', '10m_plus']),
 });
 
 export const submitInvestorDiagnostic: RequestHandler = async (req, res, next) => {

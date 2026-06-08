@@ -8,16 +8,25 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import { PathBadge, pathLabel } from '@/components/PathBadge'
 import { RadarChart } from '@/components/charts/RadarChart'
 import { api, apiErrorMessage } from '@/lib/api'
 import { OWNER_QUESTIONS, type OwnerAnswers, type OwnerDiagnosticResult, type StrategicPath } from '@/lib/diagnosticQuestions'
 import {
-  DEPT_OPTIONS, TOOLING_OPTIONS, PORTFOLIO_OPTIONS, STAGE_OPTIONS, CADENCE_OPTIONS,
+  DEPT_OPTIONS, TEAM_SIZE_OPTIONS, EXPERIENCE_OPTIONS, OPERATIONAL_OPTIONS,
+  TOOLING_OPTIONS, REPORTING_OPTIONS, DECISION_OPTIONS,
+  PORTFOLIO_OPTIONS, STAGE_OPTIONS, CADENCE_OPTIONS,
+  SECTOR_FOCUS_OPTIONS, INVOLVEMENT_OPTIONS, TICKET_SIZE_OPTIONS,
   type ManagerAnswers, type ManagerResult, type InvestorAnswers, type InvestorResult,
 } from '@/lib/managerInvestorQuestions'
 import { useDiagnosticStore, type DiagnosticRole } from '@/store/diagnosticStore'
+
+// مولّد سؤال راديو موحّد للمدير + المستثمر
+type RadioStep<T extends string> = {
+  key: string
+  title: string
+  options: { value: T; label: string }[]
+}
 
 const PATH_LABEL_BY_KEY: Record<StrategicPath, string> = {
   EMERGENCY_RISK: 'إنقاذ / خطر',
@@ -52,14 +61,14 @@ const ROLES: { value: DiagnosticRole; title: string; subtitle: string; icon: str
   {
     value: 'MANAGER',
     title: 'مدير قسم / إدارة',
-    subtitle: 'تقييم 5 أسئلة لقدرات قسمك ونضج أدواته.',
+    subtitle: 'تقييم 7 أسئلة لقدرات قسمك ونضج أدواته وحوكمته.',
     icon: '👔',
     accent: 'from-sky-500/10 ring-sky-300',
   },
   {
     value: 'INVESTOR',
     title: 'مستثمر',
-    subtitle: '3 أسئلة لتقييم اتّساع محفظتك وانضباط متابعتها.',
+    subtitle: '6 أسئلة لتقييم اتّساع محفظتك وانضباط متابعتها ومشاركتك.',
     icon: '📈',
     accent: 'from-amber-500/10 ring-amber-300',
   },
@@ -360,7 +369,17 @@ function OwnerResultView({ result, onSave, onReset }: { result: OwnerDiagnosticR
 //   2) المدير — 5 أسئلة، نتيجة قياس قدرات قسم
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MANAGER_STEPS = 5
+// 7 أسئلة كلها راديو
+const MANAGER_QUESTIONS: RadioStep<string>[] = [
+  { key: 'departmentType', title: 'أي قسم تديره؟', options: DEPT_OPTIONS as { value: string; label: string }[] },
+  { key: 'teamSize', title: 'ما حجم فريقك المباشر؟', options: TEAM_SIZE_OPTIONS as { value: string; label: string }[] },
+  { key: 'experienceLevel', title: 'ما مستوى خبرتك في هذا المجال؟', options: EXPERIENCE_OPTIONS as { value: string; label: string }[] },
+  { key: 'operationalMaturity', title: 'ما مستوى نضج إجراءات قسمك؟', options: OPERATIONAL_OPTIONS as { value: string; label: string }[] },
+  { key: 'toolingMaturity', title: 'ما مستوى نضج أدواتك الرقمية؟', options: TOOLING_OPTIONS as { value: string; label: string }[] },
+  { key: 'reportingQuality', title: 'ما جودة التقارير والمتابعة في قسمك؟', options: REPORTING_OPTIONS as { value: string; label: string }[] },
+  { key: 'decisionAuthority', title: 'ما مستوى استقلالية القرارات في دورك؟', options: DECISION_OPTIONS as { value: string; label: string }[] },
+]
+const MANAGER_STEPS = MANAGER_QUESTIONS.length
 
 function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const navigate = useNavigate()
@@ -374,15 +393,9 @@ function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const [submitting, setSubmitting] = useState(false)
 
   const progress = Math.round(((step + 1) / MANAGER_STEPS) * 100)
-
-  function canAdvance(): boolean {
-    if (step === 0) return Boolean(draft.departmentType)
-    if (step === 1) return draft.experienceYears !== undefined && draft.experienceYears >= 0
-    if (step === 2) return draft.teamSize !== undefined && draft.teamSize >= 0
-    if (step === 3) return Boolean(draft.toolingMaturity)
-    if (step === 4) return Boolean(draft.topChallenge && draft.topChallenge.length >= 3)
-    return false
-  }
+  const q = MANAGER_QUESTIONS[step]
+  const currentValue = draft[q.key as keyof ManagerAnswers] as string | undefined
+  const canAdvance = Boolean(currentValue)
 
   async function submit() {
     setSubmitting(true)
@@ -412,7 +425,7 @@ function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-12">
-      <RoleHeader title="تشخيص المدير" subtitle="5 خطوات · نتيجة فورية" onChangeRole={onChangeRole} />
+      <RoleHeader title="تشخيص المدير" subtitle={`${MANAGER_STEPS} خطوات · نتيجة فورية`} onChangeRole={onChangeRole} />
       <Card className="overflow-hidden shadow-sm">
         <div className="h-1.5 bg-gradient-to-l from-sky-500 to-indigo-500" />
         <CardHeader>
@@ -421,67 +434,31 @@ function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
             <span className="tabular-nums">{progress}%</span>
           </div>
           <Progress value={progress} className="h-2" />
-          <CardTitle className="mt-3">
-            {step === 0 && 'أي قسم تديره؟'}
-            {step === 1 && 'كم سنة من الخبرة لديك؟'}
-            {step === 2 && 'كم حجم فريقك المباشر؟'}
-            {step === 3 && 'ما مستوى نضج أدواتك الرقمية؟'}
-            {step === 4 && 'ما أكبر تحدّ تواجهه الآن؟'}
-          </CardTitle>
+          <CardTitle className="mt-3">{q.title}</CardTitle>
         </CardHeader>
 
         <CardContent className="grid gap-4">
-          {step === 0 && (
-            <RadioGroup
-              value={draft.departmentType ?? ''}
-              onValueChange={(v) => setDraft({ departmentType: v as ManagerAnswers['departmentType'] })}
-              className="grid gap-2 sm:grid-cols-2"
-            >
-              {DEPT_OPTIONS.map((o) => (
-                <Label key={o.value} htmlFor={`dept-${o.value}`} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm">
-                  <RadioGroupItem id={`dept-${o.value}`} value={o.value} />
-                  <span className="text-sm">{o.label}</span>
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
-          {step === 1 && (
-            <div className="grid gap-2">
-              <Label htmlFor="exp">سنوات الخبرة</Label>
-              <Input id="exp" type="number" min={0} max={60} dir="ltr" className="text-left" value={draft.experienceYears ?? ''} onChange={(e) => setDraft({ experienceYears: e.target.value === '' ? undefined : Number(e.target.value) })} />
-            </div>
-          )}
-          {step === 2 && (
-            <div className="grid gap-2">
-              <Label htmlFor="team">حجم الفريق</Label>
-              <Input id="team" type="number" min={0} max={10000} dir="ltr" className="text-left" value={draft.teamSize ?? ''} onChange={(e) => setDraft({ teamSize: e.target.value === '' ? undefined : Number(e.target.value) })} />
-            </div>
-          )}
-          {step === 3 && (
-            <RadioGroup
-              value={draft.toolingMaturity ?? ''}
-              onValueChange={(v) => setDraft({ toolingMaturity: v as ManagerAnswers['toolingMaturity'] })}
-              className="grid gap-2"
-            >
-              {TOOLING_OPTIONS.map((o) => (
-                <Label key={o.value} htmlFor={`tool-${o.value}`} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm">
-                  <RadioGroupItem id={`tool-${o.value}`} value={o.value} />
-                  <span className="text-sm">{o.label}</span>
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
-          {step === 4 && (
-            <div className="grid gap-2">
-              <Label htmlFor="challenge">صف التحدّي بجملة قصيرة</Label>
-              <Textarea id="challenge" rows={3} value={draft.topChallenge ?? ''} onChange={(e) => setDraft({ topChallenge: e.target.value })} placeholder="مثال: صعوبة الاحتفاظ بالكفاءات…" />
-            </div>
-          )}
+          <RadioGroup
+            value={currentValue ?? ''}
+            onValueChange={(v) => setDraft({ [q.key]: v } as Partial<ManagerAnswers>)}
+            className={`grid gap-2 ${q.options.length > 4 ? 'sm:grid-cols-2' : ''}`}
+          >
+            {q.options.map((o) => (
+              <Label
+                key={o.value}
+                htmlFor={`m-${q.key}-${o.value}`}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm"
+              >
+                <RadioGroupItem id={`m-${q.key}-${o.value}`} value={o.value} />
+                <span className="text-sm leading-snug">{o.label}</span>
+              </Label>
+            ))}
+          </RadioGroup>
         </CardContent>
 
         <CardFooter className="flex justify-between">
           <Button variant="ghost" onClick={() => step > 0 && setStep(step - 1)} disabled={step === 0 || submitting}>السابق</Button>
-          <Button onClick={next} disabled={!canAdvance() || submitting}>
+          <Button onClick={next} disabled={!canAdvance || submitting}>
             {submitting ? 'جاري الحساب…' : step === MANAGER_STEPS - 1 ? 'عرض النتيجة' : 'التالي'}
           </Button>
         </CardFooter>
@@ -542,7 +519,16 @@ function managerBandColor(b: ManagerResult['band']): string {
 //   3) المستثمر — 3 أسئلة
 // ═══════════════════════════════════════════════════════════════════════════
 
-const INVESTOR_STEPS = 3
+// 6 أسئلة كلها راديو
+const INVESTOR_QUESTIONS: RadioStep<string>[] = [
+  { key: 'portfolioSize', title: 'كم شركة في محفظتك حالياً؟', options: PORTFOLIO_OPTIONS as { value: string; label: string }[] },
+  { key: 'investmentStage', title: 'في أي مرحلة تستثمر بشكل رئيسي؟', options: STAGE_OPTIONS as { value: string; label: string }[] },
+  { key: 'monitoringCadence', title: 'كم مرّة تراجع أداء شركات المحفظة؟', options: CADENCE_OPTIONS as { value: string; label: string }[] },
+  { key: 'sectorFocus', title: 'ما طبيعة تركيزك القطاعي؟', options: SECTOR_FOCUS_OPTIONS as { value: string; label: string }[] },
+  { key: 'involvementType', title: 'ما مستوى تورّطك في شركات المحفظة؟', options: INVOLVEMENT_OPTIONS as { value: string; label: string }[] },
+  { key: 'ticketSize', title: 'ما متوسط حجم تذكرة الاستثمار؟', options: TICKET_SIZE_OPTIONS as { value: string; label: string }[] },
+]
+const INVESTOR_STEPS = INVESTOR_QUESTIONS.length
 
 function InvestorFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const navigate = useNavigate()
@@ -556,13 +542,9 @@ function InvestorFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const [submitting, setSubmitting] = useState(false)
 
   const progress = Math.round(((step + 1) / INVESTOR_STEPS) * 100)
-
-  function canAdvance(): boolean {
-    if (step === 0) return Boolean(draft.portfolioSize)
-    if (step === 1) return Boolean(draft.investmentStage)
-    if (step === 2) return Boolean(draft.monitoringCadence)
-    return false
-  }
+  const q = INVESTOR_QUESTIONS[step]
+  const currentValue = draft[q.key as keyof InvestorAnswers] as string | undefined
+  const canAdvance = Boolean(currentValue)
 
   async function submit() {
     setSubmitting(true)
@@ -592,7 +574,7 @@ function InvestorFlow({ onChangeRole }: { onChangeRole: () => void }) {
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-12">
-      <RoleHeader title="تشخيص المستثمر" subtitle="3 خطوات · نتيجة فورية" onChangeRole={onChangeRole} />
+      <RoleHeader title="تشخيص المستثمر" subtitle={`${INVESTOR_STEPS} خطوات · نتيجة فورية`} onChangeRole={onChangeRole} />
       <Card className="overflow-hidden shadow-sm">
         <div className="h-1.5 bg-gradient-to-l from-amber-500 to-orange-500" />
         <CardHeader>
@@ -601,49 +583,31 @@ function InvestorFlow({ onChangeRole }: { onChangeRole: () => void }) {
             <span className="tabular-nums">{progress}%</span>
           </div>
           <Progress value={progress} className="h-2" />
-          <CardTitle className="mt-3">
-            {step === 0 && 'كم شركة في محفظتك حالياً؟'}
-            {step === 1 && 'في أي مرحلة تستثمر بشكل رئيسي؟'}
-            {step === 2 && 'كم مرّة تراجع أداء شركات المحفظة؟'}
-          </CardTitle>
+          <CardTitle className="mt-3">{q.title}</CardTitle>
         </CardHeader>
 
         <CardContent className="grid gap-4">
-          {step === 0 && (
-            <RadioGroup value={draft.portfolioSize ?? ''} onValueChange={(v) => setDraft({ portfolioSize: v as InvestorAnswers['portfolioSize'] })} className="grid gap-2 sm:grid-cols-2">
-              {PORTFOLIO_OPTIONS.map((o) => (
-                <Label key={o.value} htmlFor={`p-${o.value}`} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm">
-                  <RadioGroupItem id={`p-${o.value}`} value={o.value} />
-                  <span className="text-sm">{o.label}</span>
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
-          {step === 1 && (
-            <RadioGroup value={draft.investmentStage ?? ''} onValueChange={(v) => setDraft({ investmentStage: v as InvestorAnswers['investmentStage'] })} className="grid gap-2 sm:grid-cols-2">
-              {STAGE_OPTIONS.map((o) => (
-                <Label key={o.value} htmlFor={`s-${o.value}`} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm">
-                  <RadioGroupItem id={`s-${o.value}`} value={o.value} />
-                  <span className="text-sm">{o.label}</span>
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
-          {step === 2 && (
-            <RadioGroup value={draft.monitoringCadence ?? ''} onValueChange={(v) => setDraft({ monitoringCadence: v as InvestorAnswers['monitoringCadence'] })} className="grid gap-2">
-              {CADENCE_OPTIONS.map((o) => (
-                <Label key={o.value} htmlFor={`c-${o.value}`} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm">
-                  <RadioGroupItem id={`c-${o.value}`} value={o.value} />
-                  <span className="text-sm">{o.label}</span>
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
+          <RadioGroup
+            value={currentValue ?? ''}
+            onValueChange={(v) => setDraft({ [q.key]: v } as Partial<InvestorAnswers>)}
+            className={`grid gap-2 ${q.options.length > 3 ? 'sm:grid-cols-2' : ''}`}
+          >
+            {q.options.map((o) => (
+              <Label
+                key={o.value}
+                htmlFor={`i-${q.key}-${o.value}`}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-accent hover:shadow-sm"
+              >
+                <RadioGroupItem id={`i-${q.key}-${o.value}`} value={o.value} />
+                <span className="text-sm leading-snug">{o.label}</span>
+              </Label>
+            ))}
+          </RadioGroup>
         </CardContent>
 
         <CardFooter className="flex justify-between">
           <Button variant="ghost" onClick={() => step > 0 && setStep(step - 1)} disabled={step === 0 || submitting}>السابق</Button>
-          <Button onClick={next} disabled={!canAdvance() || submitting}>
+          <Button onClick={next} disabled={!canAdvance || submitting}>
             {submitting ? 'جاري الحساب…' : step === INVESTOR_STEPS - 1 ? 'عرض النتيجة' : 'التالي'}
           </Button>
         </CardFooter>
