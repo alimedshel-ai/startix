@@ -41,31 +41,61 @@ export function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false)
 
   // لو الزائر سوّى تشخيص قبل التسجيل، احفظه في حسابه أوّل ما يدخل.
-  const { draft, pendingPersist, setResult, clearPendingPersist } = useDiagnosticStore()
+  const ownerDraft = useDiagnosticStore((s) => s.ownerDraft)
+  const managerDraft = useDiagnosticStore((s) => s.managerDraft)
+  const investorDraft = useDiagnosticStore((s) => s.investorDraft)
+  const pendingPersist = useDiagnosticStore((s) => s.pendingPersist)
+  const setOwnerResult = useDiagnosticStore((s) => s.setOwnerResult)
+  const clearPendingPersist = useDiagnosticStore((s) => s.clearPendingPersist)
   const persistAttempted = useRef(false)
+
   useEffect(() => {
     if (persistAttempted.current) return
-    if (!user || user.userType !== 'OWNER') return
+    if (!user) return
     if (!pendingPersist) return
-    // تأكد أن الـ draft مكتمل
-    const required = ['companyName', 'sector', 'stage', 'size', 'ownerDependency',
-      'financialTracking', 'liquidity', 'governance', 'scalability', 'exitStrategy'] as const
-    if (required.some((k) => !draft[k])) return
 
+    const role = user.userType
     persistAttempted.current = true
+
     ;(async () => {
       try {
-        const { data } = await api.post<{ result: OwnerDiagnosticResult }>('/api/diagnostic/owner', draft)
-        setResult(data.result)
-        clearPendingPersist()
-        toast.success('تم حفظ تشخيصك في حسابك')
-        navigate('/diagnostic/result')
+        if (role === 'OWNER') {
+          const required = ['companyName', 'sector', 'stage', 'size', 'ownerDependency',
+            'financialTracking', 'liquidity', 'governance', 'scalability', 'exitStrategy'] as const
+          if (required.some((k) => !ownerDraft[k])) {
+            persistAttempted.current = false
+            return
+          }
+          const { data } = await api.post<{ result: OwnerDiagnosticResult }>('/api/diagnostic/owner', ownerDraft)
+          setOwnerResult(data.result)
+          clearPendingPersist()
+          toast.success('تم حفظ تشخيصك في حسابك')
+          navigate('/diagnostic/result')
+        } else if (role === 'MANAGER') {
+          const required = ['departmentType', 'experienceYears', 'teamSize', 'toolingMaturity', 'topChallenge'] as const
+          if (required.some((k) => managerDraft[k] === undefined || managerDraft[k] === '')) {
+            persistAttempted.current = false
+            return
+          }
+          await api.post('/api/diagnostic/manager', managerDraft)
+          clearPendingPersist()
+          toast.success('تم حفظ تقييمك في حسابك')
+        } else if (role === 'INVESTOR') {
+          const required = ['portfolioSize', 'investmentStage', 'monitoringCadence'] as const
+          if (required.some((k) => !investorDraft[k])) {
+            persistAttempted.current = false
+            return
+          }
+          await api.post('/api/diagnostic/investor', investorDraft)
+          clearPendingPersist()
+          toast.success('تم حفظ تقييمك في حسابك')
+        }
       } catch (err: unknown) {
-        toast.error(apiErrorMessage(err, 'تعذّر حفظ تشخيصك السابق'))
+        toast.error(apiErrorMessage(err, 'تعذّر حفظ تقييمك السابق'))
         clearPendingPersist()
       }
     })()
-  }, [user, pendingPersist, draft, navigate, setResult, clearPendingPersist])
+  }, [user, pendingPersist, ownerDraft, managerDraft, investorDraft, navigate, setOwnerResult, clearPendingPersist])
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),

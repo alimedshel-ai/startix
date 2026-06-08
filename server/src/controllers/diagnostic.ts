@@ -5,6 +5,12 @@ import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { calculateOwnerPath } from '../services/diagnosticEngine';
 import {
+  calculateManagerResult,
+  calculateInvestorResult,
+  type ManagerAnswers,
+  type InvestorAnswers,
+} from '../services/managerInvestorEngine';
+import {
   WEIGHTED_QUESTIONS,
   type OwnerAnswers,
 } from '../lib/diagnosticQuestions';
@@ -73,6 +79,44 @@ export const previewOwnerDiagnostic: RequestHandler = async (req, res, next) => 
   try {
     const answers = ownerSchema.parse(req.body) as OwnerAnswers;
     const result = calculateOwnerPath(answers);
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const managerPreviewSchema = z.object({
+  departmentType: z.enum([
+    'HR', 'FINANCE', 'SALES', 'MARKETING', 'OPERATIONS', 'IT',
+    'CUSTOMER_SERVICE', 'SUPPORT', 'LOGISTICS', 'QUALITY',
+    'PROJECTS', 'GOVERNANCE', 'COMPLIANCE',
+  ]),
+  experienceYears: z.number().int().min(0).max(60),
+  teamSize: z.number().int().min(0).max(10000),
+  toolingMaturity: z.enum(['none', 'basic', 'modern', 'advanced']),
+  topChallenge: z.string().min(3).max(280),
+});
+
+export const previewManagerDiagnostic: RequestHandler = async (req, res, next) => {
+  try {
+    const answers = managerPreviewSchema.parse(req.body) as ManagerAnswers;
+    const result = calculateManagerResult(answers);
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const investorPreviewSchema = z.object({
+  portfolioSize: z.enum(['1', '2-5', '6-15', '16+']),
+  investmentStage: z.enum(['seed', 'early', 'growth', 'late']),
+  monitoringCadence: z.enum(['monthly', 'quarterly', 'annual']),
+});
+
+export const previewInvestorDiagnostic: RequestHandler = async (req, res, next) => {
+  try {
+    const answers = investorPreviewSchema.parse(req.body) as InvestorAnswers;
+    const result = calculateInvestorResult(answers);
     res.json({ result });
   } catch (err) {
     next(err);

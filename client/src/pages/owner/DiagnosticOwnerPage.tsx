@@ -17,7 +17,12 @@ const TOTAL_STEPS = 1 + OWNER_QUESTIONS.length // identification + 8 weighted
 
 export function DiagnosticOwnerPage() {
   const navigate = useNavigate()
-  const { draft, step, setDraft, setStep, setResult, reset } = useDiagnosticStore()
+  const draft = useDiagnosticStore((s) => s.ownerDraft)
+  const step = useDiagnosticStore((s) => s.ownerStep)
+  const setDraft = useDiagnosticStore((s) => s.setOwnerDraft)
+  const setStep = useDiagnosticStore((s) => s.setOwnerStep)
+  const setResult = useDiagnosticStore((s) => s.setOwnerResult)
+  const reset = useDiagnosticStore((s) => s.reset)
   const [submitting, setSubmitting] = useState(false)
 
   const progress = Math.round(((step + 1) / TOTAL_STEPS) * 100)

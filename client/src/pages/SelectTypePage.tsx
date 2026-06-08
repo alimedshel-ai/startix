@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +30,17 @@ const OPTIONS: { type: UserType; title: string; blurb: string; icon: string }[] 
 export function SelectTypePage() {
   const navigate = useNavigate()
   const setSelectedType = useAuthStore((s) => s.setSelectedType)
+  const [params] = useSearchParams()
+
+  // لو الزائر جاي من /diagnostic/try ومعه ?role=OWNER|MANAGER|INVESTOR،
+  // نخطّي اختيار النوع ونروح مباشرة لصفحة التسجيل.
+  useEffect(() => {
+    const r = params.get('role')
+    if (r === 'OWNER' || r === 'MANAGER' || r === 'INVESTOR') {
+      setSelectedType(r)
+      navigate('/join', { replace: true })
+    }
+  }, [params, navigate, setSelectedType])
 
   const choose = (type: UserType) => {
     setSelectedType(type)

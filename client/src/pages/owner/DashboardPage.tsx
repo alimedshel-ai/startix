@@ -33,8 +33,8 @@ const ACCENT_TEXT: Record<StatCard['accent'], string> = {
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
-  const storeResult = useDiagnosticStore((s) => s.result)
-  const setResult = useDiagnosticStore((s) => s.setResult)
+  const storeResult = useDiagnosticStore((s) => s.ownerResult)
+  const setResult = useDiagnosticStore((s) => s.setOwnerResult)
 
   const [companies, setCompanies] = useState<CompanyWithRole[]>([])
   const [depts, setDepts] = useState<Department[]>([])

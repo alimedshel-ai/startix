@@ -32,8 +32,8 @@ const SCENARIO_LABEL: Record<string, string> = {
 }
 
 export function DiagnosticResultPage() {
-  const storeResult = useDiagnosticStore((s) => s.result)
-  const setResult = useDiagnosticStore((s) => s.setResult)
+  const storeResult = useDiagnosticStore((s) => s.ownerResult)
+  const setResult = useDiagnosticStore((s) => s.setOwnerResult)
   const reset = useDiagnosticStore((s) => s.reset)
   const [loading, setLoading] = useState(!storeResult)
 
