@@ -11,6 +11,7 @@ import {
   getSWOT,
   upsertTOWS,
   suggestTOWS,
+  seedSwotFromDiagnostic,
 } from '../controllers/swot';
 import {
   listObjectives, createObjective, updateObjective, deleteObjective,
@@ -39,6 +40,7 @@ router.get('/swot/:companyId', requireAuth, getSWOT);
 router.put('/swot/:companyId', requireAuth, upsertSWOT);
 router.put('/swot/:companyId/tows', requireAuth, upsertTOWS);
 router.post('/swot/:companyId/tows/suggest', requireAuth, suggestTOWS);
+router.post('/swot/:companyId/seed-from-diagnostic', requireAuth, seedSwotFromDiagnostic);
 
 // Objectives + OKRs
 router.get('/objectives/:companyId', requireAuth, listObjectives);
