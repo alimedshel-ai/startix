@@ -319,6 +319,61 @@ export async function listAlerts(companyId: string): Promise<Alert[]> {
   return data
 }
 
+// ─── Journey progress (المراحل 1→6) ───────────────────────────────────────
+// خرائط المراحل الست حسب خطة الخيط الذهبي:
+//   1) تشخيص     — وجود Diagnostic
+//   2) بيئة      — وجود PESTEL أو PORTER
+//   3) تركيب     — SWOT.strengths.length > 0
+//   4) مسار      — وجود DIRECTIONS أو CHOICES
+//   5) بناء      — objectives.length > 0
+//   6) تنفيذ     — tasks.length > 0
+// كل الاستدعاءات endpoints قائمة؛ لا تجميع سيرفري جديد.
+export interface JourneyProgress {
+  stage1: boolean
+  stage2: boolean
+  stage3: boolean
+  stage4: boolean
+  stage5: boolean
+  stage6: boolean
+  /** 1..6 أول مرحلة غير مكتملة، null لو الرحلة كلها مكتملة. */
+  nextStage: 1 | 2 | 3 | 4 | 5 | 6 | null
+}
+
+async function hasDiagnostic(companyId: string): Promise<boolean> {
+  try {
+    await api.get(`/api/diagnostic/${companyId}/latest`)
+    return true
+  } catch {
+    // 404 = لا تشخيص بعد. أي خطأ آخر نتعامل معه دفاعياً كـ "غير مكتمل".
+    return false
+  }
+}
+
+export async function getJourneyProgress(companyId: string): Promise<JourneyProgress> {
+  const [diag, pestel, porter, swot, directions, choices, objectives, tasks] = await Promise.all([
+    hasDiagnostic(companyId),
+    getArtifact(companyId, 'PESTEL').catch(() => null),
+    getArtifact(companyId, 'PORTER').catch(() => null),
+    getSWOT(companyId).catch(() => null),
+    getArtifact(companyId, 'DIRECTIONS').catch(() => null),
+    getArtifact(companyId, 'CHOICES').catch(() => null),
+    listObjectives(companyId).catch(() => [] as Objective[]),
+    listTasks(companyId).catch(() => [] as Task[]),
+  ])
+  const stage1 = diag
+  const stage2 = pestel !== null || porter !== null
+  const stage3 = (swot?.strengths?.length ?? 0) > 0
+  const stage4 = directions !== null || choices !== null
+  const stage5 = objectives.length > 0
+  const stage6 = tasks.length > 0
+
+  const stages: boolean[] = [stage1, stage2, stage3, stage4, stage5, stage6]
+  const firstIncomplete = stages.findIndex((s) => !s)
+  const nextStage = firstIncomplete === -1 ? null : ((firstIncomplete + 1) as 1 | 2 | 3 | 4 | 5 | 6)
+
+  return { stage1, stage2, stage3, stage4, stage5, stage6, nextStage }
+}
+
 // ─── Helpers shared with Phase 5 ───────────────────────────────────────────
 export type { Company }
 export { getMyFirstCompany } from './deptApi'

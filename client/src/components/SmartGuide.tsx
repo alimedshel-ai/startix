@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
+import { JourneyBadge } from '@/components/PathBadge'
 import { Button } from '@/components/ui/button'
 import { aiSmartGuide } from '@/lib/aiApi'
+import { getJourneyProgress, type JourneyProgress } from '@/lib/strategicApi'
 import { useCompany } from '@/hooks/useCompany'
 
 const STORAGE_OPEN_KEY = 'startix-smartguide-open'
+
+// عبارة إرشادية لكل مرحلة تُقترح كخطوة تالية للمستخدم.
+const STAGE_HINT: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
+  1: 'ابدأ من التشخيص لمعرفة مسارك الاستراتيجي.',
+  2: 'أكمل مسح البيئة (PESTEL أو Porter) لفهم السياق الخارجي.',
+  3: 'ابنِ مصفوفة SWOT — تقدر تبدأها من زر «ابنِ من تشخيصي».',
+  4: 'اختر مساراً استراتيجياً واحداً (Directions أو Choices).',
+  5: 'حوّل مسارك لأهداف ومؤشرات قابلة للقياس.',
+  6: 'نفّذ عبر مهام أسبوعية وراجع التقدّم بانتظام.',
+}
 
 /**
  * Floating bottom-left button that fetches a 1-2 sentence next-best-action
@@ -23,6 +35,7 @@ export function SmartGuide() {
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [configured, setConfigured] = useState<boolean>(true)
   const [fetchedPath, setFetchedPath] = useState<string | null>(null)
+  const [progress, setProgress] = useState<JourneyProgress | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -34,12 +47,19 @@ export function SmartGuide() {
     if (!company) return
     setLoading(true)
     try {
-      const res = await aiSmartGuide({ companyId: company.id, path: location.pathname })
-      setSuggestion(res.suggestion)
-      setConfigured(res.configured)
+      // نجلب اقتراح الـ AI + تقدّم الرحلة بالتوازي؛ فشل التقدّم لا يمنع الاقتراح.
+      const [res, prog] = await Promise.allSettled([
+        aiSmartGuide({ companyId: company.id, path: location.pathname }),
+        getJourneyProgress(company.id),
+      ])
+      if (res.status === 'fulfilled') {
+        setSuggestion(res.value.suggestion)
+        setConfigured(res.value.configured)
+      } else {
+        setSuggestion('تعذّر الاتصال بمولّد الإرشاد.')
+      }
+      setProgress(prog.status === 'fulfilled' ? prog.value : null)
       setFetchedPath(location.pathname)
-    } catch {
-      setSuggestion('تعذّر الاتصال بمولّد الإرشاد.')
     } finally {
       setLoading(false)
     }
@@ -77,6 +97,16 @@ export function SmartGuide() {
             </Button>
           </div>
           <div className="p-4 text-sm leading-relaxed">
+            {progress && (
+              <div className="mb-3 flex flex-col gap-1">
+                <JourneyBadge progress={progress} />
+                {progress.nextStage && (
+                  <p className="text-[11px] text-muted-foreground">
+                    الخطوة التالية على الخيط الذهبي: <span className="font-medium">{STAGE_HINT[progress.nextStage]}</span>
+                  </p>
+                )}
+              </div>
+            )}
             {!company && <p className="text-muted-foreground">سجّل الدخول أولاً لرؤية الاقتراحات.</p>}
             {company && !configured && (
               <p className="text-muted-foreground">
