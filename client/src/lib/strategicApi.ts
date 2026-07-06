@@ -73,6 +73,12 @@ export async function suggestTOWS(companyId: string): Promise<NonNullable<SWOT['
   const { data } = await api.post(`/api/strategic/swot/${companyId}/tows/suggest`, {})
   return data
 }
+// يبذر SWOT من آخر تشخيص للشركة (يدمج بلا طمس، بلا تكرار).
+// السيرفر يعيد 404 إن لم يوجد تشخيص — نتركه للـ apiErrorMessage.
+export async function seedSwotFromDiagnostic(companyId: string): Promise<SWOT> {
+  const { data } = await api.post(`/api/strategic/swot/${companyId}/seed-from-diagnostic`, {})
+  return data
+}
 
 // ─── Objectives + OKRs ─────────────────────────────────────────────────────
 export interface OKR {
