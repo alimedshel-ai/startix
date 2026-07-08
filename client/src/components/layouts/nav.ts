@@ -36,6 +36,7 @@ const ownerNav: NavSection[] = [
     items: [
       { to: '/companies',     label: 'شركاتي',         icon: '🏢' },
       { to: '/companies/add', label: 'إضافة شركة',     icon: '➕' },
+      { to: '/invitations',   label: 'دعوات الفريق',   icon: '✉️' },
     ],
   },
   {
@@ -114,6 +115,20 @@ const ownerNav: NavSection[] = [
     ],
   },
   {
+    title: 'التحليل المالي',
+    accent: 'emerald',
+    items: [
+      { to: '/financial-analysis', label: 'Dupont و Monte Carlo', icon: '📐' },
+    ],
+  },
+  {
+    title: 'محرك التقييم',
+    accent: 'violet',
+    items: [
+      { to: '/assessment-wizard', label: 'معالج التقييم', icon: '🧭' },
+    ],
+  },
+  {
     title: 'الذكاء الاصطناعي',
     accent: 'violet',
     items: [
@@ -187,6 +202,13 @@ const investorNav: NavSection[] = [
     items: [
       { to: '/investor/dashboard', label: 'لوحة المستثمر', icon: '📊' },
       { to: '/investor/portfolio', label: 'المحفظة',        icon: '💼' },
+    ],
+  },
+  {
+    title: 'الصفقات',
+    accent: 'amber',
+    items: [
+      { to: '/investor/deals', label: 'خط الأنابيب', icon: '🤝' },
     ],
   },
 ]

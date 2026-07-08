@@ -1,7 +1,39 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 
+import { EmptyState } from '@/components/EmptyState'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { apiErrorMessage } from '@/lib/api'
+import { getMyFirstCompany } from '@/lib/deptApi'
+import {
+  generateRecommendations,
+  listRecommendations,
+  SOURCE_LABEL,
+  type Recommendation,
+  type RecommendationSeverity,
+} from '@/lib/insightApi'
+
+const SEVERITY_TONE: Record<RecommendationSeverity, string> = {
+  info: 'border-sky-500/30 bg-sky-500/5 text-sky-800 dark:text-sky-200',
+  warning: 'border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-200',
+  critical: 'border-rose-500/30 bg-rose-500/5 text-rose-800 dark:text-rose-200',
+}
+
+const SEVERITY_ICON: Record<RecommendationSeverity, string> = {
+  info: '💡',
+  warning: '⚠️',
+  critical: '🔴',
+}
+
+const SEVERITY_LABEL: Record<RecommendationSeverity, string> = {
+  info: 'إشارة',
+  warning: 'تحذير',
+  critical: 'حرج',
+}
 
 interface Tool {
   to: string
@@ -82,6 +114,8 @@ export function AICenterPage() {
         </CardHeader>
       </Card>
 
+      <InsightPanel />
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((t) => (
           <Link
@@ -106,5 +140,109 @@ export function AICenterPage() {
         ))}
       </div>
     </div>
+  )
+}
+
+// ─── لوحة توصيات محرك الاستدلال (C16) ──────────────────────────────────────
+// توصيات حتمية من قواعد تقرأ Diagnostic + DeptAudit + BreakEven.
+function InsightPanel() {
+  const [companyId, setCompanyId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState<Recommendation[]>([])
+  const [running, setRunning] = useState(false)
+
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      try {
+        const { company } = await getMyFirstCompany()
+        if (cancel || !company) return
+        setCompanyId(company.id)
+        const rows = await listRecommendations(company.id)
+        if (!cancel) setItems(rows)
+      } catch (err) {
+        if (!cancel) toast.error(apiErrorMessage(err, 'تعذّر تحميل التوصيات'))
+      } finally {
+        if (!cancel) setLoading(false)
+      }
+    })()
+    return () => { cancel = true }
+  }, [])
+
+  async function generate() {
+    if (!companyId) return
+    setRunning(true)
+    try {
+      const res = await generateRecommendations(companyId)
+      setItems(res.recommendations)
+      toast.success(
+        res.generated === 0
+          ? 'لا توصيات جديدة — أضف تشخيصاً أو تدقيقاً لتفعيل القواعد.'
+          : `تم توليد ${res.generated} توصية`
+      )
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر توليد التوصيات'))
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex justify-center py-8">
+          <LoadingSpinner size="md" label="جاري تحميل التوصيات…" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!companyId) return null
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="h-1 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <span className="text-xl">🧭</span>
+            توصيات محرك الاستدلال
+          </CardTitle>
+          <CardDescription>
+            قواعد حتمية تربط تشخيصك بتدقيق الأقسام والنتائج المالية — بلا حاجة لمفتاح AI.
+          </CardDescription>
+        </div>
+        <Button onClick={generate} disabled={running}>
+          {running ? 'جاري التحليل…' : items.length === 0 ? 'شغّل التحليل' : 'تحديث'}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState
+            title="لا توجد توصيات بعد"
+            description="اضغط «شغّل التحليل» بعد إكمال تشخيصك أو تدقيق قسم واحد على الأقل."
+            icon={<span className="text-4xl">🧭</span>}
+          />
+        ) : (
+          <ul className="grid gap-2">
+            {items.map((r) => (
+              <li key={r.id} className={`rounded-xl border p-3 text-sm ${SEVERITY_TONE[r.severity]}`}>
+                <div className="flex items-start gap-2">
+                  <span className="text-lg leading-none">{SEVERITY_ICON[r.severity]}</span>
+                  <div className="flex-1 space-y-1">
+                    <p className="font-medium leading-snug">{r.message}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] opacity-80">
+                      <span className="rounded-full border px-2 py-0.5">{SEVERITY_LABEL[r.severity]}</span>
+                      <span className="rounded-full border px-2 py-0.5">مصدر: {SOURCE_LABEL[r.source]}</span>
+                      <span>{new Date(r.createdAt).toLocaleString('ar-SA')}</span>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }

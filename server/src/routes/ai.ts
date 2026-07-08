@@ -10,12 +10,14 @@ import {
   smartGuide,
   getPredictions,
   runSimulation,
+  generateAssessment,
 } from '../controllers/ai';
 
+// خريطة الحماية:
+//   جميع مسارات الـ AI  — PROFESSIONAL+  (عبر requirePlan)
+//   /smart-guide        — BASIC+  (استثناء وحيد، يتحلل بأمان بلا مفتاح Claude)
 const router = Router();
 
-// AI features are PROFESSIONAL+ across the board; Smart Guide is the only
-// always-available bonus (it degrades gracefully when no API key is present).
 const pro = requirePlan('PROFESSIONAL');
 
 router.post('/advisor', requireAuth, pro, advisorChat);
@@ -25,5 +27,6 @@ router.post('/pain-screen', requireAuth, pro, painScreen);
 router.post('/smart-guide', requireAuth, smartGuide); // free hint
 router.get('/predictions/:companyId', requireAuth, pro, getPredictions);
 router.post('/simulate', requireAuth, pro, runSimulation);
+router.post('/generate-assessment', requireAuth, pro, generateAssessment);
 
 export default router;

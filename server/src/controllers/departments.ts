@@ -175,14 +175,10 @@ export const submitDeptAudit: RequestHandler = async (req, res, next) => {
 };
 
 // ─── POST /api/departments/:id/audit-pro — pro audit ────────────────────────
+// خطة الحماية: PROFESSIONAL+ عبر requirePlan middleware في routes/departments.ts.
 export const submitDeptAuditPro: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
-    if (req.auth.plan === 'BASIC') {
-      throw new HttpError(402, 'تدقيق Pro يتطلب الباقة الاحترافية', {
-        requiredPlan: 'PROFESSIONAL', currentPlan: 'BASIC', upgradeUrl: '/pricing',
-      });
-    }
     const dept = await getDeptOr404(paramId(req, 'id'));
     await assertCompanyAccess(req.auth.sub, dept.companyId);
     const body = auditSubmitSchema.parse(req.body);

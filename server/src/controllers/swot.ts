@@ -89,6 +89,174 @@ export const upsertTOWS: RequestHandler = async (req, res, next) => {
   }
 };
 
+// ─── POST /api/strategic/swot/:companyId/seed-from-diagnostic ──────────────
+// يبذر SWOT من آخر تشخيص للشركة:
+//   - نقاط ضعف التشخيص → عناصر weaknesses (نصوص).
+//   - محاور رسم الرادار ذات القيم ≥ 70 → عناصر strengths.
+// لا يطمس مدخلات المستخدم؛ يدمج فقط ما هو جديد وينزع التكرار بالنص.
+// المسار الكامل من الكلاينت: /api/strategic/swot/:companyId/seed-from-diagnostic.
+
+// خرائط ترجمة محاور الرادار من الإنجليزية إلى العربية (كما تُخزَّن في التشخيص).
+const AXIS_LABEL_AR: Record<string, string> = {
+  Governance: 'الحوكمة',
+  Financial: 'المالية',
+  Team: 'الفريق',
+  Digital: 'الرقمي',
+};
+
+// Diagnostic.weaknesses من نوع Json? — قد يكون مصفوفة كائنات فيها label، أو
+// مصفوفة نصوص، أو null. نستخرج string[] بشكل دفاعي.
+function extractWeaknessLabels(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string' && item.trim().length > 0) {
+      out.push(item.trim());
+      continue;
+    }
+    if (item && typeof item === 'object' && 'label' in item) {
+      const label = (item as { label: unknown }).label;
+      if (typeof label === 'string' && label.trim().length > 0) {
+        out.push(label.trim());
+      }
+    }
+  }
+  return out;
+}
+
+// Diagnostic.radarData من نوع Json? — نتوقع { axis: string, value: number }[]
+// لكن نحمي من أي شكل غير متوقّع.
+function extractStrengthsFromRadar(raw: unknown, threshold = 70): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const axis = (item as { axis?: unknown }).axis;
+    const value = (item as { value?: unknown }).value;
+    if (typeof axis !== 'string' || typeof value !== 'number') continue;
+    if (value >= threshold) {
+      const label = AXIS_LABEL_AR[axis] ?? axis;
+      out.push(`محور ${label} قوي (${Math.round(value)}%)`);
+    }
+  }
+  return out;
+}
+
+function mergeUnique(existing: unknown, incoming: string[]): string[] {
+  const current = Array.isArray(existing)
+    ? (existing.filter((x) => typeof x === 'string') as string[])
+    : [];
+  const seen = new Set(current.map((x) => x.trim()));
+  const merged = [...current];
+  for (const item of incoming) {
+    const key = item.trim();
+    if (key.length === 0 || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(key);
+  }
+  return merged;
+}
+
+// ─── POST /api/strategic/swot/:companyId/synthesize-from-audits ────────────
+// يشتقّ SWOT من آخر تدقيق لكل قسم:
+//   - healthPct ≥ 70 → نقطة قوة (نص عربي يذكر اسم القسم والنسبة).
+//   - healthPct < 50 → نقطة ضعف (نص عربي يذكر اسم القسم والنسبة).
+// الأقسام بين 50 و70 تُترك (خارج المنطقتين). يدمج مع SWOT القائم بلا طمس.
+// المسار الكامل من الكلاينت: /api/strategic/swot/:companyId/synthesize-from-audits.
+
+const DEPT_LABEL_AR: Record<string, string> = {
+  HR: 'الموارد البشرية',
+  FINANCE: 'المالية',
+  SALES: 'المبيعات',
+  MARKETING: 'التسويق',
+  OPERATIONS: 'العمليات',
+  IT: 'تقنية المعلومات',
+  CUSTOMER_SERVICE: 'خدمة العملاء',
+  SUPPORT: 'الإمداد والدعم',
+  LOGISTICS: 'اللوجستيات',
+  QUALITY: 'الجودة',
+  PROJECTS: 'المشاريع',
+  GOVERNANCE: 'الحوكمة',
+  COMPLIANCE: 'الامتثال',
+};
+
+export const synthesizeSwotFromAudits: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+
+    // DeptAudit لا يملك companyId — الربط عبر Department.
+    const departments = await prisma.department.findMany({
+      where: { companyId },
+      include: {
+        audits: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    });
+
+    const newStrengths: string[] = [];
+    const newWeaknesses: string[] = [];
+    for (const dept of departments) {
+      const latest = dept.audits[0];
+      if (!latest) continue;
+      const pct = Math.round(latest.healthPct);
+      const label = DEPT_LABEL_AR[dept.type] ?? dept.type;
+      if (latest.healthPct >= 70) {
+        newStrengths.push(`قسم ${label} صحّي — ${pct}%`);
+      } else if (latest.healthPct < 50) {
+        newWeaknesses.push(`قسم ${label} حرج — ${pct}%`);
+      }
+    }
+
+    const swot = await getOrCreateSWOT(companyId);
+    const strengths = mergeUnique(swot.strengths, newStrengths);
+    const weaknesses = mergeUnique(swot.weaknesses, newWeaknesses);
+
+    const updated = await prisma.sWOT.update({
+      where: { id: swot.id },
+      data: {
+        strengths: strengths as unknown as object,
+        weaknesses: weaknesses as unknown as object,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const seedSwotFromDiagnostic: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+
+    const diagnostic = await prisma.diagnostic.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!diagnostic) throw new HttpError(404, 'لا يوجد تشخيص لهذه الشركة');
+
+    const newWeaknesses = extractWeaknessLabels(diagnostic.weaknesses);
+    const newStrengths = extractStrengthsFromRadar(diagnostic.radarData);
+
+    const swot = await getOrCreateSWOT(companyId);
+    const strengths = mergeUnique(swot.strengths, newStrengths);
+    const weaknesses = mergeUnique(swot.weaknesses, newWeaknesses);
+
+    const updated = await prisma.sWOT.update({
+      where: { id: swot.id },
+      data: {
+        strengths: strengths as unknown as object,
+        weaknesses: weaknesses as unknown as object,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── POST /api/swot/:companyId/tows/suggest — auto-fill TOWS from SWOT ─────
 export const suggestTOWS: RequestHandler = async (req, res, next) => {
   try {

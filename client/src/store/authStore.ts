@@ -1,3 +1,10 @@
+// 🔓 تفضيل UI مقبول لـ localStorage — ليس بيانات عمل.
+// القانون الأول يمنع تخزين بيانات العمل، لكن يسمح بـ "توكن الجلسة + تفضيل
+// واجهة غير حرج". هذا الملف يحفظ فقط `selectedType` (الدور المُختار على
+// شاشة /select-type قبل التسجيل) — تفضيل UI بحت. `user` و`isAuthenticated`
+// و`sessions` كلها من الـ API/الكوكيز، لا تُحفَظ محلياً (راجع partialize
+// أسفل الملف الذي يقصر التخزين على `selectedType` فقط).
+
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 

@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
-import { getSWOT, putSWOT, type SWOT } from '@/lib/strategicApi'
+import { getSWOT, putSWOT, seedSwotFromDiagnostic, type SWOT } from '@/lib/strategicApi'
 
 type Quadrant = 'strengths' | 'weaknesses' | 'opportunities' | 'threats'
 
@@ -47,6 +47,7 @@ function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<Data>(EMPTY)
   const [drafts, setDrafts] = useState<Record<Quadrant, string>>({ strengths: '', weaknesses: '', opportunities: '', threats: '' })
   const [saving, setSaving] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
     getSWOT(companyId).then((s: SWOT) => {
@@ -78,6 +79,27 @@ function Editor({ companyId }: { companyId: string }) {
       toast.error(apiErrorMessage(err, 'فشل الحفظ'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function seedFromDiagnostic() {
+    setSeeding(true)
+    try {
+      await seedSwotFromDiagnostic(companyId)
+      // نُعيد التحميل من القاعدة بدلاً من الاعتماد على استجابة seed مباشرة —
+      // كي يتزامن الشكل الظاهر مع أي منطق دمج/دفاعي حصل على السيرفر.
+      const fresh = await getSWOT(companyId)
+      setData({
+        strengths: fresh.strengths ?? [],
+        weaknesses: fresh.weaknesses ?? [],
+        opportunities: fresh.opportunities ?? [],
+        threats: fresh.threats ?? [],
+      })
+      toast.success('تم بذر التحليل من آخر تشخيص')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر البذر من التشخيص'))
+    } finally {
+      setSeeding(false)
     }
   }
 
@@ -125,8 +147,11 @@ function Editor({ companyId }: { companyId: string }) {
           </Card>
         ))}
       </div>
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ التحليل'}</Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="outline" onClick={seedFromDiagnostic} disabled={seeding || saving}>
+          {seeding ? 'جاري البذر…' : 'ابنِ من تشخيصي'}
+        </Button>
+        <Button onClick={save} disabled={saving || seeding}>{saving ? 'جاري الحفظ…' : 'حفظ التحليل'}</Button>
       </div>
     </>
   )

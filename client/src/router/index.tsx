@@ -79,6 +79,9 @@ import { DeptSmartPage } from '@/pages/manager/DeptSmartPage'
 import { HRAuditPage } from '@/pages/manager/HRAuditPage'
 import { FinanceAuditPage } from '@/pages/manager/FinanceAuditPage'
 import { BreakEvenPage } from '@/pages/manager/BreakEvenPage'
+import { FinancialAnalysisPage } from '@/pages/owner/FinancialAnalysisPage'
+import { InvitationsPage } from '@/pages/owner/InvitationsPage'
+import { AssessmentWizardPage } from '@/pages/owner/AssessmentWizardPage'
 import { SalesAuditPage } from '@/pages/manager/SalesAuditPage'
 import { MarketingAuditPage } from '@/pages/manager/MarketingAuditPage'
 import { OperationsAuditPage } from '@/pages/manager/OperationsAuditPage'
@@ -99,6 +102,7 @@ import { DiagnosticInvestorPage } from '@/pages/investor/DiagnosticInvestorPage'
 import { InvestorDashboardPage } from '@/pages/investor/InvestorDashboardPage'
 import { PortfolioPage } from '@/pages/investor/PortfolioPage'
 import { CompanyDetailPage } from '@/pages/investor/CompanyDetailPage'
+import { DealsPipelinePage } from '@/pages/investor/DealsPipelinePage'
 
 export const router = createBrowserRouter([
   // Public
@@ -169,6 +173,9 @@ export const router = createBrowserRouter([
               { path: '/reviews', element: <ReviewsPage /> },
               { path: '/corrections', element: <CorrectionsPage /> },
               { path: '/reports', element: <ReportsPage /> },
+              { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
+              { path: '/invitations', element: <InvitationsPage /> },
+              { path: '/assessment-wizard', element: <AssessmentWizardPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
               { path: '/ai/advisor', element: <AdvisorPage /> },
               { path: '/ai/presentation', element: <PresentationPage /> },
@@ -225,6 +232,7 @@ export const router = createBrowserRouter([
               { path: '/investor/dashboard', element: <InvestorDashboardPage /> },
               { path: '/investor/portfolio', element: <PortfolioPage /> },
               { path: '/investor/company/:id', element: <CompanyDetailPage /> },
+              { path: '/investor/deals', element: <DealsPipelinePage /> },
             ],
           },
         ],

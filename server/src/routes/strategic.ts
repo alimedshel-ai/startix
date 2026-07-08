@@ -11,6 +11,8 @@ import {
   getSWOT,
   upsertTOWS,
   suggestTOWS,
+  seedSwotFromDiagnostic,
+  synthesizeSwotFromAudits,
 } from '../controllers/swot';
 import {
   listObjectives, createObjective, updateObjective, deleteObjective,
@@ -27,6 +29,12 @@ import {
   alertsList,
 } from '../controllers/lifecycle';
 
+// خريطة الحماية: كل مسارات /api/strategic BASIC+.
+// (Artifacts، SWOT/TOWS، Objectives، KPIs، Projects، Tasks، Reviews،
+// Corrections، Activity، Alerts.) الوصول للشركة يُفرَض داخل الكونترولرز.
+// TOWS suggestion يقرأ من Claude داخل الكلاينت عبر /api/ai/tows-suggestions
+// (خلف PROFESSIONAL) — أما /swot/:companyId/tows/suggest هنا فقواعد
+// حتمية بسيطة، متاحة للجميع.
 const router = Router();
 
 // Strategic artifacts (generic JSON)
@@ -39,6 +47,8 @@ router.get('/swot/:companyId', requireAuth, getSWOT);
 router.put('/swot/:companyId', requireAuth, upsertSWOT);
 router.put('/swot/:companyId/tows', requireAuth, upsertTOWS);
 router.post('/swot/:companyId/tows/suggest', requireAuth, suggestTOWS);
+router.post('/swot/:companyId/seed-from-diagnostic', requireAuth, seedSwotFromDiagnostic);
+router.post('/swot/:companyId/synthesize-from-audits', requireAuth, synthesizeSwotFromAudits);
 
 // Objectives + OKRs
 router.get('/objectives/:companyId', requireAuth, listObjectives);

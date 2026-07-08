@@ -35,6 +35,8 @@ model User {
   diagnostics    Diagnostic[]
   sessions       Session[]
   assignedTasks  Task[]        @relation("TaskAssignee")
+  deals          Deal[]
+  notifications  Notification[]
 }
 
 enum UserType {
@@ -94,6 +96,12 @@ model Company {
   reports          Report[]
   artifacts        StrategicArtifact[]
   corrections      Correction[]
+  breakEvens       BreakEven[]
+  dupontAnalyses   DupontAnalysis[]
+  monteCarloRuns   MonteCarloRun[]
+  invitations      Invitation[]
+  recommendations  Recommendation[]
+  assessments      Assessment[]
 }
 
 model CompanyUser {
@@ -432,4 +440,230 @@ model Correction {
 
   @@index([companyId])
   @@index([reviewId])
+}
+
+// ─── C12 — نقطة التعادل (BreakEven) ────────────────────────────────────────
+// كل حساب يُخزَّن كصف مستقل — يُعطي سجلاً تاريخياً لتطوّر أرقام الشركة عبر
+// الزمن (fixedCosts، pricePerUnit، variableCostPerUnit، currentRevenue).
+// المخرجات المحسوبة (contributionMargin، breakEvenUnits، safetyMargin،
+// insights) تُخزَّن في result: Json لتفادي إعادة الحساب عند القراءة.
+model BreakEven {
+  id                  String   @id @default(uuid())
+  companyId           String
+  fixedCosts          Float
+  variableCostPerUnit Float
+  pricePerUnit        Float
+  currentRevenue      Float?
+  result              Json
+  createdAt           DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ─── C13 — تحليل Dupont ─────────────────────────────────────────────────────
+// ROE = netMargin × assetTurnover × equityMultiplier
+// نخزّن العوامل الثلاثة + الناتج roe كسجل مستقل لتتبّع التطوّر عبر الزمن.
+model DupontAnalysis {
+  id                String   @id @default(uuid())
+  companyId         String
+  netMargin         Float
+  assetTurnover     Float
+  equityMultiplier  Float
+  roe               Float
+  createdAt         DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ─── C13 — محاكاة Monte Carlo ──────────────────────────────────────────────
+// inputs: كل متغيّر بتوزيع مثلثي { min, likely, max } + iterations.
+// results: توزيع النتائج بمقاييس p10/p50/p90 والمتوسط + احتمال الخسارة.
+model MonteCarloRun {
+  id         String   @id @default(uuid())
+  companyId  String
+  inputs     Json
+  iterations Int
+  results    Json
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ─── C14 — صفقات المستثمر (Deals) ──────────────────────────────────────────
+// خط أنابيب صفقات مبسّط. الشركة الهدف تُحفَظ باسم حرّ فقط (لا مفتاح أجنبي)،
+// فالمستثمر يمكنه إدخال صفقات لشركات لم يصل لها بعد. القرار MVP: افصل
+// الصفقات عن شبكة الشركات القابلة للنقر (PortfolioPage/CompanyDetailPage).
+enum DealStatus {
+  lead
+  due_diligence
+  term_sheet
+  closed_won
+  closed_lost
+}
+
+model Deal {
+  id                String     @id @default(uuid())
+  investorUserId    String
+  targetCompanyName String
+  sector            String?
+  stage             String?
+  valuation         Decimal?
+  status            DealStatus @default(lead)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  investor User @relation(fields: [investorUserId], references: [id], onDelete: Cascade)
+
+  @@index([investorUserId])
+}
+
+// ─── C15 — الإشعارات ───────────────────────────────────────────────────────
+// إشعار عام موجّه لمستخدم. type وصف حرّ (مثلاً invitation_received،
+// diagnostic_ready، …). read مبدئياً false ويصير true عبر PATCH.
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
+// ─── C15 — الدعوات ─────────────────────────────────────────────────────────
+// دعوة انضمام لشركة. المُنشئ يجب أن يملك صلاحية على الشركة. القبول: أي
+// مستخدم بريده = email المدعو، خلال expiresAt، والحالة pending → يُنشئ
+// CompanyUser link ويصير status = accepted.
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+model Invitation {
+  id        String           @id @default(uuid())
+  companyId String
+  email     String
+  role      String           // 'owner' | 'manager' | 'member' — يطابق CompanyUser.role
+  token     String           @unique
+  status    InvitationStatus @default(pending)
+  expiresAt DateTime
+  createdAt DateTime         @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([email])
+}
+
+// ─── C16 — محرك الاستدلال (Recommendations) ────────────────────────────────
+// توصيات ناتجة عن قواعد حتمية تقرأ من Diagnostic + DeptAudit + BreakEven.
+// severity: info | warning | critical. source: اسم النموذج المصدر أو Composite.
+// كل استدعاء POST /generate يحذف التوصيات القديمة لنفس source ثم يعيد الإنشاء.
+enum RecommendationSeverity {
+  info
+  warning
+  critical
+}
+
+model Recommendation {
+  id        String                 @id @default(uuid())
+  companyId String
+  kind      String
+  message   String
+  severity  RecommendationSeverity
+  source    String
+  createdAt DateTime               @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, source])
+}
+
+// ─── C17 — محرك التقييم المهيكل ────────────────────────────────────────────
+// أربعة نماذج متسلسلة (Assessment → Dimension → Criterion → Indicator).
+// modelType يحدّد قالب النموذج (BSC، EFQM، …). status يوضّح مرحلة الدورة.
+// maturityScore يُحسَب لاحقاً (C18) عبر الأوزان الموزّنة.
+enum AssessmentModelType {
+  BSC
+  EFQM
+  PESTEL
+  PORTER
+  OKR
+  CUSTOM
+}
+
+enum AssessmentStatus {
+  draft
+  active
+  completed
+  archived
+}
+
+model Assessment {
+  id            String              @id @default(uuid())
+  companyId     String
+  name          String
+  modelType     AssessmentModelType
+  status        AssessmentStatus    @default(draft)
+  maturityScore Float?
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime            @default(now())
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dimensions Dimension[]
+
+  @@index([companyId])
+}
+
+model Dimension {
+  id           String @id @default(uuid())
+  assessmentId String
+  name         String
+  weight       Float
+  order        Int    @default(0)
+
+  assessment Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  criteria   Criterion[]
+
+  @@index([assessmentId])
+}
+
+model Criterion {
+  id          String @id @default(uuid())
+  dimensionId String
+  name        String
+  weight      Float
+  score       Float?
+
+  dimension  Dimension   @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+  indicators Indicator[]
+
+  @@index([dimensionId])
+}
+
+model Indicator {
+  id          String  @id @default(uuid())
+  criterionId String
+  name        String
+  value       Float?
+  target      Float?
+  unit        String?
+
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@index([criterionId])
 }

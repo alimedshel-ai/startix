@@ -12,6 +12,9 @@ import {
 } from '../controllers/auth';
 import { requireAuth } from '../middleware/auth';
 
+// خريطة الحماية:
+//   /register /login /logout /refresh /forgot /reset /verify — عام (بلا مصادقة)
+//   /me GET + PATCH — BASIC+ (أي مستخدم مسجّل)
 const router = Router();
 
 router.post('/register', register);

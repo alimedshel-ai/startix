@@ -13,6 +13,7 @@ import {
   CLAUDE_MODEL,
   type ChatMessage,
 } from '../lib/claude';
+import { TEMPLATES, type ModelType } from '../lib/assessmentTemplates';
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -562,6 +563,89 @@ export const runSimulation: RequestHandler = async (req, res, next) => {
       roi,
       paybackMonths: Number.isFinite(paybackMonths) ? paybackMonths : null,
       narrative,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C20 — توليد معايير تقييم مخصّصة للقطاع
+// ═══════════════════════════════════════════════════════════════════════════
+// يأخذ (companyId, modelType). يقرأ سياق الشركة + قالب النموذج، ثم يطلب من
+// Claude اقتراح 2-3 معايير قطاعية لكل بُعد. الرد JSON يُحفظ لاحقاً عبر
+// endpoints C18 (لا نكتب هنا في القاعدة — الوظيفة اقتراحية بحتة).
+// خلف requirePlan('PROFESSIONAL'). يتحلل بأمان بلا مفتاح Claude (503 عربي).
+
+const generateAssessmentSchema = z.object({
+  companyId: z.string().uuid(),
+  modelType: z.enum(['BSC', 'EFQM', 'PESTEL', 'PORTER', 'OKR']),
+});
+
+interface GeneratedDimension {
+  name: string;
+  criteria: { name: string; weight: number }[];
+}
+
+interface GeneratedAssessment {
+  dimensions: GeneratedDimension[];
+}
+
+export const generateAssessment: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    ensureClaude();
+    const body = generateAssessmentSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+
+    const { ctx, latestPath } = await loadCompanyContext(body.companyId);
+    const template = TEMPLATES[body.modelType as ModelType];
+
+    // نصنع قائمة بأسماء الأبعاد (لن نمسّ أوزانها هنا — Claude يقترح المعايير فقط).
+    const dimensionsList = template.dimensions
+      .map((d, i) => `${i + 1}) ${d.name}`)
+      .join('\n');
+
+    const prompt = [
+      `أنت مستشار تقييم مؤسسي. مهمتك اقتراح معايير قطاعية لتقييم "${template.displayName}".`,
+      '',
+      companyDescriptor(ctx, latestPath),
+      '',
+      'الأبعاد الثابتة للنموذج (لا تُغيّرها):',
+      dimensionsList,
+      '',
+      'لكل بُعد اقترح من 2 إلى 3 معايير قطاعية عربية موجزة (سطر واحد لكل معيار).',
+      'أعطِ كل معيار وزناً كنسبة داخل بُعده بحيث يكون مجموع أوزان معايير كل بُعد = 100.',
+      'حاذِ المعايير مع القطاع والحجم والمرحلة أعلاه — لا تُكرّر أسماء عامّة.',
+      '',
+      'أعد JSON فقط بالشكل التالي حرفياً بدون شرح خارجي:',
+      '{"dimensions":[{"name":"اسم البُعد","criteria":[{"name":"معيار","weight":50}]}]}',
+      'رتّب الأبعاد بنفس الترتيب أعلاه.',
+    ].join('\n');
+
+    const result = await claudeJSON<GeneratedAssessment>({
+      system: 'أرجع JSON خالص بدون أي نص خارجي. اللغة العربية مهنية.',
+      prompt,
+      maxTokens: 2000,
+      model: CLAUDE_MODEL,
+    });
+
+    // Post-validation: تأكّد أن Claude أعاد نفس عدد الأبعاد وأسماءها.
+    const suggestions: GeneratedDimension[] = [];
+    for (const templateDim of template.dimensions) {
+      const match = result.dimensions.find((d) => d.name.trim() === templateDim.name.trim());
+      // إن غاب بُعد نُبقيه فارغاً — الواجهة تُظهر placeholder.
+      suggestions.push(match ? { name: templateDim.name, criteria: match.criteria } : { name: templateDim.name, criteria: [] });
+    }
+
+    res.json({
+      modelType: body.modelType,
+      dimensions: template.dimensions.map((d, i) => ({
+        name: d.name,
+        weight: d.weight,
+        order: d.order,
+        criteria: suggestions[i]?.criteria ?? [],
+      })),
     });
   } catch (err) {
     next(err);
