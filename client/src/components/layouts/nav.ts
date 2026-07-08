@@ -122,6 +122,13 @@ const ownerNav: NavSection[] = [
     ],
   },
   {
+    title: 'محرك التقييم',
+    accent: 'violet',
+    items: [
+      { to: '/assessment-wizard', label: 'معالج التقييم', icon: '🧭' },
+    ],
+  },
+  {
     title: 'الذكاء الاصطناعي',
     accent: 'violet',
     items: [

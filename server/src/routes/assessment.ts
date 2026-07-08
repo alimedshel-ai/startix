@@ -19,6 +19,7 @@ import {
   deleteIndicator,
   listTemplates,
   createFromTemplate,
+  buildAssessment,
 } from '../controllers/assessment';
 
 // كل endpoints خلف requireAuth. الوصول للشركة يُفرَض داخل الكونترولر
@@ -28,6 +29,8 @@ const router = Router();
 // C19 — Templates (يجب تسجيل المسارات الثابتة قبل :id لتفادي التصادم)
 router.get('/templates', requireAuth, listTemplates);
 router.post('/from-template', requireAuth, createFromTemplate);
+// C20 — Build from wizard draft (nested nested create)
+router.post('/build', requireAuth, buildAssessment);
 
 // Assessment
 router.get('/company/:companyId', requireAuth, listAssessments);

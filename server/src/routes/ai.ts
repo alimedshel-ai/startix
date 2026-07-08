@@ -10,6 +10,7 @@ import {
   smartGuide,
   getPredictions,
   runSimulation,
+  generateAssessment,
 } from '../controllers/ai';
 
 const router = Router();
@@ -25,5 +26,6 @@ router.post('/pain-screen', requireAuth, pro, painScreen);
 router.post('/smart-guide', requireAuth, smartGuide); // free hint
 router.get('/predictions/:companyId', requireAuth, pro, getPredictions);
 router.post('/simulate', requireAuth, pro, runSimulation);
+router.post('/generate-assessment', requireAuth, pro, generateAssessment);
 
 export default router;

@@ -81,6 +81,7 @@ import { FinanceAuditPage } from '@/pages/manager/FinanceAuditPage'
 import { BreakEvenPage } from '@/pages/manager/BreakEvenPage'
 import { FinancialAnalysisPage } from '@/pages/owner/FinancialAnalysisPage'
 import { InvitationsPage } from '@/pages/owner/InvitationsPage'
+import { AssessmentWizardPage } from '@/pages/owner/AssessmentWizardPage'
 import { SalesAuditPage } from '@/pages/manager/SalesAuditPage'
 import { MarketingAuditPage } from '@/pages/manager/MarketingAuditPage'
 import { OperationsAuditPage } from '@/pages/manager/OperationsAuditPage'
@@ -174,6 +175,7 @@ export const router = createBrowserRouter([
               { path: '/reports', element: <ReportsPage /> },
               { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
               { path: '/invitations', element: <InvitationsPage /> },
+              { path: '/assessment-wizard', element: <AssessmentWizardPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
               { path: '/ai/advisor', element: <AdvisorPage /> },
               { path: '/ai/presentation', element: <PresentationPage /> },

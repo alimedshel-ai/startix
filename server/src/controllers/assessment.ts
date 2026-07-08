@@ -383,6 +383,73 @@ const fromTemplateSchema = z.object({
   status: z.enum(STATUSES).optional(),
 });
 
+const buildDimensionSchema = z.object({
+  name: z.string().min(1).max(200),
+  weight: z.number().nonnegative().finite(),
+  order: z.number().int().min(0).optional(),
+  criteria: z.array(z.object({
+    name: z.string().min(1).max(200),
+    weight: z.number().nonnegative().finite(),
+    score: z.number().min(0).max(100).finite().optional(),
+  })).default([]),
+});
+
+const buildAssessmentSchema = z.object({
+  companyId: z.string().uuid(),
+  name: z.string().min(1).max(200),
+  modelType: z.enum(MODEL_TYPES),
+  status: z.enum(STATUSES).optional(),
+  dimensions: z.array(buildDimensionSchema).min(1),
+});
+
+// ─── POST /api/assessments/build — يُنشئ تقييماً كاملاً من مسوّدة المعالج ──
+// يستخدمها معالج C20 لإطلاق التقييم بعد أن يعدّل المستخدم الأوزان والمعايير.
+// يفرض assertCompanyAccess ويتحقّق مبدئياً من مجموع أوزان الأبعاد = 100.
+export const buildAssessment: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const body = buildAssessmentSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+
+    const dimWeightSum = body.dimensions.reduce((s, d) => s + d.weight, 0);
+    if (Math.abs(dimWeightSum - 100) > WEIGHT_TOLERANCE) {
+      throw new HttpError(400, `مجموع أوزان الأبعاد يجب أن يساوي 100% (الحالي: ${Math.round(dimWeightSum * 100) / 100}%)`);
+    }
+
+    const row = await prisma.assessment.create({
+      data: {
+        companyId: body.companyId,
+        name: body.name,
+        modelType: body.modelType,
+        status: body.status ?? 'draft',
+        dimensions: {
+          create: body.dimensions.map((d, i) => ({
+            name: d.name,
+            weight: d.weight,
+            order: d.order ?? i + 1,
+            criteria: {
+              create: d.criteria.map((c) => ({
+                name: c.name,
+                weight: c.weight,
+                score: c.score,
+              })),
+            },
+          })),
+        },
+      },
+      include: {
+        dimensions: {
+          orderBy: { order: 'asc' },
+          include: { criteria: true },
+        },
+      },
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── POST /api/assessments/from-template — يُنشئ تقييماً كاملاً من قالب ────
 export const createFromTemplate: RequestHandler = async (req, res, next) => {
   try {
