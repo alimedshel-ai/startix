@@ -28,6 +28,9 @@ const ARTIFACT_TYPES = [
   'PRIORITY_MATRIX',
   'OGSM',
   'ANNUAL_PLAN',
+  // إجابات تحليل قسم عميق — 4 أسئلة نصّية مفتوحة على /manager/dept-deep.
+  // Data shape: { answers: Record<string, string> } — المفتاح فهرس السؤال.
+  'DEPT_DEEP_ANSWERS',
 ] as const;
 
 const typeSchema = z.enum(ARTIFACT_TYPES);

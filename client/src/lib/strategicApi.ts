@@ -24,6 +24,7 @@ export type ArtifactType =
   | 'PRIORITY_MATRIX'
   | 'OGSM'
   | 'ANNUAL_PLAN'
+  | 'DEPT_DEEP_ANSWERS'
 
 export interface Artifact<T = unknown> {
   id: string
