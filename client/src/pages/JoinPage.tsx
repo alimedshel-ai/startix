@@ -11,7 +11,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
-import type { UserType } from '@/types/user'
+import type { SpecialtyDeptType, UserType } from '@/types/user'
+
+const SPECIALTY_OPTIONS: { value: SpecialtyDeptType; label: string }[] = [
+  { value: 'HR', label: 'الموارد البشرية' },
+  { value: 'FINANCE', label: 'المالية' },
+  { value: 'SALES', label: 'المبيعات' },
+  { value: 'MARKETING', label: 'التسويق' },
+  { value: 'OPERATIONS', label: 'العمليات' },
+  { value: 'IT', label: 'تقنية المعلومات' },
+  { value: 'CUSTOMER_SERVICE', label: 'خدمة العملاء' },
+  { value: 'SUPPORT', label: 'الإمداد والدعم' },
+  { value: 'LOGISTICS', label: 'اللوجستيات' },
+  { value: 'QUALITY', label: 'الجودة' },
+  { value: 'PROJECTS', label: 'المشاريع' },
+  { value: 'GOVERNANCE', label: 'الحوكمة' },
+  { value: 'COMPLIANCE', label: 'الامتثال' },
+]
 
 const schema = z.object({
   name: z.string().min(1, 'الاسم مطلوب').max(120),
@@ -19,6 +35,15 @@ const schema = z.object({
   password: z.string().min(8, 'كلمة المرور يجب ألا تقل عن ٨ أحرف').max(128),
   phone: z.string().max(40).optional().or(z.literal('')),
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
+  managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
+  specialtyDeptType: z.enum(SPECIALTY_OPTIONS.map((o) => o.value) as [SpecialtyDeptType, ...SpecialtyDeptType[]]).optional(),
+}).superRefine((data, ctx) => {
+  if (data.userType === 'MANAGER' && !data.managerType) {
+    ctx.addIssue({ path: ['managerType'], code: 'custom', message: 'اختر نوع المدير' })
+  }
+  if (data.userType === 'MANAGER' && data.managerType === 'INDEPENDENT_PRO' && !data.specialtyDeptType) {
+    ctx.addIssue({ path: ['specialtyDeptType'], code: 'custom', message: 'اختر تخصّصك — الإدارة التي تشرف عليها' })
+  }
 })
 
 type Form = z.infer<typeof schema>
@@ -36,12 +61,14 @@ export function JoinPage() {
   const login = useAuthStore((s) => s.login)
   const [submitting, setSubmitting] = useState(false)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<Form>({
+  const { register, watch, handleSubmit, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: {
       userType: (selectedType as UserType | null) ?? 'OWNER',
     },
   })
+  const userType = watch('userType')
+  const managerType = watch('managerType')
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true)
@@ -51,6 +78,11 @@ export function JoinPage() {
         password: values.password,
         name: values.name,
         userType: values.userType,
+        managerType: values.userType === 'MANAGER' ? values.managerType : undefined,
+        specialtyDeptType:
+          values.userType === 'MANAGER' && values.managerType === 'INDEPENDENT_PRO'
+            ? values.specialtyDeptType
+            : undefined,
         phone: values.phone || undefined,
       })
       await login(values.email, values.password)
@@ -107,6 +139,48 @@ export function JoinPage() {
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
+            {userType === 'MANAGER' && (
+              <div className="grid gap-2 rounded-xl border bg-muted/30 p-3">
+                <Label>نوع المدير</Label>
+                <div className="grid gap-1 sm:grid-cols-2">
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-card p-2 text-sm hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                    <input type="radio" value="INTERNAL" {...register('managerType')} />
+                    <span>
+                      <span className="block font-medium">داخلي</span>
+                      <span className="text-xs text-muted-foreground">مدير داخل شركة واحدة</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-card p-2 text-sm hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                    <input type="radio" value="INDEPENDENT_PRO" {...register('managerType')} />
+                    <span>
+                      <span className="block font-medium">مستقل</span>
+                      <span className="text-xs text-muted-foreground">خبير تخصّص يخدم عدّة عملاء</span>
+                    </span>
+                  </label>
+                </div>
+                {errors.managerType && (
+                  <p className="text-sm text-destructive">{errors.managerType.message}</p>
+                )}
+                {managerType === 'INDEPENDENT_PRO' && (
+                  <div className="mt-2 grid gap-1">
+                    <Label htmlFor="specialtyDeptType">تخصّصك (الإدارة التي تشرف عليها)</Label>
+                    <select
+                      id="specialtyDeptType"
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      {...register('specialtyDeptType')}
+                    >
+                      <option value="">اختر تخصّصك…</option>
+                      {SPECIALTY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    {errors.specialtyDeptType && (
+                      <p className="text-sm text-destructive">{errors.specialtyDeptType.message}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="phone">رقم الجوال (اختياري)</Label>
               <Input id="phone" autoComplete="tel" dir="ltr" className="text-left" placeholder="+966…" {...register('phone')} />

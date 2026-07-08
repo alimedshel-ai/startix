@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { api } from '@/lib/api'
-import type { User, UserType } from '@/types/user'
+import type { ManagerType, SpecialtyDeptType, User, UserType } from '@/types/user'
 
 interface AuthState {
   user: User | null
@@ -23,6 +23,8 @@ interface AuthState {
     password: string
     name: string
     userType: UserType
+    managerType?: ManagerType
+    specialtyDeptType?: SpecialtyDeptType
     phone?: string
   }) => Promise<User>
   logout: () => Promise<void>

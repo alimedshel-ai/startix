@@ -35,12 +35,21 @@ const refreshCookie: CookieOptions = {
   maxAge: REFRESH_TOKEN_TTL_MS,
 };
 
+// أنواع الأقسام المسموحة كتخصّص للمدير المستقل — تطابق DeptType enum في Prisma.
+const DEPT_TYPES = [
+  'HR', 'FINANCE', 'SALES', 'MARKETING', 'OPERATIONS', 'IT',
+  'CUSTOMER_SERVICE', 'SUPPORT', 'LOGISTICS', 'QUALITY',
+  'PROJECTS', 'GOVERNANCE', 'COMPLIANCE',
+] as const;
+type DeptTypeStr = (typeof DEPT_TYPES)[number];
+
 function publicUser(u: {
   id: string;
   email: string;
   name: string;
   userType: 'OWNER' | 'MANAGER' | 'INVESTOR';
   managerType: 'INTERNAL' | 'INDEPENDENT_PRO' | null;
+  specialtyDeptType: DeptTypeStr | null;
   phone: string | null;
   avatarUrl: string | null;
   plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
@@ -53,6 +62,7 @@ function publicUser(u: {
     name: u.name,
     userType: u.userType,
     managerType: u.managerType,
+    specialtyDeptType: u.specialtyDeptType,
     phone: u.phone,
     avatarUrl: u.avatarUrl,
     plan: u.plan,
@@ -67,12 +77,21 @@ const registerSchema = z.object({
   name: z.string().min(1).max(120),
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
   managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
+  // مطلوب فقط عندما userType=MANAGER و managerType=INDEPENDENT_PRO.
+  // يفرضه الكونترولر أدناه (Zod لا يعبّر عن التبعية بين حقلين بسهولة).
+  specialtyDeptType: z.enum(DEPT_TYPES).optional(),
   phone: z.string().max(40).optional(),
 });
 
 export const register: RequestHandler = async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
+
+    // فرض تخصّص الإدارة على المدير المستقل — لأنه يخدم عملاء متعدّدين
+    // في نطاق إدارة واحدة، فبدون التخصّص لا نعرف أي إدارة يُشرف عليها.
+    if (data.userType === 'MANAGER' && data.managerType === 'INDEPENDENT_PRO' && !data.specialtyDeptType) {
+      throw new HttpError(400, 'يجب اختيار التخصّص (الإدارة) للمدير المستقل');
+    }
 
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new HttpError(409, 'البريد الإلكتروني مسجّل مسبقاً');
@@ -87,6 +106,7 @@ export const register: RequestHandler = async (req, res, next) => {
         name: data.name,
         userType: data.userType,
         managerType: data.managerType,
+        specialtyDeptType: data.specialtyDeptType,
         phone: data.phone,
         emailVerificationToken: verificationToken,
         emailVerificationExpiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
@@ -116,6 +136,7 @@ async function issueSession(
     name: string;
     userType: 'OWNER' | 'MANAGER' | 'INVESTOR';
     managerType: 'INTERNAL' | 'INDEPENDENT_PRO' | null;
+    specialtyDeptType: DeptTypeStr | null;
     phone: string | null;
     avatarUrl: string | null;
     plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
