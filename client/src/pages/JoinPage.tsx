@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
-import type { SpecialtyDeptType, UserType } from '@/types/user'
+import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
 const SPECIALTY_OPTIONS: { value: SpecialtyDeptType; label: string }[] = [
   { value: 'HR', label: 'الموارد البشرية' },
@@ -54,9 +54,16 @@ const TYPE_LABEL: Record<UserType, string> = {
   INVESTOR: 'مستثمر',
 }
 
+const MANAGER_TYPE_LABEL: Record<ManagerType, string> = {
+  INTERNAL: 'مدير داخلي',
+  INDEPENDENT_PRO: 'مدير مستقل',
+}
+
 export function JoinPage() {
   const navigate = useNavigate()
   const selectedType = useAuthStore((s) => s.selectedType)
+  const selectedManagerType = useAuthStore((s) => s.selectedManagerType)
+  const selectedSpecialty = useAuthStore((s) => s.selectedSpecialty)
   const registerUser = useAuthStore((s) => s.register)
   const login = useAuthStore((s) => s.login)
   const [submitting, setSubmitting] = useState(false)
@@ -65,6 +72,9 @@ export function JoinPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       userType: (selectedType as UserType | null) ?? 'OWNER',
+      // نلتقط اختيارات المدير من /select-type حتى لا يُعيد المستخدم إدخالها.
+      managerType: selectedManagerType ?? undefined,
+      specialtyDeptType: selectedSpecialty ?? undefined,
     },
   })
   const userType = watch('userType')
@@ -96,6 +106,13 @@ export function JoinPage() {
   })
 
   const roleLabel = TYPE_LABEL[(selectedType as UserType | null) ?? 'OWNER']
+  // نُخفي حقول المدير الفرعية لو كان المستخدم اختارها مسبقاً من /select-type،
+  // ونعرض بدلها ملخّصاً للقراءة فقط مع رابط للتعديل. لو رجع بحقن قيمة غير
+  // متّسقة يدوياً، schema.superRefine يمنع الإرسال.
+  const managerSubchoiceLocked =
+    userType === 'MANAGER' &&
+    selectedManagerType != null &&
+    (selectedManagerType === 'INTERNAL' || selectedSpecialty != null)
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
@@ -139,7 +156,30 @@ export function JoinPage() {
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
-            {userType === 'MANAGER' && (
+            {userType === 'MANAGER' && managerSubchoiceLocked && (
+              <div className="grid gap-2 rounded-xl border bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">نوع المدير</span>
+                  <span className="font-medium">
+                    {selectedManagerType ? MANAGER_TYPE_LABEL[selectedManagerType] : ''}
+                  </span>
+                </div>
+                {selectedManagerType === 'INDEPENDENT_PRO' && selectedSpecialty && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">التخصّص</span>
+                    <span className="font-medium">
+                      {SPECIALTY_OPTIONS.find((o) => o.value === selectedSpecialty)?.label ?? selectedSpecialty}
+                    </span>
+                  </div>
+                )}
+                <input type="hidden" {...register('managerType')} />
+                <input type="hidden" {...register('specialtyDeptType')} />
+                <Link to="/select-type" className="text-xs text-primary underline-offset-4 hover:underline">
+                  تعديل الاختيار ←
+                </Link>
+              </div>
+            )}
+            {userType === 'MANAGER' && !managerSubchoiceLocked && (
               <div className="grid gap-2 rounded-xl border bg-muted/30 p-3">
                 <Label>نوع المدير</Label>
                 <div className="grid gap-1 sm:grid-cols-2">
