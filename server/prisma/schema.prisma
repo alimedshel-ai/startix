@@ -101,6 +101,7 @@ model Company {
   monteCarloRuns   MonteCarloRun[]
   invitations      Invitation[]
   recommendations  Recommendation[]
+  assessments      Assessment[]
 }
 
 model CompanyUser {
@@ -589,4 +590,80 @@ model Recommendation {
 
   @@index([companyId])
   @@index([companyId, source])
+}
+
+// ─── C17 — محرك التقييم المهيكل ────────────────────────────────────────────
+// أربعة نماذج متسلسلة (Assessment → Dimension → Criterion → Indicator).
+// modelType يحدّد قالب النموذج (BSC، EFQM، …). status يوضّح مرحلة الدورة.
+// maturityScore يُحسَب لاحقاً (C18) عبر الأوزان الموزّنة.
+enum AssessmentModelType {
+  BSC
+  EFQM
+  PESTEL
+  PORTER
+  OKR
+  CUSTOM
+}
+
+enum AssessmentStatus {
+  draft
+  active
+  completed
+  archived
+}
+
+model Assessment {
+  id            String              @id @default(uuid())
+  companyId     String
+  name          String
+  modelType     AssessmentModelType
+  status        AssessmentStatus    @default(draft)
+  maturityScore Float?
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime            @default(now())
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dimensions Dimension[]
+
+  @@index([companyId])
+}
+
+model Dimension {
+  id           String @id @default(uuid())
+  assessmentId String
+  name         String
+  weight       Float
+  order        Int    @default(0)
+
+  assessment Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  criteria   Criterion[]
+
+  @@index([assessmentId])
+}
+
+model Criterion {
+  id          String @id @default(uuid())
+  dimensionId String
+  name        String
+  weight      Float
+  score       Float?
+
+  dimension  Dimension   @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+  indicators Indicator[]
+
+  @@index([dimensionId])
+}
+
+model Indicator {
+  id          String  @id @default(uuid())
+  criterionId String
+  name        String
+  value       Float?
+  target      Float?
+  unit        String?
+
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@index([criterionId])
 }
