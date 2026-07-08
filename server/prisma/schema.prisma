@@ -94,6 +94,7 @@ model Company {
   reports          Report[]
   artifacts        StrategicArtifact[]
   corrections      Correction[]
+  breakEvens       BreakEven[]
 }
 
 model CompanyUser {
@@ -432,4 +433,24 @@ model Correction {
 
   @@index([companyId])
   @@index([reviewId])
+}
+
+// ─── C12 — نقطة التعادل (BreakEven) ────────────────────────────────────────
+// كل حساب يُخزَّن كصف مستقل — يُعطي سجلاً تاريخياً لتطوّر أرقام الشركة عبر
+// الزمن (fixedCosts، pricePerUnit، variableCostPerUnit، currentRevenue).
+// المخرجات المحسوبة (contributionMargin، breakEvenUnits، safetyMargin،
+// insights) تُخزَّن في result: Json لتفادي إعادة الحساب عند القراءة.
+model BreakEven {
+  id                  String   @id @default(uuid())
+  companyId           String
+  fixedCosts          Float
+  variableCostPerUnit Float
+  pricePerUnit        Float
+  currentRevenue      Float?
+  result              Json
+  createdAt           DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
