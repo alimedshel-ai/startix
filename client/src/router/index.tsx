@@ -100,6 +100,7 @@ import { DiagnosticInvestorPage } from '@/pages/investor/DiagnosticInvestorPage'
 import { InvestorDashboardPage } from '@/pages/investor/InvestorDashboardPage'
 import { PortfolioPage } from '@/pages/investor/PortfolioPage'
 import { CompanyDetailPage } from '@/pages/investor/CompanyDetailPage'
+import { DealsPipelinePage } from '@/pages/investor/DealsPipelinePage'
 
 export const router = createBrowserRouter([
   // Public
@@ -227,6 +228,7 @@ export const router = createBrowserRouter([
               { path: '/investor/dashboard', element: <InvestorDashboardPage /> },
               { path: '/investor/portfolio', element: <PortfolioPage /> },
               { path: '/investor/company/:id', element: <CompanyDetailPage /> },
+              { path: '/investor/deals', element: <DealsPipelinePage /> },
             ],
           },
         ],

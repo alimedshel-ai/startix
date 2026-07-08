@@ -35,6 +35,7 @@ model User {
   diagnostics    Diagnostic[]
   sessions       Session[]
   assignedTasks  Task[]        @relation("TaskAssignee")
+  deals          Deal[]
 }
 
 enum UserType {
@@ -488,4 +489,32 @@ model MonteCarloRun {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+// ─── C14 — صفقات المستثمر (Deals) ──────────────────────────────────────────
+// خط أنابيب صفقات مبسّط. الشركة الهدف تُحفَظ باسم حرّ فقط (لا مفتاح أجنبي)،
+// فالمستثمر يمكنه إدخال صفقات لشركات لم يصل لها بعد. القرار MVP: افصل
+// الصفقات عن شبكة الشركات القابلة للنقر (PortfolioPage/CompanyDetailPage).
+enum DealStatus {
+  lead
+  due_diligence
+  term_sheet
+  closed_won
+  closed_lost
+}
+
+model Deal {
+  id                String     @id @default(uuid())
+  investorUserId    String
+  targetCompanyName String
+  sector            String?
+  stage             String?
+  valuation         Decimal?
+  status            DealStatus @default(lead)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  investor User @relation(fields: [investorUserId], references: [id], onDelete: Cascade)
+
+  @@index([investorUserId])
 }

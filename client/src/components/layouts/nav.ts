@@ -196,6 +196,13 @@ const investorNav: NavSection[] = [
       { to: '/investor/portfolio', label: 'المحفظة',        icon: '💼' },
     ],
   },
+  {
+    title: 'الصفقات',
+    accent: 'amber',
+    items: [
+      { to: '/investor/deals', label: 'خط الأنابيب', icon: '🤝' },
+    ],
+  },
 ]
 
 export function navFor(userType: UserType | null | undefined): NavSection[] {

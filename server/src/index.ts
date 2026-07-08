@@ -17,6 +17,7 @@ import adminRouter from './routes/admin';
 import reportsRouter from './routes/reports';
 import paymentsRouter from './routes/payments';
 import financeRouter from './routes/finance';
+import dealsRouter from './routes/deals';
 import { stripeWebhook } from './controllers/payments';
 
 const app = express();
@@ -73,6 +74,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/deals', dealsRouter);
 
 app.use(notFound);
 app.use(errorHandler);
