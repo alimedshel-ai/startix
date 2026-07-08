@@ -7,6 +7,9 @@ import { aiSmartGuide } from '@/lib/aiApi'
 import { getJourneyProgress, type JourneyProgress } from '@/lib/strategicApi'
 import { useCompany } from '@/hooks/useCompany'
 
+// 🔓 تفضيل UI مقبول لـ localStorage — ليس بيانات عمل.
+// نحفظ حالة فتح/إغلاق لوحة المرشد فقط (boolean واحد). كل الاقتراحات
+// والتقدّم يأتي من الـ API وليس من localStorage.
 const STORAGE_OPEN_KEY = 'startix-smartguide-open'
 
 // عبارة إرشادية لكل مرحلة تُقترح كخطوة تالية للمستخدم.
