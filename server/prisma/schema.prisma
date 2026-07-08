@@ -100,6 +100,7 @@ model Company {
   dupontAnalyses   DupontAnalysis[]
   monteCarloRuns   MonteCarloRun[]
   invitations      Invitation[]
+  recommendations  Recommendation[]
 }
 
 model CompanyUser {
@@ -563,4 +564,29 @@ model Invitation {
 
   @@index([companyId])
   @@index([email])
+}
+
+// ─── C16 — محرك الاستدلال (Recommendations) ────────────────────────────────
+// توصيات ناتجة عن قواعد حتمية تقرأ من Diagnostic + DeptAudit + BreakEven.
+// severity: info | warning | critical. source: اسم النموذج المصدر أو Composite.
+// كل استدعاء POST /generate يحذف التوصيات القديمة لنفس source ثم يعيد الإنشاء.
+enum RecommendationSeverity {
+  info
+  warning
+  critical
+}
+
+model Recommendation {
+  id        String                 @id @default(uuid())
+  companyId String
+  kind      String
+  message   String
+  severity  RecommendationSeverity
+  source    String
+  createdAt DateTime               @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, source])
 }
