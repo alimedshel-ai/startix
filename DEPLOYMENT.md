@@ -110,8 +110,10 @@ eb deploy
 API_URL=https://startix-api-prod.eba-….me-south-1.elasticbeanstalk.com ./scripts/smoke.sh
 ```
 
-Expect 32/32 OK. The `/health/config` block at the top must show every
-integration `ON` except possibly `s3` if you haven't created the bucket yet.
+Expect 32/32 OK. `/health/config` is now behind `requireAuth` (SEC-3),
+so the smoke harness verifies anon returns 401 and the post-login call
+prints the integrations block (every one should be `ON` except possibly
+`s3` if you haven't created the bucket yet).
 
 ---
 
@@ -176,7 +178,7 @@ EB. Attach both to their respective distributions/environments.
 ## 6. Post-deploy checklist
 
 - [ ] `https://api.startix.sa/health` returns 200
-- [ ] `https://api.startix.sa/health/config` shows every integration `ON`
+- [ ] `https://api.startix.sa/health/config` returns 401 anon and, after login, shows every integration `ON`
 - [ ] Smoke harness against the production URL is 32/32 green
 - [ ] Register a real test account, run the diagnostic, confirm the company is saved
 - [ ] Stripe test purchase: dummy card `4242 4242 4242 4242` upgrades the user to `PROFESSIONAL`

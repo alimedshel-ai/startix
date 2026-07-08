@@ -24,6 +24,7 @@ import insightRouter from './routes/insight';
 import assessmentRouter from './routes/assessment';
 import proRouter from './routes/pro';
 import { stripeWebhook } from './controllers/payments';
+import { requireAuth } from './middleware/auth';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -56,7 +57,10 @@ app.get('/health/db', async (_req: Request, res: Response, next) => {
   }
 });
 
-app.get('/health/config', (_req: Request, res: Response) => {
+// SEC-3 — /health/config يكشف أيّ تكاملات مفعّلة (stripe/jwt/ses…) وهي
+// معلومة يمكن أن تُستغلّ في استكشاف السطح. لا تكشف قيماً حسّاسة لكنّها
+// لا يجب أن تكون عامّة — تُقصر على المستخدمين المصادَقين.
+app.get('/health/config', requireAuth, (_req: Request, res: Response) => {
   res.json({
     node: process.env.NODE_ENV ?? 'development',
     integrations: {

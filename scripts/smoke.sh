@@ -51,15 +51,10 @@ RES=$(http GET /health)
 RES=$(http GET /health/db)
 [ "$(echo "$RES" | status_of)" = "200" ] && ok "/health/db reachable" || bad "/health/db"
 
+# SEC-3 — /health/config is now behind requireAuth. Anon must get 401.
+# The post-auth 200 check happens after login further below.
 RES=$(http GET /health/config)
-[ "$(echo "$RES" | status_of)" = "200" ] && ok "/health/config 200" || bad "/health/config"
-CONFIG_BODY=$(echo "$RES" | body_of)
-echo "    integrations:"
-echo "$CONFIG_BODY" | python3 -c "
-import sys,json
-d=json.load(sys.stdin)['integrations']
-for k,v in d.items():
-    print(f'      {k}: {\"ON\" if v else \"--\"}')"
+[ "$(echo "$RES" | status_of)" = "401" ] && ok "/health/config gated (401 anon)" || bad "/health/config not gated"
 
 # ───── Auth flow ────────────────────────────────────────────────────────────
 hdr "Auth flow"
@@ -74,6 +69,17 @@ RES=$(http POST /api/auth/login "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
 
 RES=$(http GET /api/auth/me)
 [ "$(echo "$RES" | status_of)" = "200" ] && ok "/me with cookie" || bad "/me"
+
+# SEC-3 — same endpoint should now succeed with the auth cookie in place.
+RES=$(http GET /health/config)
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "/health/config 200 (authed)" || bad "/health/config authed"
+CONFIG_BODY=$(echo "$RES" | body_of)
+echo "    integrations:"
+echo "$CONFIG_BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)['integrations']
+for k,v in d.items():
+    print(f'      {k}: {\"ON\" if v else \"--\"}')"
 
 # Confirm refresh works
 RES=$(http POST /api/auth/refresh "{}")
