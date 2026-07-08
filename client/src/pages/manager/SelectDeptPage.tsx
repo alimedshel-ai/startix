@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { DEPT_ICON, DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { useAuthStore } from '@/store/authStore'
 
 interface DeptLink {
   code: DeptCode
@@ -31,15 +32,31 @@ const DEPTS: DeptLink[] = [
 ]
 
 export function SelectDeptPage() {
+  const user = useAuthStore((s) => s.user)
+
+  // المدير المستقل يشرف على إدارة واحدة فقط — نُظهرها له بدلاً من كامل الشبكة.
+  // المدير الداخلي (INTERNAL) أو أي دور آخر يرى القائمة الكاملة.
+  const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+  const specialty = user?.specialtyDeptType ?? null
+  const visibleDepts = isPro && specialty
+    ? DEPTS.filter((d) => d.code === specialty)
+    : DEPTS
+
+  const singleDept = visibleDepts.length === 1 ? visibleDepts[0] : null
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="الإدارات"
-        description="اختر إدارة لبدء تدقيقها. الامتثال هو الإدارة الأعمق في النظام."
+        title={singleDept ? `إدارتك: ${DEPT_LABEL[singleDept.code]}` : 'الإدارات'}
+        description={
+          singleDept
+            ? 'كل عملائك يستفيدون من خبرتك في هذه الإدارة. ابدأ التدقيق أو افتح الأدوات المرتبطة بها.'
+            : 'اختر إدارة لبدء تدقيقها. الامتثال هو الإدارة الأعمق في النظام.'
+        }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {DEPTS.map((d) => (
+      <div className={singleDept ? 'grid' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'}>
+        {visibleDepts.map((d) => (
           <Card key={`${d.code}-${d.audit}`} className={`bg-gradient-to-br ${d.accent} transition hover:-translate-y-0.5 hover:shadow-md`}>
             <CardContent className="p-4">
               <div className="mb-3 flex items-center gap-2">
