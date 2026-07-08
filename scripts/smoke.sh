@@ -165,6 +165,113 @@ RID=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(json.load(sys.st
 EXCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -b "$JAR" "$API/api/reports/$RID/excel")
 [ "$EXCEL_STATUS" = "402" ] && ok "Excel export 402 for BASIC" || bad "Excel gating (status $EXCEL_STATUS)"
 
+# ───── Wave ب — SWOT synthesis (C8, C10) ───────────────────────────────────
+hdr "SWOT synthesis (waves ب)"
+RES=$(http POST "/api/strategic/swot/$CO_ID/seed-from-diagnostic" "{}")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "SWOT seed-from-diagnostic (C8)" || bad "seed-from-diagnostic"
+
+RES=$(http POST "/api/strategic/swot/$CO_ID/synthesize-from-audits" "{}")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "SWOT synthesize-from-audits (C10)" || bad "synthesize-from-audits"
+
+# ───── Wave ج — Finance (C12, C13) ──────────────────────────────────────────
+hdr "Finance module (waves ج)"
+BE_BODY="{\"companyId\":\"$CO_ID\",\"fixedCosts\":100000,\"pricePerUnit\":250,\"variableCostPerUnit\":100,\"currentRevenue\":500000}"
+RES=$(http POST /api/finance/break-even "$BE_BODY")
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "break-even create (C12)" || bad "break-even create"
+
+RES=$(http GET "/api/finance/break-even/$CO_ID/latest")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "break-even latest (C12)" || bad "break-even latest"
+
+DUP_BODY="{\"companyId\":\"$CO_ID\",\"netIncome\":150000,\"revenue\":1000000,\"totalAssets\":800000,\"equity\":400000}"
+RES=$(http POST /api/finance/dupont "$DUP_BODY")
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "Dupont create (C13)" || bad "Dupont create"
+ROE=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(json.load(sys.stdin)["roe"])' 2>/dev/null || echo "?")
+echo "    ROE=$ROE (expected 0.375)"
+
+MC_BODY="{\"companyId\":\"$CO_ID\",\"revenue\":{\"min\":800000,\"likely\":1200000,\"max\":1600000},\"variableCostPct\":{\"min\":0.35,\"likely\":0.42,\"max\":0.55},\"fixedCosts\":{\"min\":400000,\"likely\":500000,\"max\":650000},\"iterations\":2000}"
+RES=$(http POST /api/finance/monte-carlo "$MC_BODY")
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "Monte Carlo run (C13)" || bad "Monte Carlo"
+
+# ───── Wave ج — Deals (C14) ─────────────────────────────────────────────────
+hdr "Investor deals (C14)"
+RES=$(http POST /api/deals '{"targetCompanyName":"شركة اختبار","sector":"تقنية","stage":"seed","valuation":5000000}')
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "deal created" || bad "deal create"
+DEAL_ID=$(echo "$RES" | body_of | field id)
+
+RES=$(http PATCH "/api/deals/$DEAL_ID" '{"status":"due_diligence"}')
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "deal status patched" || bad "deal patch"
+
+RES=$(http GET /api/deals)
+COUNT=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')
+[ "$COUNT" = "1" ] && ok "deal listed (count=1)" || bad "deal list (got $COUNT)"
+
+DEL=$(curl -s -o /dev/null -w "%{http_code}" -b "$JAR" -X DELETE "$API/api/deals/$DEAL_ID")
+[ "$DEL" = "204" ] && ok "deal deleted (204)" || bad "deal delete (got $DEL)"
+
+# ───── Wave ج — Notifications + Invitations (C15) ──────────────────────────
+hdr "Notifications + Invitations (C15)"
+RES=$(http GET /api/notifications/me)
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "notifications list" || bad "notifications"
+UNREAD=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(json.load(sys.stdin)["unread"])')
+echo "    unread=$UNREAD"
+
+INV_BODY="{\"companyId\":\"$CO_ID\",\"email\":\"invitee-$(date +%s)@example.com\",\"role\":\"manager\"}"
+RES=$(http POST /api/invitations "$INV_BODY")
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "invitation created" || bad "invitation create"
+
+RES=$(http GET "/api/invitations/company/$CO_ID")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "company invitations listed" || bad "invitations list"
+
+# ───── Wave ج — Insight engine (C16) ────────────────────────────────────────
+hdr "Insight engine (C16)"
+RES=$(http POST "/api/insight/$CO_ID/generate" "{}")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "insight generate" || bad "insight generate"
+GENERATED=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(json.load(sys.stdin)["generated"])')
+echo "    generated=$GENERATED recommendations"
+
+RES=$(http GET "/api/insight/$CO_ID")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "insight list" || bad "insight list"
+
+# ───── Wave د — Assessment engine (C17–C20) ────────────────────────────────
+hdr "Assessment engine (waves د)"
+RES=$(http GET /api/assessments/templates)
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "templates list (C19)" || bad "templates"
+TCOUNT=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')
+[ "$TCOUNT" = "5" ] && ok "5 templates registered" || bad "template count (got $TCOUNT)"
+
+RES=$(http POST /api/assessments/from-template "{\"companyId\":\"$CO_ID\",\"modelType\":\"BSC\"}")
+[ "$(echo "$RES" | status_of)" = "201" ] && ok "assessment from-template (C19)" || bad "from-template"
+A_ID=$(echo "$RES" | body_of | field id)
+
+RES=$(http POST "/api/assessments/$A_ID/calculate" "{}")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "calculate maturity (C18)" || bad "calculate"
+
+# Weight validation — deliberately-wrong build should 400
+BAD_BUILD="{\"companyId\":\"$CO_ID\",\"name\":\"سيئ\",\"modelType\":\"BSC\",\"dimensions\":[{\"name\":\"a\",\"weight\":40,\"criteria\":[]},{\"name\":\"b\",\"weight\":40,\"criteria\":[]}]}"
+RES=$(http POST /api/assessments/build "$BAD_BUILD")
+[ "$(echo "$RES" | status_of)" = "400" ] && ok "build rejects sum!=100 with 400" || bad "build validation"
+
+# AI generate-assessment must 402 for BASIC (C20 gate)
+RES=$(http POST /api/ai/generate-assessment "{\"companyId\":\"$CO_ID\",\"modelType\":\"BSC\"}")
+[ "$(echo "$RES" | status_of)" = "402" ] && ok "AI generate-assessment 402 for BASIC" || bad "AI generate gating"
+
+# ───── Additional plan gates (predictions + simulate) ──────────────────────
+hdr "AI PROFESSIONAL gates (BASIC user)"
+RES=$(http GET "/api/ai/predictions/$CO_ID")
+[ "$(echo "$RES" | status_of)" = "402" ] && ok "predictions 402 for BASIC" || bad "predictions gating"
+
+RES=$(http POST /api/ai/simulate "{\"companyId\":\"$CO_ID\",\"revenueGrowthPct\":0.1,\"costReductionPct\":0.05,\"baseRevenue\":1000000,\"baseCost\":700000,\"investment\":50000}")
+[ "$(echo "$RES" | status_of)" = "402" ] && ok "simulate 402 for BASIC" || bad "simulate gating"
+
+# ───── Admin gap (known — reported in C22) ─────────────────────────────────
+hdr "Admin stats (known gap)"
+RES=$(http GET /api/admin/stats)
+if [ "$(echo "$RES" | status_of)" = "200" ]; then
+  ok "/admin/stats accessible (BASIC — known gap awaiting role guard)"
+else
+  bad "/admin/stats unexpected status $(echo "$RES" | status_of)"
+fi
+
 # ───── Payments ─────────────────────────────────────────────────────────────
 hdr "Payments"
 RES=$(http GET /api/payments/plans)
