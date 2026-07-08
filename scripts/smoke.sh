@@ -270,13 +270,11 @@ RES=$(http POST /api/ai/simulate "{\"companyId\":\"$CO_ID\",\"revenueGrowthPct\"
 [ "$(echo "$RES" | status_of)" = "402" ] && ok "simulate 402 for BASIC" || bad "simulate gating"
 
 # ───── Admin gap (known — reported in C22) ─────────────────────────────────
-hdr "Admin stats (known gap)"
+# SEC-2 — /admin/stats is now behind requireAdmin. The smoke user is a
+# fresh BASIC owner with isAdmin=false, so 403 is the expected pass.
+hdr "Admin stats (SEC-2 gated)"
 RES=$(http GET /api/admin/stats)
-if [ "$(echo "$RES" | status_of)" = "200" ]; then
-  ok "/admin/stats accessible (BASIC — known gap awaiting role guard)"
-else
-  bad "/admin/stats unexpected status $(echo "$RES" | status_of)"
-fi
+[ "$(echo "$RES" | status_of)" = "403" ] && ok "/admin/stats gated (403 for non-admin)" || bad "/admin/stats not gated ($(echo "$RES" | status_of))"
 
 # ───── Payments ─────────────────────────────────────────────────────────────
 hdr "Payments"
