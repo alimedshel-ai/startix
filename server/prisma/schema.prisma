@@ -24,6 +24,9 @@ model User {
   plan                       PlanTier     @default(BASIC)
   planExpiresAt              DateTime?
   isVerified                 Boolean      @default(false)
+  // صلاحية مسؤول النظام — تُفعّل يدوياً من DB. لا واجهة لترقية المستخدم
+  // إلى admin حالياً (SEC-2). يحمي مسارات /api/admin/*.
+  isAdmin                    Boolean      @default(false)
   emailVerificationToken     String?      @unique
   emailVerificationExpiresAt DateTime?
   passwordResetToken         String?      @unique

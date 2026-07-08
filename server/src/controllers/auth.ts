@@ -54,6 +54,7 @@ function publicUser(u: {
   avatarUrl: string | null;
   plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
   isVerified: boolean;
+  isAdmin: boolean;
   createdAt: Date;
 }) {
   return {
@@ -67,6 +68,7 @@ function publicUser(u: {
     avatarUrl: u.avatarUrl,
     plan: u.plan,
     isVerified: u.isVerified,
+    isAdmin: u.isAdmin,
     createdAt: u.createdAt,
   };
 }
@@ -141,6 +143,7 @@ async function issueSession(
     avatarUrl: string | null;
     plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
     isVerified: boolean;
+    isAdmin: boolean;
     createdAt: Date;
   },
   ipAddress: string | undefined,

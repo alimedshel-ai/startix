@@ -13,7 +13,12 @@ const ROLE_LABEL: Record<string, string> = {
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const userType = user?.userType ?? useAuthStore.getState().selectedType ?? null
+  const isAdmin = user?.isAdmin === true
+  // نستنسخ الأقسام ونحذف عناصر adminOnly لغير المسؤولين، ثم نُسقط الأقسام
+  // التي فرغت — حتى لا يظهر عنوان قسم بلا عناصر.
   const sections = navFor(userType, user?.managerType)
+    .map((s) => ({ ...s, items: s.items.filter((i) => (i.adminOnly ? isAdmin : true)) }))
+    .filter((s) => s.items.length > 0)
 
   return (
     <aside className="w-72 shrink-0 border-l bg-card/40">

@@ -4,6 +4,9 @@ export interface NavItem {
   to: string
   label: string
   icon?: string
+  // SEC-2 — يخفي العنصر عن غير المسؤولين. السيرفر أيضاً يحمي المسار
+  // بـ requireAdmin؛ هذا فقط لتنظيف التنقّل.
+  adminOnly?: boolean
 }
 
 /** Accent color used by the sidebar for the section header / left-bar marker. */
@@ -24,7 +27,7 @@ const ownerNav: NavSection[] = [
       { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي',  icon: '👔' },
       { to: '/exec-dashboard',      label: 'لوحة الفريق التنفيذي',  icon: '👥' },
       { to: '/board-dashboard',     label: 'لوحة المجلس',           icon: '🏛️' },
-      { to: '/admin-dashboard',     label: 'لوحة المسؤول',          icon: '🛠️' },
+      { to: '/admin-dashboard',     label: 'لوحة المسؤول',          icon: '🛠️', adminOnly: true },
       { to: '/live-board',          label: 'اللوحة الحية',          icon: '⚡' },
       { to: '/analytics-dashboard', label: 'التحليلات',             icon: '📈' },
       { to: '/activity-feed',       label: 'سجل النشاط',            icon: '📰' },

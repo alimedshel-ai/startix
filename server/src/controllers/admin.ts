@@ -5,8 +5,7 @@ import { HttpError } from '../middleware/error';
 
 /**
  * System-wide statistics for the admin dashboard. Returns aggregates only —
- * no per-row data. Any authenticated user can call it today; restricting
- * to a future ADMIN role can be layered on later.
+ * no per-row data. Gated by `requireAdmin` (SEC-2) on the route.
  */
 export const adminStats: RequestHandler = async (req, res, next) => {
   try {

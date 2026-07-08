@@ -19,5 +19,6 @@ export interface User {
   avatarUrl: string | null
   plan: PlanTier
   isVerified: boolean
+  isAdmin: boolean
   createdAt: string
 }
