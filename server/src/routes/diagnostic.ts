@@ -11,6 +11,11 @@ import {
 } from '../controllers/diagnostic';
 import { requireAuth } from '../middleware/auth';
 
+// خريطة الحماية:
+//   POST /preview*          — عام (تشخيص مجاني قبل التسجيل، لا يكتب في القاعدة)
+//   POST /owner /manager /investor — BASIC+  (يحفظ في جدول Diagnostic)
+//   GET  /me/latest         — BASIC+
+//   GET  /:companyId/latest — BASIC+  (يفحص CompanyUser link داخل الكونترولر)
 const router = Router();
 
 router.post('/preview', previewOwnerDiagnostic);

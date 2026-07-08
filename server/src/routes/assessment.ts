@@ -22,8 +22,11 @@ import {
   buildAssessment,
 } from '../controllers/assessment';
 
-// كل endpoints خلف requireAuth. الوصول للشركة يُفرَض داخل الكونترولر
-// عبر assertCompanyAccess (مباشرة أو بالصعود عبر شجرة العلاقات).
+// خريطة الحماية: كل مسارات /api/assessments BASIC+.
+// الوصول للشركة يُفرَض داخل الكونترولر عبر assertCompanyAccess (مباشرة أو
+// بالصعود عبر شجرة العلاقات لـ Dimension/Criterion/Indicator).
+// ملاحظة: توليد المعايير بالـ AI (POST /api/ai/generate-assessment) خلف
+// PROFESSIONAL+، أما إنشاء التقييم يدوياً/عبر القوالب/عبر build فمتاح للجميع.
 const router = Router();
 
 // C19 — Templates (يجب تسجيل المسارات الثابتة قبل :id لتفادي التصادم)

@@ -7,8 +7,10 @@ import {
   acceptInvitation,
 } from '../controllers/invitations';
 
-// كل endpoints خلف requireAuth. صلاحية الشركة تُتحقَّق داخل الكونترولر
-// عبر assertCompanyAccess (للإنشاء والقائمة). القبول يتحقّق من مطابقة البريد.
+// خريطة الحماية:
+//   POST /                     — BASIC+  (يتحقّق assertCompanyAccess)
+//   GET  /company/:companyId   — BASIC+  (يتحقّق assertCompanyAccess)
+//   POST /:token/accept        — BASIC+  (يتحقّق مطابقة البريد داخل الكونترولر)
 const router = Router();
 
 router.post('/', requireAuth, createInvitation);

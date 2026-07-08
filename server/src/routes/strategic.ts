@@ -29,6 +29,12 @@ import {
   alertsList,
 } from '../controllers/lifecycle';
 
+// خريطة الحماية: كل مسارات /api/strategic BASIC+.
+// (Artifacts، SWOT/TOWS، Objectives، KPIs، Projects، Tasks، Reviews،
+// Corrections، Activity، Alerts.) الوصول للشركة يُفرَض داخل الكونترولرز.
+// TOWS suggestion يقرأ من Claude داخل الكلاينت عبر /api/ai/tows-suggestions
+// (خلف PROFESSIONAL) — أما /swot/:companyId/tows/suggest هنا فقواعد
+// حتمية بسيطة، متاحة للجميع.
 const router = Router();
 
 // Strategic artifacts (generic JSON)

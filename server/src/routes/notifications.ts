@@ -3,7 +3,8 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { listMyNotifications, markNotificationRead } from '../controllers/notifications';
 
-// كل endpoints خلف requireAuth. الملكية تُتحقَّق داخل الكونترولر (المستخدم = userId).
+// خريطة الحماية: كل مسارات /api/notifications BASIC+.
+// الملكية شخصية للمستخدم — تُتحقَّق داخل الكونترولر (userId = req.auth.sub).
 const router = Router();
 
 router.get('/me', requireAuth, listMyNotifications);

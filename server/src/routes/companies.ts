@@ -9,6 +9,8 @@ import {
   deleteCompany,
 } from '../controllers/companies';
 
+// خريطة الحماية: كل المسارات BASIC+ (assertCompanyAccess داخل الكونترولر
+// يحصر الوصول للشركات المرتبطة بالمستخدم عبر CompanyUser link).
 const router = Router();
 
 router.get('/', requireAuth, listCompanies);

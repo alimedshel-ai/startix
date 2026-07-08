@@ -11,8 +11,9 @@ import {
   getLatestMonteCarloRun,
 } from '../controllers/finance';
 
-// جميع endpoints خلف requireAuth. الوصول للشركة يُفرَض داخل الكونترولر
-// عبر assertCompanyAccess.
+// خريطة الحماية: كل مسارات /api/finance BASIC+.
+// الوصول للشركة يُفرَض داخل الكونترولر عبر assertCompanyAccess.
+// (Break-Even + Dupont + Monte Carlo كلها متاحة للباقة الأساسية.)
 const router = Router();
 
 // C12 — Break-even
