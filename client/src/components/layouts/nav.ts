@@ -1,4 +1,4 @@
-import type { UserType } from '@/types/user'
+import type { ManagerType, UserType } from '@/types/user'
 
 export interface NavItem {
   to: string
@@ -213,9 +213,24 @@ const investorNav: NavSection[] = [
   },
 ]
 
-export function navFor(userType: UserType | null | undefined): NavSection[] {
+// PRO-B — قسم مستقل للمدير المستقل (INDEPENDENT_PRO) يعرض قائمة عملائه.
+// يُدرج فقط عندما يكون نوع المدير INDEPENDENT_PRO لأنه لا معنى له للـ INTERNAL.
+const proClientsSection: NavSection = {
+  title: 'العملاء',
+  accent: 'amber',
+  items: [{ to: '/manager/clients', label: 'عملائي', icon: '🤝' }],
+}
+
+export function navFor(
+  userType: UserType | null | undefined,
+  managerType?: ManagerType | null
+): NavSection[] {
   if (userType === 'OWNER') return ownerNav
-  if (userType === 'MANAGER') return managerNav
+  if (userType === 'MANAGER') {
+    return managerType === 'INDEPENDENT_PRO'
+      ? [proClientsSection, ...managerNav]
+      : managerNav
+  }
   if (userType === 'INVESTOR') return investorNav
   return []
 }

@@ -73,6 +73,7 @@ import { DiagnosticManagerPage } from '@/pages/manager/DiagnosticManagerPage'
 import { SelectDeptPage } from '@/pages/manager/SelectDeptPage'
 import { DeptDashboardPage } from '@/pages/manager/DeptDashboardPage'
 import { ProDashboardPage } from '@/pages/manager/ProDashboardPage'
+import { ClientsPage } from '@/pages/manager/ClientsPage'
 import { DeptQuestionnairePage } from '@/pages/manager/DeptQuestionnairePage'
 import { DeptDeepPage } from '@/pages/manager/DeptDeepPage'
 import { DeptSmartPage } from '@/pages/manager/DeptSmartPage'
@@ -197,6 +198,7 @@ export const router = createBrowserRouter([
               { path: '/manager/select-dept', element: <SelectDeptPage /> },
               { path: '/manager/dept-dashboard', element: <DeptDashboardPage /> },
               { path: '/manager/pro-dashboard', element: <ProDashboardPage /> },
+              { path: '/manager/clients', element: <ClientsPage /> },
               { path: '/manager/dept-questionnaire', element: <DeptQuestionnairePage /> },
               { path: '/manager/dept-deep', element: <DeptDeepPage /> },
               { path: '/manager/dept-smart', element: <DeptSmartPage /> },

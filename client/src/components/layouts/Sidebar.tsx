@@ -13,7 +13,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const userType = user?.userType ?? useAuthStore.getState().selectedType ?? null
-  const sections = navFor(userType)
+  const sections = navFor(userType, user?.managerType)
 
   return (
     <aside className="w-72 shrink-0 border-l bg-card/40">

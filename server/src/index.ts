@@ -22,6 +22,7 @@ import notificationsRouter from './routes/notifications';
 import invitationsRouter from './routes/invitations';
 import insightRouter from './routes/insight';
 import assessmentRouter from './routes/assessment';
+import proRouter from './routes/pro';
 import { stripeWebhook } from './controllers/payments';
 
 const app = express();
@@ -88,6 +89,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/invitations', invitationsRouter);
 app.use('/api/insight', insightRouter);
 app.use('/api/assessments', assessmentRouter);
+app.use('/api/pro', proRouter);
 
 app.use(notFound);
 app.use(errorHandler);
