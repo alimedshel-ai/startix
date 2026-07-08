@@ -36,6 +36,7 @@ const ownerNav: NavSection[] = [
     items: [
       { to: '/companies',     label: 'شركاتي',         icon: '🏢' },
       { to: '/companies/add', label: 'إضافة شركة',     icon: '➕' },
+      { to: '/invitations',   label: 'دعوات الفريق',   icon: '✉️' },
     ],
   },
   {
