@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
+import { TEMPLATES, templateToCreateData } from '../lib/assessmentTemplates';
 
 // ─── C18 — محرك التقييم: CRUD + حساب النضج ──────────────────────────────────
 // CRUD كامل لـ 4 مستويات: Assessment → Dimension → Criterion → Indicator.
@@ -347,6 +348,62 @@ export const deleteIndicator: RequestHandler = async (req, res, next) => {
     await assertIndicatorAccess(id, req.auth.sub);
     await prisma.indicator.delete({ where: { id } });
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C19 — قوالب النماذج
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── GET /api/assessments/templates — لا يحتاج companyId ────────────────────
+export const listTemplates: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    // نُرجِع البيانات الوصفية فقط (بدون الحقول العميقة) — الواجهة تعرضها
+    // كخيارات في المعالج. الشكل الكامل يُستهلَك عند from-template.
+    const summaries = Object.values(TEMPLATES).map((t) => ({
+      modelType: t.modelType,
+      displayName: t.displayName,
+      description: t.description,
+      dimensionsCount: t.dimensions.length,
+      criteriaCount: t.dimensions.reduce((s, d) => s + d.criteria.length, 0),
+    }));
+    res.json(summaries);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const fromTemplateSchema = z.object({
+  companyId: z.string().uuid(),
+  modelType: z.enum(['BSC', 'EFQM', 'PESTEL', 'PORTER', 'OKR']),
+  name: z.string().min(1).max(200).optional(),
+  status: z.enum(STATUSES).optional(),
+});
+
+// ─── POST /api/assessments/from-template — يُنشئ تقييماً كاملاً من قالب ────
+export const createFromTemplate: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const body = fromTemplateSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const template = TEMPLATES[body.modelType];
+    const data = templateToCreateData(body.companyId, template, {
+      name: body.name,
+      status: body.status,
+    });
+    const row = await prisma.assessment.create({
+      data,
+      include: {
+        dimensions: {
+          orderBy: { order: 'asc' },
+          include: { criteria: true },
+        },
+      },
+    });
+    res.status(201).json(row);
   } catch (err) {
     next(err);
   }

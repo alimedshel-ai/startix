@@ -17,11 +17,17 @@ import {
   createIndicator,
   updateIndicator,
   deleteIndicator,
+  listTemplates,
+  createFromTemplate,
 } from '../controllers/assessment';
 
 // كل endpoints خلف requireAuth. الوصول للشركة يُفرَض داخل الكونترولر
 // عبر assertCompanyAccess (مباشرة أو بالصعود عبر شجرة العلاقات).
 const router = Router();
+
+// C19 — Templates (يجب تسجيل المسارات الثابتة قبل :id لتفادي التصادم)
+router.get('/templates', requireAuth, listTemplates);
+router.post('/from-template', requireAuth, createFromTemplate);
 
 // Assessment
 router.get('/company/:companyId', requireAuth, listAssessments);
