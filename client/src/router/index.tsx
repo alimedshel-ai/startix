@@ -79,6 +79,7 @@ import { DeptSmartPage } from '@/pages/manager/DeptSmartPage'
 import { HRAuditPage } from '@/pages/manager/HRAuditPage'
 import { FinanceAuditPage } from '@/pages/manager/FinanceAuditPage'
 import { BreakEvenPage } from '@/pages/manager/BreakEvenPage'
+import { FinancialAnalysisPage } from '@/pages/owner/FinancialAnalysisPage'
 import { SalesAuditPage } from '@/pages/manager/SalesAuditPage'
 import { MarketingAuditPage } from '@/pages/manager/MarketingAuditPage'
 import { OperationsAuditPage } from '@/pages/manager/OperationsAuditPage'
@@ -169,6 +170,7 @@ export const router = createBrowserRouter([
               { path: '/reviews', element: <ReviewsPage /> },
               { path: '/corrections', element: <CorrectionsPage /> },
               { path: '/reports', element: <ReportsPage /> },
+              { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
               { path: '/ai/advisor', element: <AdvisorPage /> },
               { path: '/ai/presentation', element: <PresentationPage /> },

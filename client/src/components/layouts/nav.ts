@@ -114,6 +114,13 @@ const ownerNav: NavSection[] = [
     ],
   },
   {
+    title: 'التحليل المالي',
+    accent: 'emerald',
+    items: [
+      { to: '/financial-analysis', label: 'Dupont و Monte Carlo', icon: '📐' },
+    ],
+  },
+  {
     title: 'الذكاء الاصطناعي',
     accent: 'violet',
     items: [

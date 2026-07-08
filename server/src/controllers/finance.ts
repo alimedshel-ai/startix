@@ -173,3 +173,183 @@ export const getBreakEvenHistory: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C13 — تحليل Dupont
+// ═══════════════════════════════════════════════════════════════════════════
+// ROE = netMargin × assetTurnover × equityMultiplier
+//   netMargin        = صافي الربح / الإيراد
+//   assetTurnover    = الإيراد / إجمالي الأصول
+//   equityMultiplier = إجمالي الأصول / حقوق الملكية
+// نستقبل الأرقام الخام ونستنبط العوامل الثلاثة داخل السيرفر (مصدر واحد للحقيقة).
+
+const dupontSchema = z.object({
+  companyId: z.string().uuid(),
+  netIncome: z.number().finite(),
+  revenue: z.number().positive().finite(),
+  totalAssets: z.number().positive().finite(),
+  equity: z.number().positive().finite(),
+});
+
+// ─── POST /api/finance/dupont ──────────────────────────────────────────────
+export const createDupont: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const body = dupontSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+
+    const netMargin = body.netIncome / body.revenue;
+    const assetTurnover = body.revenue / body.totalAssets;
+    const equityMultiplier = body.totalAssets / body.equity;
+    const roe = netMargin * assetTurnover * equityMultiplier;
+
+    const row = await prisma.dupontAnalysis.create({
+      data: {
+        companyId: body.companyId,
+        netMargin: round4(netMargin),
+        assetTurnover: round4(assetTurnover),
+        equityMultiplier: round4(equityMultiplier),
+        roe: round4(roe),
+      },
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/finance/dupont/:companyId/latest ─────────────────────────────
+export const getLatestDupont: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const latest = await prisma.dupontAnalysis.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ dupont: latest });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C13 — محاكاة Monte Carlo
+// ═══════════════════════════════════════════════════════════════════════════
+// نموذج ربح مبسّط لكن مفيد للتوقّعات:
+//   profit_i = revenue_i × (1 − variableCostPct_i) − fixedCosts_i
+// كل متغيّر من الثلاثة يتبع توزيعاً مثلثياً { min, likely, max }.
+// النتائج: المتوسط + p10/p50/p90 + احتمالية الخسارة (profit < 0).
+
+const triangularVar = z.object({
+  min: z.number().finite(),
+  likely: z.number().finite(),
+  max: z.number().finite(),
+});
+
+const monteCarloSchema = z.object({
+  companyId: z.string().uuid(),
+  revenue: triangularVar,
+  variableCostPct: triangularVar,
+  fixedCosts: triangularVar,
+  iterations: z.number().int().min(100).max(50_000).default(10_000),
+});
+
+function round4(n: number): number {
+  return Math.round(n * 10_000) / 10_000;
+}
+
+// عيّنة من توزيع مثلثي (a=min, c=likely, b=max).
+// المرجع: CDF-inverse — يضمن انحياز التوزيع نحو likely بدقّة.
+function sampleTriangular(min: number, likely: number, max: number): number {
+  if (!(min < max)) return likely;
+  const clampedLikely = Math.min(Math.max(likely, min), max);
+  const u = Math.random();
+  const fc = (clampedLikely - min) / (max - min);
+  if (u < fc) return min + Math.sqrt(u * (max - min) * (clampedLikely - min));
+  return max - Math.sqrt((1 - u) * (max - min) * (max - clampedLikely));
+}
+
+function validateTriangular(name: string, v: { min: number; likely: number; max: number }): void {
+  if (!(v.min <= v.likely && v.likely <= v.max)) {
+    throw new HttpError(400, `توزيع ${name} غير صالح — يجب أن يكون min ≤ likely ≤ max`);
+  }
+}
+
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const rank = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (rank - lo);
+}
+
+// ─── POST /api/finance/monte-carlo ─────────────────────────────────────────
+export const createMonteCarloRun: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const body = monteCarloSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    validateTriangular('الإيراد', body.revenue);
+    validateTriangular('نسبة التكاليف المتغيّرة', body.variableCostPct);
+    validateTriangular('التكاليف الثابتة', body.fixedCosts);
+
+    const profits: number[] = [];
+    let lossCount = 0;
+    let sum = 0;
+    for (let i = 0; i < body.iterations; i++) {
+      const rev = sampleTriangular(body.revenue.min, body.revenue.likely, body.revenue.max);
+      const vc = sampleTriangular(body.variableCostPct.min, body.variableCostPct.likely, body.variableCostPct.max);
+      const fc = sampleTriangular(body.fixedCosts.min, body.fixedCosts.likely, body.fixedCosts.max);
+      const profit = rev * (1 - vc) - fc;
+      profits.push(profit);
+      sum += profit;
+      if (profit < 0) lossCount++;
+    }
+    profits.sort((a, b) => a - b);
+
+    const mean = sum / body.iterations;
+    const results = {
+      iterations: body.iterations,
+      mean: Math.round(mean),
+      p10: Math.round(percentile(profits, 10)),
+      p50: Math.round(percentile(profits, 50)),
+      p90: Math.round(percentile(profits, 90)),
+      probLoss: Math.round((lossCount / body.iterations) * 10_000) / 10_000,
+    };
+
+    const row = await prisma.monteCarloRun.create({
+      data: {
+        companyId: body.companyId,
+        inputs: {
+          revenue: body.revenue,
+          variableCostPct: body.variableCostPct,
+          fixedCosts: body.fixedCosts,
+        } as unknown as object,
+        iterations: body.iterations,
+        results: results as unknown as object,
+      },
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/finance/monte-carlo/:companyId/latest ────────────────────────
+export const getLatestMonteCarloRun: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const companyId = paramOf(req, 'companyId');
+    await assertCompanyAccess(req.auth.sub, companyId);
+    const latest = await prisma.monteCarloRun.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ monteCarlo: latest });
+  } catch (err) {
+    next(err);
+  }
+};

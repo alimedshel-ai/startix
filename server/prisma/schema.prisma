@@ -95,6 +95,8 @@ model Company {
   artifacts        StrategicArtifact[]
   corrections      Correction[]
   breakEvens       BreakEven[]
+  dupontAnalyses   DupontAnalysis[]
+  monteCarloRuns   MonteCarloRun[]
 }
 
 model CompanyUser {
@@ -449,6 +451,39 @@ model BreakEven {
   currentRevenue      Float?
   result              Json
   createdAt           DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ─── C13 — تحليل Dupont ─────────────────────────────────────────────────────
+// ROE = netMargin × assetTurnover × equityMultiplier
+// نخزّن العوامل الثلاثة + الناتج roe كسجل مستقل لتتبّع التطوّر عبر الزمن.
+model DupontAnalysis {
+  id                String   @id @default(uuid())
+  companyId         String
+  netMargin         Float
+  assetTurnover     Float
+  equityMultiplier  Float
+  roe               Float
+  createdAt         DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ─── C13 — محاكاة Monte Carlo ──────────────────────────────────────────────
+// inputs: كل متغيّر بتوزيع مثلثي { min, likely, max } + iterations.
+// results: توزيع النتائج بمقاييس p10/p50/p90 والمتوسط + احتمال الخسارة.
+model MonteCarloRun {
+  id         String   @id @default(uuid())
+  companyId  String
+  inputs     Json
+  iterations Int
+  results    Json
+  createdAt  DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
