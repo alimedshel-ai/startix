@@ -139,7 +139,13 @@ export function JoinPage() {
         userType: values.userType,
         managerType: values.userType === 'MANAGER' ? values.managerType ?? null : null,
       })
-      navigate(nextPath, { replace: true })
+      // R1.3 — بعد نقل التشخيص، لو الوجهة هي home مباشرة (لا يوجد
+      // /diagnostic/result معلّق)، نمرّ عبر /onboarding لجمع pains/goals/
+      // opex. المدير الداخلي والمستثمر يستفيدون من pains/goals فقط؛ المدير
+      // المستقل يستفيد أيضاً من OPEX لأوّل عميل. تركنا التخطّي متاحاً داخل
+      // /onboarding نفسها لمن لا يريد.
+      const goesToDiagnosticResult = nextPath === '/diagnostic/result'
+      navigate(goesToDiagnosticResult ? nextPath : '/onboarding', { replace: true })
     } catch (err: unknown) {
       toast.error(apiErrorMessage(err, 'فشل إنشاء الحساب'))
     } finally {

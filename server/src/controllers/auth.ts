@@ -419,3 +419,68 @@ export const updateMe: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── R1.3 — POST /api/auth/onboarding ────────────────────────────────
+// إثراء بيانات المدير بعد التسجيل: pains/goals على User + opex/sector/
+// subsector/entityType على أوّل شركة (Company). طلب واحد اختياري كامل —
+// يمكن تخطّي أي جزء (كل الحقول optional). يبحث عن أوّل شركة يديرها المستخدم
+// عبر CompanyUser بترتيب createdAt تصاعدياً؛ إذا لم يوجد → يتخطّى تحديث OPEX.
+const onboardingSchema = z.object({
+  pains: painsGoalsSchema,
+  goals: painsGoalsSchema,
+  firstCompany: z.object({
+    sector: z.string().min(1).max(80).optional(),
+    subsector: z.string().min(1).max(80).optional(),
+    entityType: z.string().min(1).max(40).optional(),
+    size: z.enum(['MICRO', 'SMALL', 'MEDIUM', 'LARGE']).optional(),
+    opex: z.object({
+      team: z.number().int().min(0).max(100000).optional(),
+      budget: z.number().min(0).optional(),
+      target: z.number().min(0).optional(),
+      avgSalary: z.number().min(0).optional(),
+    }).optional(),
+  }).optional(),
+});
+
+export const onboardingEnrich: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const data = onboardingSchema.parse(req.body);
+    const userId = req.auth.sub;
+
+    const user = await prisma.$transaction(async (tx) => {
+      const patch: { pains?: string[]; goals?: string[] } = {};
+      if (data.pains !== undefined) patch.pains = data.pains;
+      if (data.goals !== undefined) patch.goals = data.goals;
+      const updatedUser = Object.keys(patch).length
+        ? await tx.user.update({ where: { id: userId }, data: patch })
+        : await tx.user.findUniqueOrThrow({ where: { id: userId } });
+
+      if (data.firstCompany) {
+        const link = await tx.companyUser.findFirst({
+          where: { userId },
+          orderBy: { company: { createdAt: 'asc' } },
+          include: { company: true },
+        });
+        if (link) {
+          const c = data.firstCompany;
+          await tx.company.update({
+            where: { id: link.companyId },
+            data: {
+              sector: c.sector ?? undefined,
+              subsector: c.subsector ?? undefined,
+              entityType: c.entityType ?? undefined,
+              size: c.size ?? undefined,
+              opex: c.opex ?? undefined,
+            },
+          });
+        }
+      }
+      return updatedUser;
+    });
+
+    res.json({ user: publicUser(user) });
+  } catch (err) {
+    next(err);
+  }
+};

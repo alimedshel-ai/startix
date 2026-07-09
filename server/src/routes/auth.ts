@@ -9,6 +9,7 @@ import {
   verifyEmail,
   me,
   updateMe,
+  onboardingEnrich,
 } from '../controllers/auth';
 import { requireAuth } from '../middleware/auth';
 import {
@@ -36,5 +37,7 @@ router.post('/reset-password', resetPassword);
 router.get('/verify-email/:token', verifyEmail);
 router.get('/me', requireAuth, me);
 router.patch('/me', requireAuth, updateMe);
+// R1.3 — إثراء بيانات ما‑بعد‑التسجيل (pains/goals/opex/sector/entityType).
+router.post('/onboarding', requireAuth, onboardingEnrich);
 
 export default router;
