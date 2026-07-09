@@ -16,7 +16,7 @@ export function Sidebar() {
   const isAdmin = user?.isAdmin === true
   // نستنسخ الأقسام ونحذف عناصر adminOnly لغير المسؤولين، ثم نُسقط الأقسام
   // التي فرغت — حتى لا يظهر عنوان قسم بلا عناصر.
-  const sections = navFor(userType, user?.managerType)
+  const sections = navFor(userType, user?.managerType, user?.specialtyDeptType)
     .map((s) => ({ ...s, items: s.items.filter((i) => (i.adminOnly ? isAdmin : true)) }))
     .filter((s) => s.items.length > 0)
 

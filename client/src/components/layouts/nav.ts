@@ -1,4 +1,5 @@
-import type { ManagerType, UserType } from '@/types/user'
+import type { DeptCode } from '@/lib/deptApi'
+import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
 export interface NavItem {
   to: string
@@ -7,6 +8,10 @@ export interface NavItem {
   // SEC-2 — يخفي العنصر عن غير المسؤولين. السيرفر أيضاً يحمي المسار
   // بـ requireAdmin؛ هذا فقط لتنظيف التنقّل.
   adminOnly?: boolean
+  // PRO-F — يربط العنصر بإدارة معيّنة. للمدير المستقل (INDEPENDENT_PRO)،
+  // نُخفي العناصر التي لا تطابق تخصّصه. عناصر بلا `dept` تظهر للجميع
+  // (مثلاً "اختيار الإدارة" أو "لوحة الاحترافية").
+  dept?: DeptCode
 }
 
 /** Accent color used by the sidebar for the section header / left-bar marker. */
@@ -166,29 +171,29 @@ const managerNav: NavSection[] = [
     title: 'تدقيق الإدارات',
     accent: 'indigo',
     items: [
-      { to: '/manager/hr/audit',             label: 'الموارد البشرية',          icon: '👤' },
-      { to: '/manager/finance/audit',        label: 'المالية',                  icon: '💰' },
-      { to: '/manager/finance/break-even',   label: 'نقطة التعادل',             icon: '⚖️' },
-      { to: '/manager/sales/audit',          label: 'المبيعات',                  icon: '💼' },
-      { to: '/manager/marketing/audit',      label: 'التسويق',                   icon: '📢' },
-      { to: '/manager/operations/audit',     label: 'العمليات',                  icon: '⚙️' },
-      { to: '/manager/it/audit',             label: 'تقنية المعلومات',           icon: '💻' },
-      { to: '/manager/cs/audit',             label: 'خدمة العملاء',              icon: '📞' },
-      { to: '/manager/logistics/audit',      label: 'الإمداد واللوجستيات',       icon: '🚚' },
-      { to: '/manager/logistics/reform',     label: 'خطة إصلاح اللوجستيات',     icon: '🔧' },
-      { to: '/manager/quality/audit',        label: 'الجودة',                    icon: '✅' },
-      { to: '/manager/projects/audit',       label: 'المشاريع',                  icon: '📋' },
-      { to: '/manager/governance/audit',     label: 'الحوكمة',                   icon: '🏛️' },
-      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️' },
+      { to: '/manager/hr/audit',             label: 'الموارد البشرية',          icon: '👤', dept: 'HR' },
+      { to: '/manager/finance/audit',        label: 'المالية',                  icon: '💰', dept: 'FINANCE' },
+      { to: '/manager/finance/break-even',   label: 'نقطة التعادل',             icon: '⚖️', dept: 'FINANCE' },
+      { to: '/manager/sales/audit',          label: 'المبيعات',                  icon: '💼', dept: 'SALES' },
+      { to: '/manager/marketing/audit',      label: 'التسويق',                   icon: '📢', dept: 'MARKETING' },
+      { to: '/manager/operations/audit',     label: 'العمليات',                  icon: '⚙️', dept: 'OPERATIONS' },
+      { to: '/manager/it/audit',             label: 'تقنية المعلومات',           icon: '💻', dept: 'IT' },
+      { to: '/manager/cs/audit',             label: 'خدمة العملاء',              icon: '📞', dept: 'CUSTOMER_SERVICE' },
+      { to: '/manager/logistics/audit',      label: 'الإمداد واللوجستيات',       icon: '🚚', dept: 'LOGISTICS' },
+      { to: '/manager/logistics/reform',     label: 'خطة إصلاح اللوجستيات',     icon: '🔧', dept: 'LOGISTICS' },
+      { to: '/manager/quality/audit',        label: 'الجودة',                    icon: '✅', dept: 'QUALITY' },
+      { to: '/manager/projects/audit',       label: 'المشاريع',                  icon: '📋', dept: 'PROJECTS' },
+      { to: '/manager/governance/audit',     label: 'الحوكمة',                   icon: '🏛️', dept: 'GOVERNANCE' },
+      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️', dept: 'GOVERNANCE' },
     ],
   },
   {
     title: 'الامتثال',
     accent: 'rose',
     items: [
-      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال — أساسي',   icon: '⚖️' },
-      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال — احترافي', icon: '🛡️' },
-      { to: '/manager/compliance/reform',    label: 'خطة الإصلاح',              icon: '🔧' },
+      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال — أساسي',   icon: '⚖️', dept: 'COMPLIANCE' },
+      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال — احترافي', icon: '🛡️', dept: 'COMPLIANCE' },
+      { to: '/manager/compliance/reform',    label: 'خطة الإصلاح',              icon: '🔧', dept: 'COMPLIANCE' },
     ],
   },
 ]
@@ -226,13 +231,26 @@ const proClientsSection: NavSection = {
 
 export function navFor(
   userType: UserType | null | undefined,
-  managerType?: ManagerType | null
+  managerType?: ManagerType | null,
+  specialty?: SpecialtyDeptType | null
 ): NavSection[] {
   if (userType === 'OWNER') return ownerNav
   if (userType === 'MANAGER') {
-    return managerType === 'INDEPENDENT_PRO'
+    const base = managerType === 'INDEPENDENT_PRO'
       ? [proClientsSection, ...managerNav]
       : managerNav
+    // PRO-F — للمدير المستقل مع تخصّص محدّد: احذف كل بند مرتبط بإدارة
+    // غير إدارته من قوائم "تدقيق الإدارات" و"الامتثال"، ثم أسقط الأقسام
+    // اللي بقت فارغة (مثلاً قسم الامتثال إذا كان تخصّصه ليس COMPLIANCE).
+    if (managerType === 'INDEPENDENT_PRO' && specialty) {
+      return base
+        .map((s) => ({
+          ...s,
+          items: s.items.filter((i) => !i.dept || i.dept === specialty),
+        }))
+        .filter((s) => s.items.length > 0)
+    }
+    return base
   }
   if (userType === 'INVESTOR') return investorNav
   return []
