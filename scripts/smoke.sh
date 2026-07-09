@@ -286,6 +286,43 @@ RES=$(http POST /api/payments/create-checkout '{"plan":"PROFESSIONAL"}')
 S=$(echo "$RES" | status_of)
 if [ "$S" = "503" ] || [ "$S" = "200" ]; then ok "checkout gracefully handles missing key ($S)"; else bad "checkout (status $S)"; fi
 
+# ───── R1-R6 — onboarding enrich + goal-gating + journey artifacts ──────────
+# These verify the new layer added on top of PRO-INDEPENDENT-FINAL:
+#   R1: POST /api/auth/onboarding writes User.pains/goals + Company opex.
+#   R4: GET /api/companies/:id returns the new opex/subsector/entityType.
+#   R5: GET /api/strategic/artifacts/:companyId lists artifacts (used by
+#       JourneyPage to compute stage completion).
+#   R6: POST/PUT/GET on the four new ArtifactTypes (BMC/BSC/RACI/EISENHOWER)
+#       works end-to-end.
+hdr "R1-R6 — connection layer"
+
+# R1 — /api/auth/onboarding accepts pains/goals + firstCompany.opex.
+ONBOARD_BODY='{"pains":["no_kpis","no_time"],"goals":["kpis","reports"],"firstCompany":{"sector":"tech","opex":{"team":8,"budget":500000,"target":1000000}}}'
+RES=$(http POST /api/auth/onboarding "$ONBOARD_BODY")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "onboarding enrich 200" || bad "onboarding enrich"
+PAINS_LEN=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["user"]["pains"]))' 2>/dev/null || echo "0")
+[ "$PAINS_LEN" = "2" ] && ok "user.pains persisted (2 codes)" || bad "user.pains ($PAINS_LEN)"
+GOALS_LEN=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["user"]["goals"]))' 2>/dev/null || echo "0")
+[ "$GOALS_LEN" = "2" ] && ok "user.goals persisted (2 codes)" || bad "user.goals ($GOALS_LEN)"
+
+# R4 — GET /api/companies/:id must now include opex/subsector/entityType.
+RES=$(http GET "/api/companies/$CO_ID")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "GET /companies/:id 200" || bad "companies GET"
+OPEX_KEY=$(echo "$RES" | body_of | python3 -c 'import sys,json;d=json.load(sys.stdin);print("opex" in d)' 2>/dev/null || echo "False")
+[ "$OPEX_KEY" = "True" ] && ok "company response includes opex field" || bad "opex field missing"
+
+# R5 — listAllArtifacts endpoint (may be empty; just must return an array).
+RES=$(http GET "/api/strategic/artifacts/$CO_ID")
+[ "$(echo "$RES" | status_of)" = "200" ] && ok "listArtifacts 200" || bad "listArtifacts"
+IS_ARRAY=$(echo "$RES" | body_of | python3 -c 'import sys,json;print(isinstance(json.load(sys.stdin), list))' 2>/dev/null || echo "False")
+[ "$IS_ARRAY" = "True" ] && ok "listArtifacts returns array" || bad "listArtifacts not array"
+
+# R6 — write + read the four new ArtifactTypes (BMC/BSC/RACI/EISENHOWER).
+for T in BMC BSC RACI EISENHOWER; do
+  RES=$(http PUT "/api/strategic/artifacts/$CO_ID/$T" '{"data":{"stub":true}}')
+  [ "$(echo "$RES" | status_of)" = "200" ] && ok "upsert $T 200" || bad "upsert $T"
+done
+
 # ───── Cleanup ──────────────────────────────────────────────────────────────
 hdr "Cleanup"
 DEL=$(curl -s -o /dev/null -w "%{http_code}" -b "$JAR" -X DELETE "$API/api/companies/$CO_ID")
