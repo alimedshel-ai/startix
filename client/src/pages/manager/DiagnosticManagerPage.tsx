@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,6 +19,10 @@ import {
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/PageHeader'
 import { api, apiErrorMessage } from '@/lib/api'
+import { getMyFirstCompany } from '@/lib/deptApi'
+import { useAuthStore } from '@/store/authStore'
+import { useDiagnosticStore } from '@/store/diagnosticStore'
+import type { ExperienceLevel, TeamSize, ToolingOption } from '@/lib/managerInvestorQuestions'
 
 const DEPTS = [
   ['HR', 'الموارد البشرية'],
@@ -53,9 +57,34 @@ const schema = z.object({
 })
 type Form = z.infer<typeof schema>
 
+// أي حقل في الفورم مصدره: تسجيل / تشخيص مسبق / إدخال المستخدم.
+type FieldSource = 'registration' | 'diagnostic' | 'user'
+type FieldSources = Partial<Record<keyof Form, FieldSource>>
+
+// تحويل من مصطلحات التشخيص المجاني (enum) إلى الأرقام التقريبية التي يقبلها
+// نموذج /manager/diagnostic حالياً. الوسط الحسابي للنطاق يعطي تقدير مفيد.
+const TEAM_SIZE_TO_NUMBER: Record<TeamSize, string> = {
+  micro:  '3',
+  small:  '15',
+  medium: '60',
+  large:  '150',
+}
+const EXPERIENCE_TO_YEARS: Record<ExperienceLevel, string> = {
+  junior: '2',
+  mid:    '5',
+  senior: '10',
+  expert: '15',
+}
+
+// خيارات نضج الأدوات مطابقة بين النموذجين حرفياً — لا حاجة لتحويل.
+const isKnownTooling = (v: string): v is ToolingOption =>
+  v === 'none' || v === 'basic' || v === 'modern' || v === 'advanced'
+
 export function DiagnosticManagerPage() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
+  const [sources, setSources] = useState<FieldSources>({})
+  const user = useAuthStore((s) => s.user)
   const {
     register,
     handleSubmit,
@@ -66,6 +95,56 @@ export function DiagnosticManagerPage() {
     resolver: zodResolver(schema),
     defaultValues: { departmentType: 'HR', toolingMaturity: 'basic' },
   })
+
+  // ─── الملء التلقائي عند تحميل الصفحة ───────────────────────────────────
+  // اسم الشركة يأتي من التسجيل (أُنشئت عبر PRO-1 أو أوّل تدقيق). كل الباقي
+  // من مسودّة التشخيص المجاني قبل التسجيل (diagnosticStore.managerDraft).
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      const nextSources: FieldSources = {}
+      const draft = useDiagnosticStore.getState().managerDraft
+
+      // اسم الشركة من الشركة الأولى المرتبطة بالحساب (تُنشأ عند التسجيل
+      // لو أعطى المستقل firstClientName، أو تلقائياً عند حفظ تشخيص المدير
+      // الداخلي عبر submitManagerDiagnostic).
+      try {
+        const { company } = await getMyFirstCompany()
+        if (cancel) return
+        if (company?.name) {
+          setValue('companyName', company.name)
+          nextSources.companyName = 'registration'
+        }
+      } catch {
+        /* غياب الشركة ليس خطأً — المستخدم يكتب الاسم يدوياً */
+      }
+
+      // الإدارة: من التشخيص المسبق أوّلاً، ثم من user.specialtyDeptType كاحتياط.
+      if (draft.departmentType) {
+        setValue('departmentType', draft.departmentType)
+        nextSources.departmentType = 'diagnostic'
+      } else if (user?.specialtyDeptType) {
+        setValue('departmentType', user.specialtyDeptType)
+        nextSources.departmentType = 'registration'
+      }
+
+      if (draft.teamSize) {
+        setValue('teamSize', TEAM_SIZE_TO_NUMBER[draft.teamSize])
+        nextSources.teamSize = 'diagnostic'
+      }
+      if (draft.experienceLevel) {
+        setValue('experienceYears', EXPERIENCE_TO_YEARS[draft.experienceLevel])
+        nextSources.experienceYears = 'diagnostic'
+      }
+      if (draft.toolingMaturity && isKnownTooling(draft.toolingMaturity)) {
+        setValue('toolingMaturity', draft.toolingMaturity)
+        nextSources.toolingMaturity = 'diagnostic'
+      }
+
+      if (!cancel) setSources(nextSources)
+    })()
+    return () => { cancel = true }
+  }, [setValue, user?.specialtyDeptType])
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true)
@@ -91,7 +170,7 @@ export function DiagnosticManagerPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="تشخيص المدير"
-        description="خمسة أسئلة لإعداد لوحة قيادة إدارتك."
+        description="راجع الحقول المعبّأة من تسجيلك وتشخيصك السابق، ثم أضف تحدّياً حالياً."
       />
 
       <Card className="mx-auto w-full max-w-2xl overflow-hidden shadow-sm">
@@ -103,7 +182,7 @@ export function DiagnosticManagerPage() {
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="companyName">اسم الشركة</Label>
+              <FieldLabel htmlFor="companyName" source={sources.companyName}>اسم الشركة</FieldLabel>
               <Input id="companyName" {...register('companyName')} />
               {errors.companyName && (
                 <p className="text-sm text-destructive">{errors.companyName.message}</p>
@@ -111,7 +190,7 @@ export function DiagnosticManagerPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>الإدارة</Label>
+              <FieldLabel source={sources.departmentType}>الإدارة</FieldLabel>
               <Select value={dept} onValueChange={(v) => setValue('departmentType', v as Form['departmentType'])}>
                 <SelectTrigger>
                   <SelectValue />
@@ -128,17 +207,17 @@ export function DiagnosticManagerPage() {
 
             <div className="grid gap-2 md:grid-cols-2 md:gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="experienceYears">سنوات الخبرة</Label>
+                <FieldLabel htmlFor="experienceYears" source={sources.experienceYears}>سنوات الخبرة</FieldLabel>
                 <Input id="experienceYears" type="number" min={0} {...register('experienceYears')} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="teamSize">حجم الفريق</Label>
+                <FieldLabel htmlFor="teamSize" source={sources.teamSize}>حجم الفريق</FieldLabel>
                 <Input id="teamSize" type="number" min={0} {...register('teamSize')} />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <Label>نضج الأدوات</Label>
+              <FieldLabel source={sources.toolingMaturity}>نضج الأدوات</FieldLabel>
               <Select value={tooling} onValueChange={(v) => setValue('toolingMaturity', v as Form['toolingMaturity'])}>
                 <SelectTrigger>
                   <SelectValue />
@@ -154,8 +233,8 @@ export function DiagnosticManagerPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="topChallenge">أكبر تحدٍّ حالياً</Label>
-              <Textarea id="topChallenge" rows={3} {...register('topChallenge')} />
+              <FieldLabel htmlFor="topChallenge">أكبر تحدٍّ حالياً</FieldLabel>
+              <Textarea id="topChallenge" rows={3} {...register('topChallenge')} placeholder="سؤال جديد لم يُطرح في التشخيص السابق — اكتب أهمّ ما يشغلك اليوم." />
               {errors.topChallenge && (
                 <p className="text-sm text-destructive">{errors.topChallenge.message}</p>
               )}
@@ -169,5 +248,30 @@ export function DiagnosticManagerPage() {
         </form>
       </Card>
     </div>
+  )
+}
+
+function FieldLabel({
+  htmlFor, source, children,
+}: { htmlFor?: string; source?: FieldSource; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Label htmlFor={htmlFor}>{children}</Label>
+      {source && <SourceBadge source={source} />}
+    </div>
+  )
+}
+
+function SourceBadge({ source }: { source: FieldSource }) {
+  const map: Record<FieldSource, { label: string; className: string }> = {
+    registration: { label: '✓ من تسجيلك',        className: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+    diagnostic:   { label: '✓ من تشخيصك السابق', className: 'text-sky-700 bg-sky-50 border-sky-200' },
+    user:         { label: 'إدخالك',             className: 'text-muted-foreground bg-muted border-border' },
+  }
+  const meta = map[source]
+  return (
+    <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${meta.className}`}>
+      {meta.label}
+    </span>
   )
 }
