@@ -162,9 +162,89 @@ const HR: DeptQuestions = {
   ],
 }
 
+// ─── FINANCE — المالية ────────────────────────────────────────────────────
+// المصدر: dept-deep.js:242-463 (٦ أقسام، ٤٢ سؤالاً).
+
+const FINANCE: DeptQuestions = {
+  sections: [
+    { id: 'fin_structure',  icon: '🏗️', title: 'الهيكل التنظيمي والسياسات المالية', priority: 'حرج', desc: 'بدون هيكل مالي واضح وسياسات معتمدة — القرارات المالية تصبح عشوائية والمخاطر تتضاعف' },
+    { id: 'fin_statements', icon: '📑', title: 'القوائم المالية والمؤشرات',           priority: 'حرج', desc: 'القوائم المالية هي مرآة الشركة — 72% من القرارات الاستثمارية تعتمد على جودة التقارير المالية' },
+    { id: 'fin_capital',    icon: '💰', title: 'رأس المال والتدفقات النقدية',          priority: 'حرج', desc: '82% من الشركات التي تفشل سببها مشاكل في التدفقات النقدية — حتى لو كانت تحقق أرباحاً' },
+    { id: 'fin_budget',     icon: '📋', title: 'الميزانيات ومحاسبة التكاليف ورأس المال العامل', priority: 'مهم', desc: 'التخطيط المالي يحول الأرقام لقرارات — والشركات بدون ميزانية تنفق 23% أكثر من اللازم' },
+    { id: 'fin_audit',      icon: '🔎', title: 'التدقيق والالتزامات الضريبية والذمم',  priority: 'حرج', desc: 'التدقيق يكشف المخاطر قبل فوات الأوان — والالتزام الضريبي يمنع غرامات تصل لـ 25% من الضريبة' },
+    { id: 'fin_systems',    icon: '💻', title: 'الأنظمة التقنية والتقارير والإيرادات',  priority: 'مهم', desc: 'الشركات التي تستخدم أنظمة محاسبة متكاملة تغلق دفاترها 60% أسرع وتقلل الأخطاء 85%' },
+  ],
+  questions: [
+    // ─── 1. الهيكل التنظيمي والسياسات المالية ──────────────────────────
+    { type: 'radio', sectionId: 'fin_structure', id: 'fin_org_chart',      label: '📊 هل لديك هيكل تنظيمي واضح للإدارة المالية؟',                              opts: ['نعم — محدّث ومعتمد', 'موجود لكن قديم', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'accountant',         label: 'هل لديك محاسب متخصص؟',                                                       opts: ['داخلي — متفرغ', 'خارجي — مكتب محاسبة', 'لا'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'fin_team_certs',     label: 'هل يحمل فريقك المالي شهادات مهنية (CPA, CMA, SOCPA)؟',                       opts: ['نعم — أغلبهم', 'بعضهم', 'لا'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'fin_segregation',    label: 'هل المراجعة الداخلية مستقلة عن المحاسبة؟',                                   opts: ['نعم — منفصلة تماماً', 'جزئياً', 'لا — نفس الشخص'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'fin_policies',       label: '📋 هل لديك دليل سياسات وإجراءات مالية معتمد؟',                              opts: ['نعم — محدّث ومعتمد', 'موجود لكن قديم', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'fin_authority',      label: 'هل حدود الصلاحيات المالية واضحة لكل مستوى إداري؟',                          opts: ['نعم — موثقة ومعتمدة', 'شفهية', 'لا'] },
+    { type: 'radio', sectionId: 'fin_structure', id: 'petty_cash',         label: 'هل لديك سياسة واضحة للمصروفات النثرية والسلف؟',                             opts: ['نعم — مع ضوابط', 'جزئية', 'لا'] },
+
+    // ─── 2. القوائم المالية والمؤشرات ──────────────────────────────────
+    { type: 'checkbox', sectionId: 'fin_statements', id: 'fin_statements',    label: '📑 ما القوائم المالية التي تعدّها بانتظام؟',                              opts: ['ميزانية عمومية', 'قائمة دخل', 'تدفقات نقدية', 'تغيرات حقوق الملكية', 'إيضاحات متممة', 'لا أعدّ قوائم'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'report_frequency',  label: 'كم مرة تصدر تقارير مالية؟',                                                opts: ['شهرياً', 'ربع سنوياً', 'سنوياً فقط', 'عند الطلب'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'report_speed',      label: 'كم يستغرق إصدار التقرير المالي بعد نهاية الشهر؟',                          opts: ['أقل من 5 أيام', '5-15 يوم', '15-30 يوم', 'أكثر من شهر'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'profit_margin',     label: '💹 هل تعرف هامش ربحك الصافي بدقة؟',                                        opts: ['نعم بدقة', 'تقريباً', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'liquidity_ratio',   label: 'كيف تقيّم سيولة شركتك (النسبة الجارية)؟',                                    opts: ['ممتازة (أكثر من 2)', 'جيدة (1-2)', 'ضعيفة (أقل من 1)', 'لا أعرف'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'roa_roe',           label: 'هل تحسب العائد على الأصول (ROA) والعائد على حقوق الملكية (ROE)؟',            opts: ['نعم — بانتظام', 'أحياناً', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_statements', id: 'breakeven',         label: 'هل تعرف نقطة التعادل لمنتجاتك/خدماتك؟',                                     opts: ['نعم — محسوبة', 'تقديرية', 'لا'] },
+
+    // ─── 3. رأس المال والتدفقات النقدية ────────────────────────────────
+    { type: 'checkbox', sectionId: 'fin_capital', id: 'capital_structure', label: '🏗️ ما هيكل رأس المال (مصادر التمويل)؟',                                     opts: ['رأس مال ملكية', 'قروض بنكية طويلة', 'تسهيلات قصيرة الأجل', 'تمويل جماعي', 'مستثمرين', 'ذاتي بالكامل'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'debt_status',       label: 'هل لديك ديون أو التزامات معلقة؟',                                            opts: ['لا', 'نعم — تحت السيطرة', 'نعم — تقلقني'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'wacc_known',        label: 'هل تعرف تكلفة رأس المال المرجحة (WACC)؟',                                    opts: ['نعم', 'تقريباً', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'cashflow_status',   label: '💰 كيف تقيّم تدفقاتك النقدية التشغيلية؟',                                     opts: ['إيجابية ومستقرة', 'متذبذبة', 'سلبية'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'cashflow_forecast', label: 'هل تتنبأ بالتدفقات النقدية مسبقاً؟',                                          opts: ['نعم — أسبوعياً/شهرياً', 'أحياناً', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'cash_reserve',      label: 'كم شهر يمكنك البقاء بدون إيرادات جديدة؟',                                    opts: ['أكثر من 6 أشهر', '3-6 أشهر', '1-3 أشهر', 'أقل من شهر'] },
+    { type: 'radio',    sectionId: 'fin_capital', id: 'surplus_mgmt',      label: 'كيف تدير الفائض النقدي؟',                                                     opts: ['استثمارات قصيرة الأجل', 'ودائع بنكية', 'يبقى في الحساب', 'لا يوجد فائض'] },
+
+    // ─── 4. الميزانيات ومحاسبة التكاليف ────────────────────────────────
+    { type: 'radio', sectionId: 'fin_budget', id: 'collection_period',   label: '📊 ما متوسط فترة تحصيل الذمم المدينة؟',                                        opts: ['أقل من 30 يوم', '30-60 يوم', '60-90 يوم', 'أكثر من 90 يوم', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'payment_period',      label: 'ما متوسط فترة سداد الذمم الدائنة؟',                                            opts: ['أقل من 30 يوم', '30-60 يوم', '60-90 يوم', 'نتأخر أحياناً'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'inventory_mgmt',      label: 'كيف تدير المخزون (إن وجد)؟',                                                    opts: ['نظام إلكتروني + جرد دوري', 'Excel', 'يدوي', 'لا يوجد مخزون'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'budget_exists',       label: '📋 هل تعدّ ميزانية تشغيلية سنوية؟',                                            opts: ['نعم — شاملة', 'جزئية', 'لا'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'budget_accuracy',     label: 'ما مدى دقة ميزانياتك (الفعلي مقابل المخطط)؟',                                  opts: ['انحراف أقل من 10%', 'انحراف 10-25%', 'انحراف أكثر من 25%', 'لا أقارن'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'capex_budget',        label: 'هل لديك ميزانية رأسمالية (نفقات استثمارية)؟',                                  opts: ['نعم — مخططة', 'حسب الحاجة', 'لا'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'budget_participation',label: 'هل تشارك الإدارات الأخرى في إعداد الميزانية؟',                                  opts: ['نعم — بشكل منهجي', 'أحياناً', 'لا — المالية فقط'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'cost_system',         label: '🔍 هل لديك نظام محاسبة تكاليف؟',                                              opts: ['نعم — آلي ودقيق', 'يدوي/جزئي', 'لا'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'cost_analysis',       label: 'هل تحلل التكاليف حسب المنتجات/الخدمات/المشاريع؟',                             opts: ['نعم — بشكل منتظم', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'fin_budget', id: 'cost_control',        label: 'هل لديك ضوابط رقابة على التكاليف (حدود إنفاق، موافقات)؟',                     opts: ['نعم — صارمة', 'جزئية', 'لا'] },
+
+    // ─── 5. التدقيق والالتزامات الضريبية ──────────────────────────────
+    { type: 'radio', sectionId: 'fin_audit', id: 'receivables_aging', label: '📊 هل تعدّ تحليل أعمار الذمم المدينة؟',                                            opts: ['نعم — شهرياً', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'bad_debts',         label: 'ما نسبة الديون المشكوك في تحصيلها؟',                                              opts: ['أقل من 5%', '5-15%', 'أكثر من 15%', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'provisions',        label: 'هل لديك مخصصات كافية (ديون معدومة، التزامات طارئة)؟',                             opts: ['نعم — كافية', 'جزئية', 'لا'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'internal_audit',    label: '🔎 هل لديك إدارة تدقيق داخلي مستقلة؟',                                            opts: ['نعم — مع خطة سنوية', 'تدقيق جزئي', 'لا'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'external_audit',    label: 'متى آخر مراجعة خارجية (مدقق حسابات)؟',                                            opts: ['هذا العام', 'العام الماضي', 'أكثر من سنتين', 'لم تتم أبداً'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'dual_signature',    label: 'هل تطبق التوقيع المزدوج والفصل بين الوظائف؟',                                     opts: ['نعم — دائماً', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'tax_compliance',    label: '🏛️ هل إقراراتك الضريبية/الزكوية محدّثة ومرفوعة في موعدها؟',                       opts: ['نعم — دائماً', 'تأخير أحياناً', 'متأخرة أو لم تُرفع'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'vat_management',    label: 'كيف تدير ضريبة القيمة المضافة (VAT)؟',                                             opts: ['نظام آلي + إقرارات منتظمة', 'يدوي لكن منتظم', 'غير منتظم', 'غير مسجل'] },
+    { type: 'radio', sectionId: 'fin_audit', id: 'tax_audit',         label: 'هل سبق أن خضعت لفحص ضريبي من ZATCA؟',                                             opts: ['نعم — بلا مطلوبات', 'نعم — مع مطلوبات', 'لا'] },
+
+    // ─── 6. الأنظمة التقنية والتقارير والإيرادات ──────────────────────
+    { type: 'radio',    sectionId: 'fin_systems', id: 'accounting_system',       label: '💻 ما النظام المحاسبي المستخدم؟',                                       opts: ['ERP متكامل (SAP/Oracle)', 'برنامج محاسبة متخصص', 'Excel', 'يدوي'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'fin_system_integration', label: 'هل النظام المالي متكامل مع أنظمة المبيعات والمشتريات والمخازن؟',        opts: ['نعم — تكامل كامل', 'جزئي', 'لا — منفصلة'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'fin_backup',             label: 'هل لديك نسخ احتياطي وأمان للبيانات المالية؟',                            opts: ['نعم — تلقائي يومي', 'يدوي دوري', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'exec_reports',           label: '📈 هل تقدم تقارير مالية منتظمة لمجلس الإدارة/المالك؟',                  opts: ['نعم — شهرياً مع تحليل', 'ربع سنوياً', 'عند الطلب', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'fin_dashboards',         label: 'هل لديك لوحة مؤشرات مالية (Dashboard)؟',                                opts: ['نعم — حية وتفاعلية', 'تقارير ثابتة', 'لا'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'fin_decision_support',   label: 'هل تُستخدم البيانات المالية فعلاً في اتخاذ القرارات؟',                   opts: ['نعم — أساس كل قرار', 'أحياناً', 'نادراً'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'revenue_pattern',        label: '💵 هل إيراداتك منتظمة أم موسمية؟',                                       opts: ['منتظمة ومتنامية', 'منتظمة', 'موسمية', 'غير منتظمة'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'client_concentration',   label: 'ما نسبة إيرادك من أكبر عميل؟',                                            opts: ['أقل 20%', '20-50%', 'أكثر 50% (خطر)'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'revenue_streams',        label: 'كم عدد مصادر الإيراد المختلفة؟',                                          opts: ['4+ مصادر (متنوع)', '2-3 مصادر', 'مصدر واحد'] },
+    { type: 'checkbox', sectionId: 'fin_systems', id: 'fin_kpis_tracked',       label: '📊 ما المؤشرات المالية التي تتابعها؟',                                    opts: ['هامش الربح', 'السيولة', 'ROA/ROE', 'التدفق النقدي الحر', 'فترة التحصيل', 'دوران المخزون', 'نسبة المديونية', 'لا أتابع مؤشرات'] },
+    { type: 'radio',    sectionId: 'fin_systems', id: 'book_close_speed',       label: 'كم يستغرق إغلاق الدفاتر الشهرية؟',                                        opts: ['أقل من 3 أيام', '3-7 أيام', '7-15 يوم', 'أكثر من 15 يوم'] },
+    { type: 'textarea', sectionId: 'fin_systems', id: 'finance_free',           label: 'ما أكبر تحدٍ مالي تواجهه الآن؟',                                          placeholder: 'مثال: ضعف السيولة، هوامش منخفضة، ديون متراكمة...' },
+  ],
+}
+
 // ─── الخريطة الكاملة ─────────────────────────────────────────────────────
-// كل إدارة تُلحق بها في commit مستقل (الأمر ٢: FINANCE، الأمر ٣: SALES…).
-// المستهلكون يجب أن يتعاملوا مع الإدارات غير المُنقولة بعد بتحقّق حرصي.
+// كل إدارة تُلحق بها في commit مستقل. المستهلكون يجب أن يتعاملوا مع
+// الإدارات غير المُنقولة بعد بتحقّق حرصي.
 export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
+  FINANCE,
 }
