@@ -39,6 +39,8 @@ const schema = z.object({
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
   managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
   specialtyDeptType: z.enum(SPECIALTY_OPTIONS.map((o) => o.value) as [SpecialtyDeptType, ...SpecialtyDeptType[]]).optional(),
+  // PRO-1 — اسم أوّل عميل يخدمه المدير المستقل (اختياري).
+  firstClientName: z.string().max(120).optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
   if (data.userType === 'MANAGER' && !data.managerType) {
     ctx.addIssue({ path: ['managerType'], code: 'custom', message: 'اختر نوع المدير' })
@@ -118,6 +120,12 @@ export function JoinPage() {
         specialtyDeptType:
           values.userType === 'MANAGER' && values.managerType === 'INDEPENDENT_PRO'
             ? values.specialtyDeptType
+            : undefined,
+        firstClientName:
+          values.userType === 'MANAGER' &&
+          values.managerType === 'INDEPENDENT_PRO' &&
+          values.firstClientName?.trim()
+            ? values.firstClientName.trim()
             : undefined,
         phone: values.phone || undefined,
       })
@@ -315,6 +323,22 @@ export function JoinPage() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+            {userType === 'MANAGER' &&
+              (selectedManagerType === 'INDEPENDENT_PRO' || managerType === 'INDEPENDENT_PRO') && (
+              <div className="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <Label htmlFor="firstClientName">اسم أوّل عميل تخدمه (اختياري)</Label>
+                <Input
+                  id="firstClientName"
+                  autoComplete="organization"
+                  placeholder="مثال: شركة رفارف للتقنية"
+                  {...register('firstClientName')}
+                />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  ننشئ هذه الشركة تلقائياً ونربطها بحسابك — كل تحليل تعمله يبدأ بها.
+                  يمكنك تركه فارغاً وإضافة عملاء لاحقاً من صفحة «عملائي».
+                </p>
               </div>
             )}
             <div className="grid gap-2">

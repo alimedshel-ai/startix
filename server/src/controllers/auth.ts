@@ -82,6 +82,10 @@ const registerSchema = z.object({
   // مطلوب فقط عندما userType=MANAGER و managerType=INDEPENDENT_PRO.
   // يفرضه الكونترولر أدناه (Zod لا يعبّر عن التبعية بين حقلين بسهولة).
   specialtyDeptType: z.enum(DEPT_TYPES).optional(),
+  // PRO-1 — اسم أوّل عميل يخدمه المدير المستقل. اختياري لكن مُقترَح: يجعل
+  // الحساب فاعلاً من اللحظة الأولى بدل الهبوط على قائمة عملاء فارغة، ويتيح
+  // للصفحات المُقيَّدة بعميل أن تشتغل مباشرة على أوّل شركة موجودة.
+  firstClientName: z.string().min(1).max(120).optional(),
   phone: z.string().max(40).optional(),
 });
 
@@ -101,18 +105,43 @@ export const register: RequestHandler = async (req, res, next) => {
     const passwordHash = await bcrypt.hash(data.password, 10);
     const verificationToken = generateVerificationToken();
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        name: data.name,
-        userType: data.userType,
-        managerType: data.managerType,
-        specialtyDeptType: data.specialtyDeptType,
-        phone: data.phone,
-        emailVerificationToken: verificationToken,
-        emailVerificationExpiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
-      },
+    // PRO-1 — للمدير المستقل مع اسم أوّل عميل: أنشئ (User + Company + CompanyUser)
+    // في transaction واحدة. هذا يجعل getMyFirstCompany() يعمل فوراً وينهي
+    // مشكلة "لوحة الإدارة تعرض بيانات فارغة". الحقل اختياري: بدونه ينشأ
+    // المستخدم وحده كما في السابق.
+    const shouldBootstrapClient =
+      data.userType === 'MANAGER' &&
+      data.managerType === 'INDEPENDENT_PRO' &&
+      typeof data.firstClientName === 'string' &&
+      data.firstClientName.trim().length > 0;
+
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: data.email,
+          passwordHash,
+          name: data.name,
+          userType: data.userType,
+          managerType: data.managerType,
+          specialtyDeptType: data.specialtyDeptType,
+          phone: data.phone,
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+        },
+      });
+      if (shouldBootstrapClient) {
+        const company = await tx.company.create({
+          data: {
+            name: data.firstClientName!.trim(),
+            size: 'SMALL',
+            country: 'SA',
+          },
+        });
+        await tx.companyUser.create({
+          data: { userId: created.id, companyId: company.id, role: 'manager' },
+        });
+      }
+      return created;
     });
 
     const verifyLink = `${CLIENT_URL}/verify-email/${verificationToken}`;

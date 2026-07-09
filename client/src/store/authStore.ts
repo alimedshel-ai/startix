@@ -30,6 +30,7 @@ interface AuthState {
     userType: UserType
     managerType?: ManagerType
     specialtyDeptType?: SpecialtyDeptType
+    firstClientName?: string
     phone?: string
   }) => Promise<User>
   logout: () => Promise<void>
