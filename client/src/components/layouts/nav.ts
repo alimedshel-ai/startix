@@ -169,6 +169,7 @@ const managerNav: NavSection[] = [
       { to: '/manager/deep-analysis',       label: 'التحليل العميق المخصّص', icon: '🔬' },
       { to: '/manager/dept-deep',           label: 'تحليل مبسّط',         icon: '📝' },
       { to: '/manager/contradictions',      label: 'تحليل التناقضات',       icon: '⚡' },
+      { to: '/manager/strategic-plan',      label: 'الخطة الاستراتيجية',     icon: '🗺️', proOnly: true },
       { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
     ],
   },

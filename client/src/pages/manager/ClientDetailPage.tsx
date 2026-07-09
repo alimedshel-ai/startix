@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
+import { StrategicPathCard } from '@/components/manager/StrategicPathCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/api'
 import { DEPT_ICON, DEPT_LABEL, dangerZoneColor, type DangerZone, type DeptCode } from '@/lib/deptApi'
@@ -141,6 +142,18 @@ export function ClientDetailPage() {
         daysSince={daysSinceLastAudit}
         hasAnyAudit={hasAnyAudit}
         hasDepartment={hasDepartment}
+      />
+
+      {/* ─── المسار الاستراتيجي الموصى به ─────────────────────────
+         بطاقة تحدّد لو الوضع يحتاج خطة عاجلة (٩٠ يوم) أو تأسيسية
+         (٦ أشهر) أو نموّ (١٢ شهر) أو تميّز (١٨ شهر). المدير الخبير
+         يفتحها → صفحة الخطة الكاملة. */}
+      <StrategicPathCard
+        companyId={client.companyId}
+        companyName={companyName}
+        healthPct={healthPct}
+        dangerZone={dangerZone}
+        hasAnyAudit={hasAnyAudit}
       />
 
       <div>

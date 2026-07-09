@@ -77,6 +77,7 @@ import { ClientDetailPage } from '@/pages/manager/ClientDetailPage'
 import { DeptDeepPage } from '@/pages/manager/DeptDeepPage'
 import { DeepAnalysisPage } from '@/pages/manager/DeepAnalysisPage'
 import { ContradictionsPage } from '@/pages/manager/ContradictionsPage'
+import { StrategicPlanPage } from '@/pages/manager/StrategicPlanPage'
 import { DeptSmartPage } from '@/pages/manager/DeptSmartPage'
 import { HRAuditPage } from '@/pages/manager/HRAuditPage'
 import { FinanceAuditPage } from '@/pages/manager/FinanceAuditPage'
@@ -192,6 +193,7 @@ export const router = createBrowserRouter([
               { path: '/manager/dept-deep', element: <DeptDeepPage /> },
               { path: '/manager/deep-analysis', element: <DeepAnalysisPage /> },
               { path: '/manager/contradictions', element: <ContradictionsPage /> },
+              { path: '/manager/strategic-plan', element: <StrategicPlanPage /> },
               { path: '/manager/dept-smart', element: <DeptSmartPage /> },
               { path: '/manager/hr/audit', element: <HRAuditPage /> },
               { path: '/manager/finance/audit', element: <FinanceAuditPage /> },
