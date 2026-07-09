@@ -143,10 +143,7 @@ export const router = createBrowserRouter([
               { path: '/org-dna', element: <OrgDNAPage /> },
               { path: '/value-chain', element: <ValueChainPage /> },
               { path: '/core-capabilities', element: <CoreCapabilitiesPage /> },
-              { path: '/swot', element: <SWOTPage /> },
-              { path: '/tows', element: <TOWSPage /> },
-              { path: '/gap-analysis', element: <GapAnalysisPage /> },
-              { path: '/risk-map', element: <RiskMapPage /> },
+              // M1 tools moved to shared area below (accessible to MANAGER too).
               { path: '/ambition-gap', element: <AmbitionGapPage /> },
               { path: '/strategic-tensions', element: <StrategicTensionsPage /> },
               { path: '/directions', element: <DirectionsPage /> },
@@ -162,7 +159,7 @@ export const router = createBrowserRouter([
               { path: '/annual-plan', element: <AnnualPlanPage /> },
               { path: '/kpis', element: <KPIsPage /> },
               { path: '/okrs', element: <OKRsPage /> },
-              { path: '/priority-matrix', element: <PriorityMatrixPage /> },
+              // /priority-matrix moved to shared area below.
               { path: '/initiatives', element: <InitiativesPage /> },
               { path: '/projects', element: <ProjectsPage /> },
               { path: '/gantt-chart', element: <GanttChartPage /> },
@@ -221,6 +218,24 @@ export const router = createBrowserRouter([
               { path: '/manager/compliance/audit', element: <ComplianceAuditPage /> },
               { path: '/manager/compliance/audit-pro', element: <ComplianceAuditProPage /> },
               { path: '/manager/compliance/reform', element: <ComplianceReformPage /> },
+            ],
+          },
+        ],
+      },
+      // M1 — Shared synthesis tools (accessible to OWNER + MANAGER).
+      // A manager PRO reaches these via ?client=<companyId>; an OWNER
+      // sees their own first company through the same useCompany hook.
+      {
+        element: <RoleRoute allow={['OWNER', 'MANAGER']} />,
+        children: [
+          {
+            element: <MainLayout />,
+            children: [
+              { path: '/swot', element: <SWOTPage /> },
+              { path: '/tows', element: <TOWSPage /> },
+              { path: '/gap-analysis', element: <GapAnalysisPage /> },
+              { path: '/risk-map', element: <RiskMapPage /> },
+              { path: '/priority-matrix', element: <PriorityMatrixPage /> },
             ],
           },
         ],

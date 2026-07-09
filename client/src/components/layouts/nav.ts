@@ -189,6 +189,18 @@ const managerNav: NavSection[] = [
     ],
   },
   {
+    title: 'التوليف الاستراتيجي',
+    accent: 'rose',
+    items: [
+      // M1 — أدوات التوليف مُتاحة للمدير المستقل عبر ?client=<id>.
+      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭' },
+      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄' },
+      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐' },
+      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️' },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡' },
+    ],
+  },
+  {
     title: 'الامتثال',
     accent: 'rose',
     items: [

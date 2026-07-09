@@ -171,6 +171,43 @@ export function ClientDetailPage() {
             description="يقارن بيانات الأقسام ويكشف التناقضات + يقترح OKR جاهز لكل تناقض."
             to={`/manager/contradictions${clientQ}`}
           />
+        </div>
+      </div>
+
+      {/* M1 — أدوات التوليف الاستراتيجي على العميل النشط */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التوليف الاستراتيجي</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="🧭"
+            title="تحليل SWOT"
+            description="نقاط القوة والضعف والفرص والتهديدات — مع بذر تلقائي من التشخيص."
+            to={`/swot${clientQ}`}
+          />
+          <ToolCard
+            icon="🔄"
+            title="مصفوفة TOWS"
+            description="تحويل SWOT إلى استراتيجيات فعلية (SO/ST/WO/WT)."
+            to={`/tows${clientQ}`}
+          />
+          <ToolCard
+            icon="📐"
+            title="تحليل الفجوة"
+            description="فرق بين الوضع الحالي والمستهدف على المحاور الاستراتيجية."
+            to={`/gap-analysis${clientQ}`}
+          />
+          <ToolCard
+            icon="⚠️"
+            title="خريطة المخاطر"
+            description="مصفوفة الاحتمال × الأثر لكل مخاطر معرّفة."
+            to={`/risk-map${clientQ}`}
+          />
+          <ToolCard
+            icon="⚡"
+            title="مصفوفة الأولوية"
+            description="ترتيب المبادرات حسب الأثر والجهد."
+            to={`/priority-matrix${clientQ}`}
+          />
           <ToolCard
             icon="✨"
             title="تحليل SMART"
