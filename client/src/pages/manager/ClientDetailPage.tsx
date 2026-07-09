@@ -8,6 +8,7 @@ import { StrategicPathCard } from '@/components/manager/StrategicPathCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/api'
 import { DEPT_ICON, DEPT_LABEL, dangerZoneColor, type DangerZone, type DeptCode } from '@/lib/deptApi'
+import { isToolVisible, visibleTools } from '@/lib/goalGating'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { useAuthStore } from '@/store/authStore'
 
@@ -122,6 +123,10 @@ export function ClientDetailPage() {
   const { companyName, specialty, sector, size, stage, healthPct, dangerZone, lastAuditAt, daysSinceLastAudit, hasAnyAudit, hasDepartment } = client
   const clientQ = `?client=${client.companyId}`
   const extras = DEPT_EXTRA_TOOLS[specialty] ?? []
+  // R3 — بوّابة الأهداف: نستنتج الأدوات المرئية من user.goals. لو المدير
+  // لم يُكمل onboarding (goals فارغة) → لا فلترة (كل الأدوات مرئية).
+  const gatedSet = visibleTools(user?.goals ?? null)
+  const mutedFor = (basePath: string) => !isToolVisible(basePath, gatedSet)
 
   return (
     <div className="flex flex-col gap-6">
@@ -155,6 +160,29 @@ export function ClientDetailPage() {
         dangerZone={dangerZone}
         hasAnyAudit={hasAnyAudit}
       />
+
+      {/* R2 — Handoff إلى التسلسل الاستراتيجي المقفل. يظهر فقط عندما
+         يوجد تدقيق. هذا هو السطر المفقود في المسار القديم: بدل شاشة
+         النتائج المغلقة → يفتح المدير التسلسل المقفل (البيئة → SWOT →
+         التوجه/الخيارات → المؤشرات → المبادرات → التنفيذ). */}
+      {hasAnyAudit && (
+        <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5 p-4">
+          <div>
+            <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+              🧭 <span>ابدأ التسلسل الاستراتيجي المقفل</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ٤ مراحل مقفلة (البيئة → SWOT/TOWS → التوجه → المؤشرات) ثم ٢ مفتوحتان (المبادرات → التنفيذ).
+            </p>
+          </div>
+          <Link
+            to={`/manager/clients/${client.companyId}/journey`}
+            className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
+          >
+            فتح التسلسل ←
+          </Link>
+        </div>
+      )}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">أدوات العمل على هذا العميل</h2>
@@ -198,6 +226,7 @@ export function ClientDetailPage() {
             description="٦ عوامل خارجية بمقترحات جاهزة مخصّصة لتخصّصك (منهجية القديم)."
             to={`/manager/dept-pestel${clientQ}`}
             primary
+            muted={mutedFor('/manager/dept-pestel')}
           />
           <ToolCard
             icon="📐"
@@ -205,30 +234,35 @@ export function ClientDetailPage() {
             description="محاور الحالي/المستهدف (0-100) وخطة الردم — منهجية القديم."
             to={`/manager/dept-gap${clientQ}`}
             primary
+            muted={mutedFor('/manager/dept-gap')}
           />
           <ToolCard
             icon="🧭"
             title="تحليل SWOT"
             description="نقاط القوة والضعف والفرص والتهديدات لإدارة العميل — مع بذر تلقائي."
             to={`/swot${clientQ}`}
+            muted={mutedFor('/swot')}
           />
           <ToolCard
             icon="🔄"
             title="مصفوفة TOWS"
             description="تحويل SWOT إلى استراتيجيات فعلية (SO/ST/WO/WT)."
             to={`/tows${clientQ}`}
+            muted={mutedFor('/tows')}
           />
           <ToolCard
             icon="⚠️"
             title="خريطة المخاطر"
             description="مصفوفة الاحتمال × الأثر لمخاطر الإدارة."
             to={`/risk-map${clientQ}`}
+            muted={mutedFor('/risk-map')}
           />
           <ToolCard
             icon="⚡"
             title="مصفوفة الأولوية"
             description="ترتيب المبادرات حسب الأثر والجهد."
             to={`/priority-matrix${clientQ}`}
+            muted={mutedFor('/priority-matrix')}
           />
         </div>
       </div>
@@ -242,54 +276,63 @@ export function ClientDetailPage() {
             title="الأهداف الاستراتيجية"
             description="أهداف الإدارة السنوية لعميلك."
             to={`/objectives${clientQ}`}
+            muted={mutedFor('/objectives')}
           />
           <ToolCard
             icon="🏆"
             title="OKRs"
             description="أهداف ونتائج رئيسية قابلة للقياس."
             to={`/okrs${clientQ}`}
+            muted={mutedFor('/okrs')}
           />
           <ToolCard
             icon="🧩"
             title="إطار OGSM"
             description="Objective, Goals, Strategies, Measures — إطار تخطيط متكامل."
             to={`/ogsm${clientQ}`}
+            muted={mutedFor('/ogsm')}
           />
           <ToolCard
             icon="📊"
             title="مؤشرات الأداء"
             description="تعريف KPIs التخصّصية والمعايير القطاعية."
             to={`/kpis${clientQ}`}
+            muted={mutedFor('/kpis')}
           />
           <ToolCard
             icon="✍️"
             title="إدخالات المؤشرات"
             description="تسجيل قراءات المؤشرات الدورية."
             to={`/kpi-entries${clientQ}`}
+            muted={mutedFor('/kpi-entries')}
           />
           <ToolCard
             icon="💡"
             title="المبادرات"
             description="مبادرات تحسين على مستوى الإدارة."
             to={`/initiatives${clientQ}`}
+            muted={mutedFor('/initiatives')}
           />
           <ToolCard
             icon="📁"
             title="المشاريع"
             description="مشاريع تنفيذية للعميل."
             to={`/projects${clientQ}`}
+            muted={mutedFor('/projects')}
           />
           <ToolCard
             icon="🗓️"
             title="الخطة السنوية"
             description="خارطة طريق ١٢ شهراً للإدارة."
             to={`/annual-plan${clientQ}`}
+            muted={mutedFor('/annual-plan')}
           />
           <ToolCard
             icon="✓"
             title="المهام"
             description="متابعة المهام التنفيذية."
             to={`/tasks${clientQ}`}
+            muted={mutedFor('/tasks')}
           />
         </div>
       </div>
@@ -404,14 +447,15 @@ function HealthCard({
 }
 
 function ToolCard({
-  icon, title, description, to, primary,
-}: { icon: string; title: string; description: string; to: string; primary?: boolean }) {
+  icon, title, description, to, primary, muted,
+}: { icon: string; title: string; description: string; to: string; primary?: boolean; muted?: boolean }) {
   return (
     <Link
       to={to}
       className={`group rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${
         primary ? 'border-primary/40 bg-primary/5' : 'bg-card'
-      }`}
+      } ${muted ? 'opacity-50 grayscale' : ''}`}
+      title={muted ? 'خارج أهدافك — لم تُختَر في التسجيل، لكن الوصول متاح.' : undefined}
     >
       <div className="mb-2 text-2xl" aria-hidden>{icon}</div>
       <div className="text-base font-semibold">{title}</div>
