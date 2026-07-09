@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   DEPT_LABEL,
-  getMyFirstCompany,
   listDepartments,
   submitDeptSmart,
   type Department,
 } from '@/lib/deptApi'
+import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
 interface KPIRow {
   name: string
@@ -26,22 +26,23 @@ interface InsightRow {
 }
 
 export function DeptSmartPage() {
+  const scope = useClientScopedCompany()
+  const company = scope.company
   const [departments, setDepartments] = useState<Department[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [recs, setRecs] = useState<{ kpis: KPIRow[]; insights: InsightRow[] } | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [deptsLoading, setDeptsLoading] = useState(false)
   const [running, setRunning] = useState(false)
 
   useEffect(() => {
+    if (!company) return
     let cancel = false
+    setDeptsLoading(true)
+    setDepartments([])
+    setSelected(null)
+    setRecs(null)
     ;(async () => {
       try {
-        const { company } = await getMyFirstCompany()
-        if (!company) {
-          toast.error('أكمل تشخيص المدير أولاً')
-          setLoading(false)
-          return
-        }
         const list = await listDepartments(company.id)
         if (cancel) return
         setDepartments(list)
@@ -51,13 +52,13 @@ export function DeptSmartPage() {
         const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل الأقسام'
         toast.error(msg)
       } finally {
-        if (!cancel) setLoading(false)
+        if (!cancel) setDeptsLoading(false)
       }
     })()
-    return () => {
-      cancel = true
-    }
-  }, [])
+    return () => { cancel = true }
+  }, [company])
+
+  const loading = scope.loading || deptsLoading
 
   const selectedDept = useMemo(() => departments.find((d) => d.id === selected) ?? null, [departments, selected])
 
@@ -79,8 +80,12 @@ export function DeptSmartPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="توصيات SMART"
-        description="أهداف مؤشرات الأداء لكل قسم ورؤى مستخلصة من آخر تدقيق."
+        title={company ? `توصيات SMART — ${company.name}` : 'توصيات SMART'}
+        description={
+          scope.error
+            ? scope.error
+            : 'أهداف مؤشرات الأداء لكل قسم ورؤى مستخلصة من آخر تدقيق.'
+        }
       />
 
       {loading && <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>}

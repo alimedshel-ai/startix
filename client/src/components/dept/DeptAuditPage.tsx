@@ -11,12 +11,11 @@ import {
   createDepartment,
   dangerZoneColor,
   getLatestDeptAudit,
-  getMyFirstCompany,
   submitDeptSmart,
   type AuditScore,
-  type Company,
   type DeptCode,
 } from '@/lib/deptApi'
+import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
 interface Props {
   deptCode: DeptCode
@@ -46,7 +45,8 @@ const ZONE_LABEL: Record<string, string> = {
 }
 
 export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Props) {
-  const [company, setCompany] = useState<Company | null>(null)
+  const scope = useClientScopedCompany()
+  const company = scope.company
   const [deptId, setDeptId] = useState<string | null>(null)
   const [mode, setMode] = useState<ViewMode>('loading')
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +67,16 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
   }, [])
 
   useEffect(() => {
+    // ننتظر حتى يحسم hook الشركة النشطة قبل بناء الإدارة.
+    if (scope.loading) {
+      setMode('loading')
+      return
+    }
+    if (!company) {
+      setError(scope.error ?? 'لم تربط شركة بعد. أكمل تشخيص المدير أولاً.')
+      setMode('error')
+      return
+    }
     let cancel = false
     setMode('loading')
     setError(null)
@@ -75,14 +85,6 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
     setSavedAt(null)
     ;(async () => {
       try {
-        const { company } = await getMyFirstCompany()
-        if (cancel) return
-        if (!company) {
-          setError('لم تربط شركة بعد. أكمل تشخيص المدير أولاً.')
-          setMode('error')
-          return
-        }
-        setCompany(company)
         const dept = await createDepartment({ companyId: company.id, type: deptCode })
         if (cancel) return
         setDeptId(dept.id)
@@ -98,7 +100,7 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
       }
     })()
     return () => { cancel = true }
-  }, [deptCode, loadLatest])
+  }, [deptCode, loadLatest, company, scope.loading, scope.error])
 
   async function requestSmart() {
     if (!deptId) return

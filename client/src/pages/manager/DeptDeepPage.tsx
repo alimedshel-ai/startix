@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { getMyFirstCompany, type Company } from '@/lib/deptApi'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
 // ─── تحليل عميق للقسم — 4 أسئلة متعدّدة الاختيار + "أخرى" ────────────────
 // يُحفَظ في القاعدة كـ StrategicArtifact بنوع 'DEPT_DEEP_ANSWERS' لكل شركة.
@@ -132,20 +132,22 @@ function hasContent(a: DeepAnswer | undefined): boolean {
 }
 
 export function DeptDeepPage() {
-  const [company, setCompany] = useState<Company | null>(null)
-  const [loading, setLoading] = useState(true)
+  const scope = useClientScopedCompany()
+  const company = scope.company
   const [answers, setAnswers] = useState<AnswersState>({})
+  const [artifactLoading, setArtifactLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!company) return
     let cancel = false
+    setArtifactLoading(true)
+    setAnswers({})
+    setSavedAt(null)
     ;(async () => {
       try {
-        const { company: co } = await getMyFirstCompany()
-        if (cancel || !co) return
-        setCompany(co)
-        const artifact = await getArtifact<DeepAnswers>(co.id, 'DEPT_DEEP_ANSWERS')
+        const artifact = await getArtifact<DeepAnswers>(company.id, 'DEPT_DEEP_ANSWERS')
         if (cancel) return
         if (artifact) {
           setAnswers(normalize(artifact.data))
@@ -154,13 +156,13 @@ export function DeptDeepPage() {
       } catch (err) {
         if (!cancel) toast.error(apiErrorMessage(err, 'تعذّر تحميل الإجابات المحفوظة'))
       } finally {
-        if (!cancel) setLoading(false)
+        if (!cancel) setArtifactLoading(false)
       }
     })()
-    return () => {
-      cancel = true
-    }
-  }, [])
+    return () => { cancel = true }
+  }, [company])
+
+  const loading = scope.loading || artifactLoading
 
   function toggleOption(idx: number, key: string) {
     setAnswers((prev) => {
@@ -225,8 +227,8 @@ export function DeptDeepPage() {
       <div className="flex flex-col gap-6">
         <PageHeader title="تحليل عميق للقسم" />
         <EmptyState
-          title="لا توجد شركة مرتبطة بحسابك"
-          description="ابدأ من لوحة القيادة بإنشاء شركة قبل حفظ إجاباتك."
+          title={scope.error ?? 'لا توجد شركة مرتبطة بحسابك'}
+          description="عُد إلى «عملائي» أو أنشئ شركة قبل حفظ إجاباتك."
           icon={<span className="text-4xl">🏢</span>}
         />
       </div>
@@ -236,7 +238,7 @@ export function DeptDeepPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="تحليل عميق للقسم"
+        title={`تحليل عميق — ${company.name}`}
         description={
           savedAt
             ? `آخر حفظ في القاعدة: ${new Date(savedAt).toLocaleString('ar-SA')}`
