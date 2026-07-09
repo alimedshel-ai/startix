@@ -420,6 +420,75 @@ const IT: DeptQuestions = {
 // ─── الخريطة الكاملة ─────────────────────────────────────────────────────
 // كل إدارة تُلحق بها في commit مستقل. المستهلكون يجب أن يتعاملوا مع
 // الإدارات غير المُنقولة بعد بتحقّق حرصي.
+// ─── CUSTOMER_SERVICE — خدمة العملاء ────────────────────────────────────
+// المصدر: dept-deep.js:1132-1157 (٥ أقسام، ١٧ سؤالاً).
+
+const CUSTOMER_SERVICE: DeptQuestions = {
+  sections: [
+    { id: 'cs_team',       icon: '🏗️', title: 'هيكل فريق خدمة العملاء', priority: 'حرج', desc: 'الفريق المناسب هو الفرق بين عميل يبقى وعميل يذهب للمنافس' },
+    { id: 'cs_quality',    icon: '⭐', title: 'جودة الخدمة ورضا العملاء',  priority: 'حرج', desc: 'زيادة الاحتفاظ بالعميل 5% ترفع الأرباح 25-95%' },
+    { id: 'cs_systems',    icon: '🔧', title: 'الأنظمة وإدارة التذاكر',    priority: 'مهم', desc: 'الشركات التي تستخدم CRM تحتفظ بـ 27% عملاء أكثر' },
+    { id: 'cs_perf',       icon: '📈', title: 'تطوير الفريق وإدارة الأداء', priority: 'مهم', desc: 'موظف خدمة عملاء سعيد = عميل سعيد' },
+    { id: 'cs_freetext',   icon: '✍️', title: 'التحقق والإغلاق',           priority: 'عادي', desc: 'ما الذي يُضعف تجربة العميل أكثر من أي شيء آخر؟' },
+  ],
+  questions: [
+    { type: 'radio',    sectionId: 'cs_team', id: 'cs_team_size',         label: 'ما حجم فريق خدمة العملاء؟',                                    opts: ['أكثر من 10', '5-10', '2-4', 'موظف واحد', 'لا يوجد'] },
+    { type: 'radio',    sectionId: 'cs_team', id: 'cs_manager',           label: 'هل لديك مدير أو مشرف خدمة عملاء مخصص؟',                         opts: ['نعم — متفرغ', 'جزئياً', 'لا'] },
+    { type: 'checkbox', sectionId: 'cs_team', id: 'cs_channels',          label: 'ما قنوات التواصل المتاحة للعملاء؟',                             opts: ['هاتف', 'واتساب', 'إيميل', 'دردشة مباشرة', 'وسائل تواصل اجتماعي', 'بوابة إلكترونية'] },
+    { type: 'radio',    sectionId: 'cs_team', id: 'cs_operating_hours',   label: 'ما ساعات عمل خدمة العملاء؟',                                    opts: ['24/7', '12 ساعة (8ص-8م)', 'دوام رسمي فقط', 'غير محددة'] },
+
+    { type: 'radio', sectionId: 'cs_quality', id: 'csat_score',             label: 'هل تقيس رضا العملاء (CSAT/NPS)؟',                              opts: ['نعم — بانتظام مع تقارير', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'cs_quality', id: 'nps',                    label: 'ما مستوى NPS (احتمال التوصية) لديك؟',                          opts: ['أكثر من 50 (ممتاز)', '20-50 (جيد)', '0-20 (متوسط)', 'سلبي (أقل من 0)', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'cs_quality', id: 'complaint_resolution',   label: 'ما معدل حل الشكاوى من أول تواصل (FCR)?',                        opts: ['أكثر من 80%', '60-80%', 'أقل من 60%', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'cs_quality', id: 'avg_response_time',      label: 'ما متوسط وقت الاستجابة للعميل؟',                                 opts: ['أقل من ساعة', '1-4 ساعات', '4-24 ساعة', 'أكثر من يوم'] },
+
+    { type: 'radio', sectionId: 'cs_systems', id: 'crm_cs',              label: 'هل تستخدمون CRM لإدارة العملاء؟',                                opts: ['نعم — متكامل وفاعل', 'جزئياً', 'Excel/يدوي', 'لا'] },
+    { type: 'radio', sectionId: 'cs_systems', id: 'ticketing_system',    label: 'هل لديك نظام تذاكر (Ticketing) لتتبع الشكاوى؟',                    opts: ['نعم — رسمي', 'غير رسمي', 'لا'] },
+    { type: 'radio', sectionId: 'cs_systems', id: 'cs_knowledge_base',   label: 'هل لديك قاعدة معرفة للإجابات الشائعة (FAQ)?',                       opts: ['نعم — محدّثة', 'جزئياً', 'لا'] },
+    { type: 'radio', sectionId: 'cs_systems', id: 'chatbot_ai',          label: 'هل تستخدمون Chatbot أو AI لأتمتة الردود؟',                        opts: ['نعم — فاعل', 'قيد التطوير', 'لا'] },
+
+    { type: 'radio', sectionId: 'cs_perf', id: 'cs_training',            label: 'هل يتلقى فريق CS تدريباً منتظماً؟',                              opts: ['نعم — برنامج ربع سنوي', 'عند التوظيف فقط', 'لا'] },
+    { type: 'radio', sectionId: 'cs_perf', id: 'cs_kpis',                label: 'هل لدى الفريق أهداف ومؤشرات أداء واضحة؟',                         opts: ['نعم — يومية وأسبوعية', 'شهرية فقط', 'لا'] },
+    { type: 'radio', sectionId: 'cs_perf', id: 'cs_turnover',            label: 'ما معدل دوران موظفي خدمة العملاء سنوياً؟',                        opts: ['أقل من 15%', '15-30%', 'أكثر من 30%', 'لا نتتبع'] },
+
+    { type: 'textarea', sectionId: 'cs_freetext', id: 'cs_free',         label: 'ما أكبر شكوى متكررة تصلك من العملاء؟',                            placeholder: 'مثال: بطء الرد، عدم متابعة الشكاوى، صعوبة الإلغاء، جودة الخدمة...' },
+  ],
+}
+
+// ─── QUALITY — الجودة ────────────────────────────────────────────────
+// المصدر: dept-deep.js:1163-1187 (٥ أقسام، ١٥ سؤالاً).
+
+const QUALITY: DeptQuestions = {
+  sections: [
+    { id: 'q_org',        icon: '🏗️', title: 'هيكل إدارة الجودة',      priority: 'حرج', desc: 'الجودة ليست قسماً — هي ثقافة. لكنها تبدأ بقيادة واضحة' },
+    { id: 'q_control',    icon: '🔍', title: 'ضبط الجودة والفحص',      priority: 'حرج', desc: 'تكلفة الوقاية = 10% من تكلفة الإصلاح بعد التسليم' },
+    { id: 'q_kpis',       icon: '📊', title: 'المؤشرات والتقارير',      priority: 'مهم', desc: 'لا يمكن إدارة ما لا يُقاس' },
+    { id: 'q_improve',    icon: '🔄', title: 'التحسين المستمر',          priority: 'مهم', desc: 'Kaizen: تحسينات صغيرة يومية = نتائج كبيرة سنوية' },
+    { id: 'q_freetext',   icon: '✍️', title: 'التحقق والإغلاق',         priority: 'عادي', desc: 'ما هو أكبر مشكلة جودة تواجهها الآن؟' },
+  ],
+  questions: [
+    { type: 'radio',    sectionId: 'q_org', id: 'quality_manager',       label: 'هل لديك مدير جودة أو مسؤول جودة متخصص؟',                        opts: ['نعم — متفرغ', 'مشترك مع مهام', 'لا'] },
+    { type: 'radio',    sectionId: 'q_org', id: 'quality_policy',        label: 'هل لديك سياسة جودة موثقة ومعتمدة؟',                              opts: ['نعم — محدّثة وموزعة', 'موجودة غير فاعلة', 'لا'] },
+    { type: 'checkbox', sectionId: 'q_org', id: 'iso_certification',     label: 'هل حصلتم على شهادات جودة (ISO, etc.)?',                          opts: ['ISO 9001', 'ISO 14001', 'ISO 45001', 'IATF / شهادة قطاعية', 'لا يوجد'] },
+    { type: 'radio',    sectionId: 'q_org', id: 'quality_budget',        label: 'هل لإدارة الجودة ميزانية مستقلة؟',                                opts: ['نعم', 'جزئياً', 'لا'] },
+
+    { type: 'radio', sectionId: 'q_control', id: 'inspection_process',   label: 'ما مستوى عملية الفحص وضبط الجودة؟',                              opts: ['فحص آلي + يدوي في كل مرحلة', 'فحص نهائي فقط', 'فحص عشوائي', 'لا يوجد فحص رسمي'] },
+    { type: 'radio', sectionId: 'q_control', id: 'defect_rate',          label: 'ما نسبة العيوب/الأخطاء في المنتجات/الخدمات؟',                     opts: ['أقل من 1%', '1-3%', 'أكثر من 3%', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'q_control', id: 'rework_cost',          label: 'هل تتتبع تكلفة إعادة العمل (Rework Cost)?',                       opts: ['نعم — مع هدف تخفيض', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'q_control', id: 'supplier_quality',     label: 'هل تقيّم جودة الموردين بشكل منتظم؟',                              opts: ['نعم — تقييم دوري + شهادات', 'أحياناً', 'لا'] },
+
+    { type: 'radio', sectionId: 'q_kpis', id: 'quality_kpis',            label: 'هل تتابع مؤشرات الجودة بانتظام؟',                                opts: ['نعم — Dashboard يومي', 'تقارير أسبوعية', 'شهرية', 'لا'] },
+    { type: 'radio', sectionId: 'q_kpis', id: 'customer_returns',        label: 'ما معدل مرتجعات العملاء/الشكاوى المتعلقة بالجودة؟',              opts: ['أقل من 2%', '2-5%', 'أكثر من 5%', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'q_kpis', id: 'root_cause',              label: 'هل تجري تحليل السبب الجذري للعيوب (RCA)?',                        opts: ['نعم — لكل عيب رئيسي', 'للحوادث الكبيرة فقط', 'لا'] },
+
+    { type: 'radio', sectionId: 'q_improve', id: 'continuous_improvement',label: 'هل لديك منهجية تحسين مستمر (Lean/Six Sigma/Kaizen)?',            opts: ['نعم — مطبقة رسمياً', 'جزئياً', 'لا'] },
+    { type: 'radio', sectionId: 'q_improve', id: 'audit_internal',       label: 'هل تجري مراجعات جودة داخلية دورية؟',                              opts: ['ربع سنوية', 'سنوية', 'عند الحاجة', 'لا'] },
+    { type: 'radio', sectionId: 'q_improve', id: 'corrective_actions',   label: 'هل لديك نظام للإجراءات التصحيحية والوقائية (CAPA)?',              opts: ['نعم — رسمي ومتتبع', 'غير رسمي', 'لا'] },
+
+    { type: 'textarea', sectionId: 'q_freetext', id: 'quality_free',     label: 'ما المشكلة التي تتكرر في الجودة وتصعب حلها؟',                    placeholder: 'مثال: أخطاء بشرية، موردون غير موثوقين، عدم اتباع الإجراءات...' },
+  ],
+}
+
 export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
   FINANCE,
@@ -427,4 +496,6 @@ export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   MARKETING,
   OPERATIONS,
   IT,
+  CUSTOMER_SERVICE,
+  QUALITY,
 }
