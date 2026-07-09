@@ -192,42 +192,38 @@ const managerNav: NavSection[] = [
       { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️', dept: 'GOVERNANCE' },
     ],
   },
+  // ─── تصحيح Wave M ──────────────────────────────────────────────────────
+  // الفصل بين طبقتين:
+  //   المستشار (Consultant, غير موجود حالياً كدور): يستخدم SWOT/TOWS/OKRs/
+  //   OGSM/Objectives/AnnualPlan/GapAnalysis/PriorityMatrix/RiskMap/Dupont/
+  //   MonteCarlo — أطر عليا لاتخاذ القرار.
+  //
+  //   المدير المستقل الخبير (INDEPENDENT_PRO): يعمل بعمق تشغيلي على تخصّصه،
+  //   يزوّد المستشار بالمادة الخام. يستخدم فقط أدوات جمع البيانات والتنفيذ
+  //   اليومي.
+  //
+  // لذا كل أدوات M1 وأغلب M2/M3 أُخفيت هنا. المسارات في الراوتر تبقى
+  // مفتوحة للـ MANAGER (لو احتاج URL مباشر) لكن السايدبار لا يعلن عنها.
   {
-    title: 'التوليف الاستراتيجي',
-    accent: 'rose',
+    title: 'العمل التشغيلي',
+    accent: 'emerald',
     items: [
-      // M1 — أدوات التوليف مُتاحة للمدير المستقل عبر ?client=<id>.
-      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭', proOnly: true },
-      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄', proOnly: true },
-      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐', proOnly: true },
-      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️', proOnly: true },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡', proOnly: true },
+      // أدوات جمع البيانات والتنفيذ اليومي للمدير الخبير.
+      { to: '/kpis',        label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
+      { to: '/kpi-entries', label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
+      { to: '/initiatives', label: 'المبادرات',        icon: '💡', proOnly: true },
+      { to: '/projects',    label: 'المشاريع',         icon: '📁', proOnly: true },
+      { to: '/gantt-chart', label: 'مخطط جانت',        icon: '📅', proOnly: true },
+      { to: '/tasks',       label: 'المهام',           icon: '✓', proOnly: true },
     ],
   },
   {
-    title: 'التنفيذ',
+    title: 'الحسابات التشغيلية',
     accent: 'emerald',
     items: [
-      // M2 — أدوات التنفيذ متاحة للمدير المستقل عبر ?client=<id>.
-      { to: '/objectives',   label: 'الأهداف',          icon: '🎯', proOnly: true },
-      { to: '/okrs',         label: 'OKRs',             icon: '🏆', proOnly: true },
-      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩', proOnly: true },
-      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
-      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
-      { to: '/initiatives',  label: 'المبادرات',        icon: '💡', proOnly: true },
-      { to: '/projects',     label: 'المشاريع',         icon: '📁', proOnly: true },
-      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️', proOnly: true },
-      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅', proOnly: true },
-      { to: '/tasks',        label: 'المهام',           icon: '✓', proOnly: true },
-    ],
-  },
-  {
-    title: 'التحليل المالي',
-    accent: 'emerald',
-    items: [
-      // M3 — التحليل المالي متاح للمدير المستقل عبر ?client=<id>.
-      { to: '/financial-analysis',        label: 'Dupont و Monte Carlo', icon: '📐', proOnly: true },
-      { to: '/manager/finance/break-even', label: 'نقطة التعادل',        icon: '⚖️', dept: 'FINANCE' },
+      // BreakEven أداة حساب تشغيلي — تبقى. Dupont/MonteCarlo أدوات تحليل
+      // استشارية — تُخفى.
+      { to: '/manager/finance/break-even', label: 'نقطة التعادل', icon: '⚖️', dept: 'FINANCE' },
     ],
   },
   {
