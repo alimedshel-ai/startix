@@ -142,9 +142,6 @@ export function Topbar() {
               <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/onboarding')}>
-              <span className="ml-2">👤</span> الملف الشخصي
-            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate('/pricing')}>
               <span className="ml-2">💎</span> الباقة: {PLAN_LABEL[user?.plan ?? 'BASIC']}
             </DropdownMenuItem>

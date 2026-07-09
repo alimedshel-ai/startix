@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { apiErrorMessage } from '@/lib/api'
+import { api, apiErrorMessage } from '@/lib/api'
+import { homeFor } from '@/components/layouts/nav'
 import { useAuthStore } from '@/store/authStore'
+import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
 const SPECIALTY_OPTIONS: { value: SpecialtyDeptType; label: string }[] = [
@@ -76,11 +78,7 @@ export function JoinPage() {
   // فيرى نفسه "OWNER" مصادفة.
   useEffect(() => {
     if (!isAuthenticated || !authedUser) return
-    const home =
-      authedUser.userType === 'MANAGER' ? '/manager/dept-dashboard'
-      : authedUser.userType === 'INVESTOR' ? '/investor/dashboard'
-      : '/dashboard'
-    navigate(home, { replace: true })
+    navigate(homeFor(authedUser.userType, authedUser.managerType), { replace: true })
   }, [isAuthenticated, authedUser, navigate])
 
   const { register, watch, handleSubmit, reset, formState: { errors } } = useForm<Form>({
@@ -125,13 +123,67 @@ export function JoinPage() {
       })
       await login(values.email, values.password)
       toast.success('تم إنشاء الحساب — تحقق من بريدك لإكمال التحقق')
-      navigate('/onboarding')
+
+      // نقل التشخيص المجاني الذي أُجري قبل التسجيل إلى القاعدة.
+      // كان هذا سابقاً في OnboardingPage — نُقل هنا بعد حذف /onboarding
+      // لأنّ الصفحة كانت مجرّد وسيط لهذه المهمة + استمارة رقم/صورة بلا قيمة.
+      const nextPath = await persistPendingDiagnosticAndPickHome({
+        userType: values.userType,
+        managerType: values.userType === 'MANAGER' ? values.managerType ?? null : null,
+      })
+      navigate(nextPath, { replace: true })
     } catch (err: unknown) {
       toast.error(apiErrorMessage(err, 'فشل إنشاء الحساب'))
     } finally {
       setSubmitting(false)
     }
   })
+
+  // ─── نقل التشخيص المجاني (مسبق-التسجيل) للقاعدة ثم اختيار الوجهة ─────
+  // القانون الأول يمنع بقاء بيانات العمل في localStorage — لذا هنا نستدعي
+  // /api/diagnostic/{owner|manager|investor} بمسودّة الزائر ثم نمسح العلم.
+  // استثناء موثّق للمدير المستقل (الأمر ٢٥ في الخطة): لا نستدعي
+  // /api/diagnostic/manager لأنه يُنشئ شركة — بدلاً من ذلك نُبقي النتيجة
+  // transient وتُطبَّق كأوّل تدقيق لأوّل عميل يُضاف (الأمر ٣١).
+  async function persistPendingDiagnosticAndPickHome(role: {
+    userType: UserType
+    managerType: ManagerType | null
+  }): Promise<string> {
+    const state = useDiagnosticStore.getState()
+    const home = homeFor(role.userType, role.managerType)
+    if (!state.pendingPersist) return home
+
+    try {
+      if (role.userType === 'OWNER') {
+        const req = ['companyName', 'sector', 'stage', 'size', 'ownerDependency',
+          'financialTracking', 'liquidity', 'governance', 'scalability', 'exitStrategy'] as const
+        if (req.every((k) => state.ownerDraft[k])) {
+          await api.post('/api/diagnostic/owner', state.ownerDraft)
+          state.clearPendingPersist()
+          return '/diagnostic/result'
+        }
+      } else if (role.userType === 'MANAGER' && role.managerType === 'INTERNAL') {
+        const req = ['departmentType', 'teamSize', 'experienceLevel', 'operationalMaturity',
+          'toolingMaturity', 'reportingQuality', 'decisionAuthority'] as const
+        if (req.every((k) => state.managerDraft[k as keyof typeof state.managerDraft])) {
+          await api.post('/api/diagnostic/manager', state.managerDraft)
+          state.clearPendingPersist()
+        }
+      } else if (role.userType === 'INVESTOR') {
+        const req = ['portfolioSize', 'investmentStage', 'monitoringCadence',
+          'sectorFocus', 'involvementType', 'ticketSize'] as const
+        if (req.every((k) => state.investorDraft[k as keyof typeof state.investorDraft])) {
+          await api.post('/api/diagnostic/investor', state.investorDraft)
+          state.clearPendingPersist()
+        }
+      }
+      // INDEPENDENT_PRO: managerResult يبقى transient — يُستهلَك في الأمر ٣١.
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر حفظ تشخيصك السابق — يمكنك المحاولة لاحقاً'))
+      state.clearPendingPersist()
+    }
+    return home
+  }
 
   const roleLabel = TYPE_LABEL[(userType as UserType | null) ?? 'OWNER']
   // نُخفي حقول المدير الفرعية لو كان المستخدم اختارها مسبقاً من /select-type،

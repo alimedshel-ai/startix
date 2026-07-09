@@ -6,7 +6,6 @@ import { SelectTypePage } from '@/pages/SelectTypePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { JoinPage } from '@/pages/JoinPage'
 import { PricingPage } from '@/pages/PricingPage'
-import { OnboardingPage } from '@/pages/OnboardingPage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { RoleRoute } from '@/components/RoleRoute'
 import { MainLayout } from '@/components/layouts/MainLayout'
@@ -118,7 +117,6 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/onboarding', element: <OnboardingPage /> },
       // Owner area
       {
         element: <RoleRoute allow={['OWNER']} />,

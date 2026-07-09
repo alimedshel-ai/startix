@@ -256,8 +256,17 @@ export function navFor(
   return []
 }
 
-export function homeFor(userType: UserType | null | undefined): string {
-  if (userType === 'MANAGER') return '/manager/dept-dashboard'
+export function homeFor(
+  userType: UserType | null | undefined,
+  managerType?: ManagerType | null
+): string {
+  // المدير المستقل يعمل عبر عدّة عملاء — بيته «عملائي» لا لوحة إدارة وحيدة.
+  // المدير الداخلي يبقى على لوحة إدارته (شركة واحدة). الأمر ٢٦ في الخطة.
+  if (userType === 'MANAGER') {
+    return managerType === 'INDEPENDENT_PRO'
+      ? '/manager/clients'
+      : '/manager/dept-dashboard'
+  }
   if (userType === 'INVESTOR') return '/investor/dashboard'
   return '/dashboard'
 }

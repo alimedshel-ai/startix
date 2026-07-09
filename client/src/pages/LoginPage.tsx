@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/api'
+import { homeFor } from '@/components/layouts/nav'
 import { useAuthStore } from '@/store/authStore'
 
 const schema = z.object({
@@ -31,8 +32,10 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(values.email, values.password)
+      // login() يضبط user في authStore — نقرأه لاختيار الوجهة الصحيحة للدور.
+      const user = useAuthStore.getState().user
       toast.success('مرحباً بعودتك')
-      navigate('/onboarding')
+      navigate(homeFor(user?.userType, user?.managerType), { replace: true })
     } catch (err: unknown) {
       toast.error(apiErrorMessage(err, 'فشل تسجيل الدخول'))
     } finally {
