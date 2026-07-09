@@ -346,6 +346,77 @@ const MARKETING: DeptQuestions = {
   ],
 }
 
+// ─── OPERATIONS — العمليات ──────────────────────────────────────────────
+// المصدر: dept-deep.js:977-1034 (٥ أقسام، ١٣ سؤالاً).
+
+const OPERATIONS: DeptQuestions = {
+  sections: [
+    { id: 'ops_capacity',      icon: '⚙️', title: 'تخطيط العمليات والطاقة الاستيعابية', priority: 'حرج', desc: 'التخطيط السليم يمنع الاختناقات ويضمن التسليم في الوقت المحدد' },
+    { id: 'ops_sops',          icon: '📐', title: 'توثيق الإجراءات والأتمتة',            priority: 'مهم', desc: 'العمليات غير الموثقة تموت بخروج الموظف' },
+    { id: 'ops_quality',       icon: '✅', title: 'الجودة والتحسين المستمر',              priority: 'حرج', desc: 'الجودة ليست صدفة بل يجب أن تكون نظاماً مستداماً' },
+    { id: 'ops_suppliers',     icon: '📦', title: 'إدارة الموردين وسلسلة الإمداد',       priority: 'مهم', desc: 'المورد السيء يعطل عملياتك مهما كانت كفاءتك' },
+    { id: 'ops_freetext',      icon: '✍️', title: 'التحقق والإغلاق',                    priority: 'عادي', desc: 'سؤال مفتوح لتوثيق الهدر التشغيلي' },
+  ],
+  questions: [
+    { type: 'radio', sectionId: 'ops_capacity', id: 'ops_capacity',      label: 'ما نسبة استغلال طاقتكم التشغيلية القصوى؟',                                opts: ['70-85% (مثالي)', 'أقل من 50% (هدر)', 'أكثر من 95% (ضغط شديد)'] },
+    { type: 'radio', sectionId: 'ops_capacity', id: 'ops_bottlenecks',   label: 'هل تعرف أين توجد الاختناقات (Bottlenecks) في عملياتك؟',                    opts: ['نعم — محددة ونعمل على حلها', 'نعرفها تقريباً', 'لا نعلم / تتغير دائماً'] },
+    { type: 'radio', sectionId: 'ops_capacity', id: 'ops_forecasting',   label: 'هل تتنبأ بحجم الطلب لتخطيط العمليات؟',                                     opts: ['نعم — ببيانات تاريخية وأدوات', 'تخمين يعتمد على الخبرة', 'لا — نعمل بردود فعل'] },
+
+    { type: 'radio', sectionId: 'ops_sops', id: 'ops_sops_status',       label: 'هل إجراءات العمل القياسية (SOPs) موثقة ومحدثة؟',                          opts: ['نعم — 100% موثقة', 'بعضها موثق', 'في عقول الموظفين فقط'] },
+    { type: 'radio', sectionId: 'ops_sops', id: 'ops_automation',        label: 'ما مستوى أتمتة العمليات الأساسية؟',                                        opts: ['عالي — أغلب العمليات مؤتمتة', 'متوسط', 'منخفض — عمل يدوي مكثف'] },
+    { type: 'radio', sectionId: 'ops_sops', id: 'ops_erp',               label: 'هل تستخدم نظام تخطيط الموارد (ERP) لإدارة العمليات؟',                     opts: ['نعم — نظام متكامل', 'أنظمة منفصلة / Excel', 'لا نستخدم أنظمة'] },
+
+    { type: 'radio', sectionId: 'ops_quality', id: 'ops_qc',             label: 'كيف تتم مراقبة الجودة (QC) في عملياتكم؟',                                opts: ['فحص دوري ومعايير واضحة', 'تفتيش عشوائي', 'فقط عند وجود شكوى'] },
+    { type: 'radio', sectionId: 'ops_quality', id: 'ops_defect_rate',    label: 'هل تقيس نسبة الأخطاء / التوالف / المرتجعات؟',                              opts: ['نعم ونعمل على تقليلها', 'تُقاس أحياناً', 'لا نقيسها'] },
+    { type: 'radio', sectionId: 'ops_quality', id: 'ops_continuous_imp', label: 'هل تطبق منهجيات التحسين المستمر (مثل Lean/Kaizen)؟',                        opts: ['نعم — ثقافة مؤسسية', 'نحاول تطبيقها', 'لا'] },
+
+    { type: 'radio', sectionId: 'ops_suppliers', id: 'ops_suppliers',    label: 'هل تعتمد على مورد رئيسي واحد لأي مادة حرجة؟',                              opts: ['لا — لدينا موردين بدلاء', 'نعم لبعض المواد', 'نعم — نعتمد كلياً على مورد واحد'] },
+    { type: 'radio', sectionId: 'ops_suppliers', id: 'ops_inventory',    label: 'كيف تدير مستوى المخزون وتوفر الموارد؟',                                    opts: ['نظام آلي فعّال أو JIT', 'مراجعة دورية يدوية', 'نطلب عند النفاذ'] },
+
+    { type: 'textarea', sectionId: 'ops_freetext', id: 'operations_free', label: 'ما هي أكثر عملية تستنزف وقت وتكلفة الإدارة؟',                              placeholder: 'مثال: الموافقات اليدوية، إدخال البيانات المكرر، صيانة المعدات...' },
+  ],
+}
+
+// ─── IT — تقنية المعلومات ──────────────────────────────────────────────
+// المصدر: dept-deep.js:1096-1127 (٦ أقسام، ٢٠ سؤالاً).
+
+const IT: DeptQuestions = {
+  sections: [
+    { id: 'it_org',      icon: '🏗️', title: 'الهيكل التنظيمي وإدارة IT',                   priority: 'حرج', desc: 'وضوح المسؤوليات وحجم الفريق هو أساس التخطيط التقني' },
+    { id: 'it_security', icon: '🛡️', title: 'الأمن السيبراني والبيانات',                  priority: 'حرج', desc: 'متوسط تكلفة اختراق البيانات في المنطقة 6.5 مليون دولار' },
+    { id: 'it_systems',  icon: '⚙️', title: 'الأنظمة والبنية التحتية',                     priority: 'مهم', desc: 'الأنظمة القديمة تكلف 3x في الصيانة مقارنة بالحديثة' },
+    { id: 'it_maturity', icon: '📊', title: 'مستوى النضج التقني والمؤشرات',                priority: 'مهم', desc: 'قياس الأداء التقني يحدد الأولويات الاستثمارية' },
+    { id: 'it_service',  icon: '🤝', title: 'خدمة المستخدمين الداخليين',                    priority: 'عادي', desc: 'جودة دعم IT تؤثر على إنتاجية الشركة بأكملها' },
+    { id: 'it_freetext', icon: '✍️', title: 'التحقق والإغلاق',                             priority: 'عادي', desc: 'سؤال مفتوح لتوثيق الأولوية التقنية الأكثر إلحاحاً' },
+  ],
+  questions: [
+    { type: 'radio', sectionId: 'it_org', id: 'it_lead',         label: 'هل لديك مدير IT أو مسؤول تقني متخصص؟',                        opts: ['نعم — متفرغ داخلي', 'مشترك مع مهام أخرى', 'مستشار/شريك خارجي', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'it_org', id: 'it_team_size',    label: 'ما حجم فريق IT؟',                                              opts: ['أكثر من 5 موظفين', '2-5 موظفين', 'موظف واحد', 'لا يوجد فريق'] },
+    { type: 'radio', sectionId: 'it_org', id: 'it_budget',       label: 'هل لديك ميزانية IT مستقلة ومحددة؟',                            opts: ['نعم — سنوية مخططة', 'جزئياً', 'لا — حسب الحاجة'] },
+    { type: 'radio', sectionId: 'it_org', id: 'it_strategy',     label: 'هل لديك استراتيجية تقنية مرتبطة بأهداف الشركة؟',                opts: ['نعم — موثقة ومعتمدة', 'جزئياً', 'لا'] },
+
+    { type: 'radio', sectionId: 'it_security', id: 'cybersec_policy',       label: 'هل لديك سياسة أمن سيبراني مكتوبة؟',                     opts: ['نعم — مُطبقة ومحدّثة', 'موجودة غير مفعّلة', 'لا'] },
+    { type: 'radio', sectionId: 'it_security', id: 'backup_system',         label: 'هل لديك نظام نسخ احتياطي منتظم؟',                       opts: ['نعم — يومي آلي + خارجي', 'أسبوعي', 'يدوي وغير منتظم', 'لا'] },
+    { type: 'radio', sectionId: 'it_security', id: 'access_control_it',     label: 'هل تطبق مبدأ الحد الأدنى من الصلاحيات؟',                opts: ['نعم — صلاحيات محددة لكل دور', 'جزئياً', 'لا — صلاحيات واسعة'] },
+    { type: 'radio', sectionId: 'it_security', id: 'security_incidents',    label: 'هل تعرضت لحوادث أمنية (اختراق/فيروس/تسريب) خلال سنة؟',   opts: ['لا', 'نعم — مع استجابة فورية', 'نعم — دون استجابة كافية'] },
+
+    { type: 'radio', sectionId: 'it_systems', id: 'erp_system',       label: 'هل لديك نظام ERP أو نظام مؤسسي متكامل؟',                        opts: ['نعم — ERP كامل ومتكامل', 'برامج متخصصة منفصلة', 'Excel وأدوات يدوية', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'it_systems', id: 'cloud_adoption',   label: 'ما مستوى استخدامك للحوسبة السحابية؟',                            opts: ['Cloud-first (90%+)', 'هجين (50-90%)', 'محلي بشكل رئيسي', 'لا سحابة'] },
+    { type: 'radio', sectionId: 'it_systems', id: 'system_uptime',    label: 'ما معدل توفر الأنظمة الحيوية (Uptime)؟',                         opts: ['99.9%+ (أقل من ساعة توقف/سنة)', '99% (حوالي 4 أيام/سنة)', 'أقل من 99%', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'it_systems', id: 'it_doc',           label: 'هل الأنظمة والبنية التحتية موثقة؟',                              opts: ['نعم — موثقة بالكامل', 'جزئياً', 'لا'] },
+
+    { type: 'radio', sectionId: 'it_maturity', id: 'it_kpis',            label: 'هل تتابع مؤشرات أداء IT (Uptime, MTTR, Tickets)?',              opts: ['نعم — Dashboard حي', 'تقارير دورية', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'it_maturity', id: 'tech_debt',          label: 'هل لديك دين تقني متراكم (أنظمة قديمة/ترقيات متأخرة)؟',           opts: ['لا — نظيف', 'متوسط — نخطط للمعالجة', 'مرتفع — مشكلة فعلية'] },
+    { type: 'radio', sectionId: 'it_maturity', id: 'digital_transform',  label: 'هل تقود IT مبادرات التحول الرقمي في الشركة؟',                    opts: ['نعم — بقيادة IT', 'بالشراكة مع أقسام أخرى', 'لا — IT دعم فقط'] },
+
+    { type: 'radio', sectionId: 'it_service', id: 'helpdesk_it',            label: 'هل لديك نظام Help Desk لطلبات الدعم؟',                        opts: ['نعم — نظام تذاكر رسمي', 'إيميل/واتساب', 'شفهياً', 'لا'] },
+    { type: 'radio', sectionId: 'it_service', id: 'sla_it',                 label: 'هل لديك SLA محدد لوقت الاستجابة والحل؟',                       opts: ['نعم — موثق ومُتتبّع', 'غير رسمي', 'لا'] },
+    { type: 'radio', sectionId: 'it_service', id: 'user_satisfaction_it',   label: 'ما مستوى رضا المستخدمين الداخليين عن IT؟',                     opts: ['ممتاز — نقيسه رسمياً', 'جيد بشكل عام', 'متذمرون', 'لا نقيس'] },
+
+    { type: 'textarea', sectionId: 'it_freetext', id: 'it_free',            label: 'ما أكبر تحدٍّ تقني يعرقل نمو الشركة الآن؟',                     placeholder: 'مثال: غياب ERP، أمن ضعيف، بنية تحتية قديمة، كفاءات تقنية منخفضة...' },
+  ],
+}
+
 // ─── الخريطة الكاملة ─────────────────────────────────────────────────────
 // كل إدارة تُلحق بها في commit مستقل. المستهلكون يجب أن يتعاملوا مع
 // الإدارات غير المُنقولة بعد بتحقّق حرصي.
@@ -354,4 +425,6 @@ export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   FINANCE,
   SALES,
   MARKETING,
+  OPERATIONS,
+  IT,
 }
