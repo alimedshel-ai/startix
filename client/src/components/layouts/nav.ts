@@ -162,7 +162,6 @@ const managerNav: NavSection[] = [
       { to: '/manager/select-dept',         label: 'اختيار الإدارة',    icon: '🏢' },
       { to: '/manager/dept-dashboard',      label: 'لوحة الإدارة',       icon: '📊' },
       { to: '/manager/pro-dashboard',       label: 'اللوحة الاحترافية',  icon: '⭐' },
-      { to: '/manager/dept-questionnaire',  label: 'الاستبيان',          icon: '📋' },
       { to: '/manager/dept-deep',           label: 'التحليل العميق',     icon: '🔬' },
       { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
     ],
