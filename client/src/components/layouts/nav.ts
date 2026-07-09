@@ -201,6 +201,23 @@ const managerNav: NavSection[] = [
     ],
   },
   {
+    title: 'التنفيذ',
+    accent: 'emerald',
+    items: [
+      // M2 — أدوات التنفيذ متاحة للمدير المستقل عبر ?client=<id>.
+      { to: '/objectives',   label: 'الأهداف',          icon: '🎯' },
+      { to: '/okrs',         label: 'OKRs',             icon: '🏆' },
+      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩' },
+      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊' },
+      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️' },
+      { to: '/initiatives',  label: 'المبادرات',        icon: '💡' },
+      { to: '/projects',     label: 'المشاريع',         icon: '📁' },
+      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️' },
+      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅' },
+      { to: '/tasks',        label: 'المهام',           icon: '✓' },
+    ],
+  },
+  {
     title: 'الامتثال',
     accent: 'rose',
     items: [

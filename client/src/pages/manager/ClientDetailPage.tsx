@@ -208,6 +208,49 @@ export function ClientDetailPage() {
             description="ترتيب المبادرات حسب الأثر والجهد."
             to={`/priority-matrix${clientQ}`}
           />
+        </div>
+      </div>
+
+      {/* M2 — أدوات التنفيذ على العميل النشط */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التنفيذ</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="🎯"
+            title="الأهداف الاستراتيجية"
+            description="تعريف الأهداف السنوية للعميل."
+            to={`/objectives${clientQ}`}
+          />
+          <ToolCard
+            icon="🏆"
+            title="OKRs"
+            description="أهداف ونتائج رئيسية قابلة للقياس."
+            to={`/okrs${clientQ}`}
+          />
+          <ToolCard
+            icon="📊"
+            title="مؤشرات الأداء"
+            description="تعريف ومتابعة KPIs الاستراتيجية."
+            to={`/kpis${clientQ}`}
+          />
+          <ToolCard
+            icon="💡"
+            title="المبادرات"
+            description="مبادرات التحسين المرتبطة بالأهداف."
+            to={`/initiatives${clientQ}`}
+          />
+          <ToolCard
+            icon="🗓️"
+            title="الخطة السنوية"
+            description="خارطة طريق ١٢ شهراً."
+            to={`/annual-plan${clientQ}`}
+          />
+          <ToolCard
+            icon="✓"
+            title="المهام"
+            description="متابعة المهام التنفيذية."
+            to={`/tasks${clientQ}`}
+          />
           <ToolCard
             icon="✨"
             title="تحليل SMART"
