@@ -32,6 +32,11 @@ const BASE_ARTIFACT_TYPES = [
   // إجابات تحليل قسم عميق — 4 أسئلة نصّية مفتوحة على /manager/dept-deep.
   // Data shape: { answers: Record<string, string> } — المفتاح فهرس السؤال.
   'DEPT_DEEP_ANSWERS',
+  // R6 — الأدوات الأربع الأساسية المفقودة (ملف الاقتراح).
+  'BMC',          // نموذج الأعمال Canvas (٩ كتل)
+  'BSC',          // Balanced Scorecard (٤ أبعاد)
+  'RACI',         // مصفوفة المسؤوليات (Task × Role)
+  'EISENHOWER',   // مصفوفة عاجل × مهم (٢×٢)
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────

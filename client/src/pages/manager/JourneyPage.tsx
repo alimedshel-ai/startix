@@ -322,6 +322,8 @@ function shortLabel(path: string): string {
     '/initiatives': 'المبادرات', '/priority-matrix': 'مصفوفة الأولوية',
     '/risk-map': 'خريطة المخاطر', '/ai/simulation': 'محاكاة', '/projects': 'المشاريع',
     '/gantt-chart': 'جانت', '/tasks': 'المهام', '/ai-center': 'مركز الذكاء',
+    '/bmc': 'نموذج الأعمال Canvas', '/bsc': 'Balanced Scorecard',
+    '/raci': 'RACI', '/eisenhower': 'أيزنهاور',
   }
   return map[path] ?? path
 }

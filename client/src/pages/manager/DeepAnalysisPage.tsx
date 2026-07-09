@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -68,6 +68,11 @@ export function DeepAnalysisPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  // R6-fix — حفظ آلي: البنك ٦٠ سؤالاً على ٦ أقسام؛ المدير قد يجيب جزءاً
+  // ثم يغلق. هذا يمنع فقد التقدّم. status = idle → saving → saved | error.
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipNextAutosave = useRef(true) // نتخطّى التشغيل الأوّل بعد تحميل الإجابات
 
   // نجمّع الأسئلة حسب القسم لعرضها ضمن بطاقة لكل قسم — أفضل من قائمة مسطّحة
   // بلا تنظيم لبنك يقارب الـ٥٠ سؤالاً.
@@ -88,6 +93,7 @@ export function DeepAnalysisPage() {
     setLoading(true)
     setAnswers({})
     setSavedAt(null)
+    skipNextAutosave.current = true // نتخطّى الحفظ الآلي على القراءة الأولى
     ;(async () => {
       try {
         const artifact = await getArtifact<DeepFullData>(company.id, 'DEPT_DEEP_FULL')
@@ -109,19 +115,45 @@ export function DeepAnalysisPage() {
   const total = bank?.questions.length ?? 0
   const progressPct = total > 0 ? Math.round((answered / total) * 100) : 0
 
-  async function save() {
-    if (!company || !specialty) return
-    if (answered === 0) {
-      toast.error('أجب على سؤال واحد على الأقل قبل الحفظ.')
+  // ─── R6-fix — حفظ آلي بعد 1200ms من آخر تعديل ──────────────────
+  // البنك طويل ومتشعّب (٦٠+ سؤالاً على ٦ أقسام). المدير قد يجيب جزءاً ثم يغادر
+  // — الحفظ الآلي يحمي التقدّم دون فعل يدوي. زر «حفظ الآن» يبقى موجوداً كضمانة.
+  useEffect(() => {
+    if (!company || !specialty || loading) return
+    if (skipNextAutosave.current) {
+      skipNextAutosave.current = false
       return
     }
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    autosaveTimer.current = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      try {
+        const payload: DeepFullData = { deptCode: specialty, answers }
+        const saved = await upsertArtifact<DeepFullData>(company.id, 'DEPT_DEEP_FULL', payload)
+        setSavedAt(saved.updatedAt)
+        setAutosaveStatus('saved')
+      } catch {
+        setAutosaveStatus('error')
+      }
+    }, 1200)
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [answers, company, specialty, loading])
+
+  async function save() {
+    if (!company || !specialty) return
+    // نسمح بحفظ 0 إجابات (لمسح مسودّة قديمة). لا toast خطأ للحفظ اليدوي عند 0.
     setSaving(true)
+    setAutosaveStatus('saving')
     try {
       const payload: DeepFullData = { deptCode: specialty, answers }
       const saved = await upsertArtifact<DeepFullData>(company.id, 'DEPT_DEEP_FULL', payload)
       setSavedAt(saved.updatedAt)
+      setAutosaveStatus('saved')
       toast.success(`تم حفظ ${answered} إجابة في القاعدة`)
     } catch (err) {
+      setAutosaveStatus('error')
       toast.error(apiErrorMessage(err, 'تعذّر الحفظ'))
     } finally {
       setSaving(false)
@@ -221,7 +253,10 @@ export function DeepAnalysisPage() {
       <Card>
         <CardContent className="flex items-center gap-4 p-4">
           <div className="flex-1">
-            <div className="text-xs text-muted-foreground">التقدّم على {company.name}</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>التقدّم على {company.name}</span>
+              <AutosaveChip status={autosaveStatus} />
+            </div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
             </div>
@@ -262,12 +297,30 @@ export function DeepAnalysisPage() {
         </Card>
       ))}
 
-      <div className="sticky bottom-4 z-10 flex justify-end">
+      <div className="sticky bottom-4 z-10 flex items-center justify-end gap-3 rounded-xl bg-background/70 p-2 backdrop-blur">
+        <span className="text-xs text-muted-foreground">
+          الحفظ آلي — يمكنك المغادرة والعودة لاحقاً.
+        </span>
         <Button onClick={save} disabled={saving} size="lg" className="shadow-lg">
-          {saving ? 'جاري الحفظ…' : `حفظ ${answered} إجابة`}
+          {saving ? 'جاري الحفظ…' : `حفظ الآن (${answered} إجابة)`}
         </Button>
       </div>
     </div>
+  )
+}
+
+// ─── R6-fix — مؤشر بصري لحالة الحفظ الآلي ─────────────────────────
+function AutosaveChip({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }) {
+  if (status === 'idle') return null
+  const meta = {
+    saving: { text: '💾 جاري الحفظ…', cls: 'bg-sky-100 text-sky-800 border-sky-200' },
+    saved:  { text: '✓ محفوظ',       cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+    error:  { text: '⚠️ فشل — سنُعيد المحاولة', cls: 'bg-rose-100 text-rose-800 border-rose-200' },
+  }[status]
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] ${meta.cls}`}>
+      {meta.text}
+    </span>
   )
 }
 

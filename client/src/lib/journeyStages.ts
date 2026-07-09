@@ -46,12 +46,15 @@ export const JOURNEY_STAGES: JourneyStage[] = [
       '/value-chain', '/core-capabilities',
       '/org-dna', '/stakeholders',
       '/manager/dept-deep', '/manager/deep-analysis',
+      // R6 — نموذج الأعمال ينتمي للتشخيص لأنه يوضّح البنية.
+      '/bmc',
     ],
-    starredPaths: ['/pestel', '/manager/dept-pestel', '/value-chain', '/manager/deep-analysis'],
+    starredPaths: ['/pestel', '/manager/dept-pestel', '/value-chain', '/manager/deep-analysis', '/bmc'],
     completionArtifacts: [
       'PESTEL', 'PORTER', 'BENCHMARK', 'STAKEHOLDERS',
       'ORG_DNA', 'VALUE_CHAIN', 'CORE_CAPABILITIES',
       'DEPT_DEEP_ANSWERS',
+      'BMC',
     ],
   },
   {
@@ -95,10 +98,10 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     descAr: 'الأهداف الاستراتيجية، OKRs، KPIs، OGSM، الخريطة السببية.',
     icon: '📊',
     accent: 'emerald',
-    toolPaths: ['/objectives', '/okrs', '/ogsm', '/kpis', '/kpi-entries', '/annual-plan'],
-    starredPaths: ['/kpis', '/objectives'],
+    toolPaths: ['/objectives', '/okrs', '/ogsm', '/kpis', '/kpi-entries', '/annual-plan', '/bsc'],
+    starredPaths: ['/kpis', '/objectives', '/bsc'],
     // Objectives/OKRs/KPIs موديلات مستقلة — R5.3 يفحصها بشكل خاص.
-    completionArtifacts: ['OGSM', 'ANNUAL_PLAN'],
+    completionArtifacts: ['OGSM', 'ANNUAL_PLAN', 'BSC'],
   },
   {
     id: 'initiatives',
@@ -111,9 +114,11 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     toolPaths: [
       '/initiatives', '/priority-matrix', '/risk-map',
       '/ai/simulation', '/projects',
+      // R6 — أيزنهاور و RACI ينتميان للمرحلة ٥ (المبادرات والمسؤوليات).
+      '/eisenhower', '/raci',
     ],
-    starredPaths: ['/initiatives'],
-    completionArtifacts: ['PRIORITY_MATRIX', 'RISK_REGISTER'],
+    starredPaths: ['/initiatives', '/raci', '/eisenhower'],
+    completionArtifacts: ['PRIORITY_MATRIX', 'RISK_REGISTER', 'EISENHOWER', 'RACI'],
   },
   {
     id: 'execution',

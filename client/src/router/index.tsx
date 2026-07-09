@@ -67,6 +67,10 @@ import { PresentationPage } from '@/pages/owner/PresentationPage'
 import { PainScreenPage } from '@/pages/owner/PainScreenPage'
 import { SimulationLabPage } from '@/pages/owner/SimulationLabPage'
 import { AnalyticsDashboardPage } from '@/pages/owner/AnalyticsDashboardPage'
+import { BusinessModelCanvasPage } from '@/pages/owner/BusinessModelCanvasPage'
+import { BSCPage } from '@/pages/owner/BSCPage'
+import { RACIPage } from '@/pages/owner/RACIPage'
+import { EisenhowerPage } from '@/pages/owner/EisenhowerPage'
 
 // --- Manager pages -------------------------------------------------------
 import { DiagnosticManagerPage } from '@/pages/manager/DiagnosticManagerPage'
@@ -252,6 +256,11 @@ export const router = createBrowserRouter([
               { path: '/kpi-entries', element: <KPIEntriesPage /> },
               // M3 — التحليل المالي (Dupont + MonteCarlo داخل الصفحة).
               { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
+              // R6 — الأدوات الأربع الأساسية المُضافة (ملف الاقتراح).
+              { path: '/bmc', element: <BusinessModelCanvasPage /> },
+              { path: '/bsc', element: <BSCPage /> },
+              { path: '/raci', element: <RACIPage /> },
+              { path: '/eisenhower', element: <EisenhowerPage /> },
             ],
           },
         ],
