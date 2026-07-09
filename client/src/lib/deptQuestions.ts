@@ -316,6 +316,36 @@ const SALES: DeptQuestions = {
   ],
 }
 
+// ─── MARKETING — التسويق ─────────────────────────────────────────────────
+// المصدر: dept-deep.js:916-975 (٤ أقسام، ١٣ سؤالاً).
+
+const MARKETING: DeptQuestions = {
+  sections: [
+    { id: 'mkt_strategy',    icon: '🎯', title: 'الاستراتيجية والهوية المؤسسية', priority: 'حرج', desc: 'الهوية الواضحة تقلل تكلفة الاستحواذ وتزيد ولاء العملاء' },
+    { id: 'mkt_digital',     icon: '📱', title: 'التسويق الرقمي والمحتوى',        priority: 'مهم', desc: 'المحتوى المستمر يبني الثقة ويقلل الاعتماد على الإعلانات المدفوعة' },
+    { id: 'mkt_performance', icon: '📊', title: 'الميزانية والأداء',                priority: 'حرج', desc: 'التسويق بدون قياس العائد هو هدر مالي' },
+    { id: 'mkt_freetext',    icon: '✍️', title: 'التحقق والإغلاق',                 priority: 'عادي', desc: 'سؤال مفتوح لتسجيل أي تحديات تسويقية أخرى' },
+  ],
+  questions: [
+    { type: 'radio', sectionId: 'mkt_strategy', id: 'mkt_strategy',      label: 'هل لديك استراتيجية تسويق مكتوبة ومحددة الأهداف؟',                        opts: ['نعم — سنوية ومفصلة', 'عامة / غير مكتوبة', 'لا'] },
+    { type: 'radio', sectionId: 'mkt_strategy', id: 'brand_guidelines',  label: 'هل لديك دليل هوية بصرية ولفظية (Brand Guidelines)؟',                    opts: ['نعم — مطبق بصرامة', 'موجود لكن لا نلتزم به دائماً', 'لا'] },
+    { type: 'radio', sectionId: 'mkt_strategy', id: 'target_persona',    label: 'هل شخصية العميل (Buyer Persona) محددة بدقة؟',                            opts: ['نعم — مبنية على بيانات', 'تخمينية', 'نستهدف الجميع'] },
+    { type: 'radio', sectionId: 'mkt_strategy', id: 'mkt_positioning',   label: 'هل ميزتك التنافسية (Positioning) واضحة للعملاء؟',                        opts: ['نعم — ورسائلنا تعكسها', 'نحاول توضيحها', 'غير واضحة'] },
+
+    { type: 'radio', sectionId: 'mkt_digital', id: 'content_calendar',   label: 'هل تعتمد على خطة نشر مجدولة (Content Calendar)؟',                        opts: ['نعم — مسبقة ومجدولة', 'ننشر بشكل عشوائي', 'لا ننشر محتوى'] },
+    { type: 'radio', sectionId: 'mkt_digital', id: 'seo_status',         label: 'ما مدى اهتمامك بتهيئة محركات البحث (SEO)؟',                              opts: ['أساسي في استراتيجيتنا', 'اهتمام جزئي', 'لا نهتم به'] },
+    { type: 'radio', sectionId: 'mkt_digital', id: 'social_engagement',  label: 'كيف تقيّم تفاعل الجمهور مع قنواتك؟',                                    opts: ['عالي جداً', 'متوسط', 'ضعيف'] },
+    { type: 'radio', sectionId: 'mkt_digital', id: 'email_marketing',    label: 'هل تستخدم التسويق عبر البريد الإلكتروني أو الرسائل المباشرة؟',            opts: ['نعم — حملات دورية ومؤتمتة', 'أحياناً', 'لا'] },
+
+    { type: 'radio', sectionId: 'mkt_performance', id: 'mkt_budget',       label: 'كيف تحدد ميزانية التسويق؟',                                              opts: ['نسبة ثابتة من الإيرادات المتوقعة', 'حسب توفر الكاش', 'لا توجد ميزانية محددة'] },
+    { type: 'radio', sectionId: 'mkt_performance', id: 'mkt_roi',          label: 'هل تقيس عائد الاستثمار التسويقي (ROI) لكل حملة؟',                        opts: ['نعم — بدقة', 'تقريبياً', 'لا'] },
+    { type: 'radio', sectionId: 'mkt_performance', id: 'cac_tracking',     label: 'هل تعرف تكلفة اكتساب العميل (CAC) من كل قناة؟',                          opts: ['نعم', 'نعرف التكلفة الإجمالية فقط', 'لا'] },
+    { type: 'radio', sectionId: 'mkt_performance', id: 'mkt_analytics',    label: 'ما الأدوات المستخدمة لتحليل البيانات التسويقية؟',                        opts: ['أدوات متقدمة وDashboards', 'تقارير المنصات الأساسية', 'لا نستخدم أدوات تحليل'] },
+
+    { type: 'textarea', sectionId: 'mkt_freetext', id: 'marketing_free',    label: 'ما التحدي الأكبر الذي يعيق نمو التسويق؟',                                placeholder: 'مثال: ضعف الميزانية، المنافسة الشرسة، غياب فريق متخصص...' },
+  ],
+}
+
 // ─── الخريطة الكاملة ─────────────────────────────────────────────────────
 // كل إدارة تُلحق بها في commit مستقل. المستهلكون يجب أن يتعاملوا مع
 // الإدارات غير المُنقولة بعد بتحقّق حرصي.
@@ -323,4 +353,5 @@ export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
   FINANCE,
   SALES,
+  MARKETING,
 }
