@@ -218,6 +218,15 @@ const managerNav: NavSection[] = [
     ],
   },
   {
+    title: 'التحليل المالي',
+    accent: 'emerald',
+    items: [
+      // M3 — التحليل المالي متاح للمدير المستقل عبر ?client=<id>.
+      { to: '/financial-analysis',        label: 'Dupont و Monte Carlo', icon: '📐' },
+      { to: '/manager/finance/break-even', label: 'نقطة التعادل',        icon: '⚖️', dept: 'FINANCE' },
+    ],
+  },
+  {
     title: 'الامتثال',
     accent: 'rose',
     items: [

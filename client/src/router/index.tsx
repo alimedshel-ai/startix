@@ -163,7 +163,7 @@ export const router = createBrowserRouter([
               { path: '/reviews', element: <ReviewsPage /> },
               { path: '/corrections', element: <CorrectionsPage /> },
               { path: '/reports', element: <ReportsPage /> },
-              { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
+              // /financial-analysis moved to shared area below (M3).
               { path: '/invitations', element: <InvitationsPage /> },
               { path: '/assessment-wizard', element: <AssessmentWizardPage /> },
               { path: '/ai-center', element: <AICenterPage /> },
@@ -239,6 +239,8 @@ export const router = createBrowserRouter([
               { path: '/gantt-chart', element: <GanttChartPage /> },
               { path: '/tasks', element: <TasksPage /> },
               { path: '/kpi-entries', element: <KPIEntriesPage /> },
+              // M3 — التحليل المالي (Dupont + MonteCarlo داخل الصفحة).
+              { path: '/financial-analysis', element: <FinancialAnalysisPage /> },
             ],
           },
         ],

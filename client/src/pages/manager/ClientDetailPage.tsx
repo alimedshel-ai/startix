@@ -251,6 +251,25 @@ export function ClientDetailPage() {
             description="متابعة المهام التنفيذية."
             to={`/tasks${clientQ}`}
           />
+        </div>
+      </div>
+
+      {/* M3 — التحليل المالي على العميل النشط */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التحليل المالي</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="📐"
+            title="Dupont و Monte Carlo"
+            description="تفكيك ROE + محاكاة توزيعات مالية للسيناريوهات."
+            to={`/financial-analysis${clientQ}`}
+          />
+          <ToolCard
+            icon="⚖️"
+            title="نقطة التعادل"
+            description="حساب نقطة التعادل + هامش الأمان لعميلك."
+            to={`/manager/finance/break-even${clientQ}`}
+          />
           <ToolCard
             icon="✨"
             title="تحليل SMART"
