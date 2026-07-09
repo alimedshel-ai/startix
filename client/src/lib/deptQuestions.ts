@@ -241,10 +241,86 @@ const FINANCE: DeptQuestions = {
   ],
 }
 
+// ─── SALES — المبيعات ────────────────────────────────────────────────────
+// المصدر: dept-deep.js:464-669 (٦ أقسام، ٤٩ سؤالاً).
+
+const SALES: DeptQuestions = {
+  sections: [
+    { id: 'sales_structure',   icon: '📊', title: 'الهيكل التنظيمي واستراتيجية المبيعات', priority: 'حرج', desc: 'استراتيجية المبيعات هي محرك الإيرادات — بدونها الجهود تتبعثر والنتائج عشوائية' },
+    { id: 'sales_kpis',        icon: '📈', title: 'المؤشرات والمستهدفات وقنوات البيع',    priority: 'حرج', desc: 'ما لا تقيسه لا تحسّنه — 67% من فرق المبيعات الناجحة تراجع مؤشراتها أسبوعياً' },
+    { id: 'sales_customers',   icon: '💼', title: 'إدارة العملاء ودورة البيع',            priority: 'حرج', desc: 'اكتساب عميل جديد يكلّف 5x أكثر من الاحتفاظ بعميل حالي — CRM يرفع المبيعات 29%' },
+    { id: 'sales_team',        icon: '👥', title: 'إدارة الفريق والمخاطر والتنبؤ',        priority: 'مهم', desc: 'فريق مدرّب يبيع 50% أكثر — ومخاطر التركز على عملاء قليلين تهدد استمرارية الإيرادات' },
+    { id: 'sales_tools',       icon: '💲', title: 'السياسات والأدوات والتكاليف',           priority: 'مهم', desc: 'التسعير الذكي يرفع هوامش الربح 11% — والأتمتة توفر 5+ ساعات أسبوعياً لكل مندوب' },
+    { id: 'sales_knowledge',   icon: '🔗', title: 'إدارة المعرفة والتكامل بين الإدارات',   priority: 'عادي', desc: 'فريق المبيعات الذي يوثق دروسه يحسّن أداءه 35% — والتكامل مع التسويق يضاعف النتائج' },
+  ],
+  questions: [
+    // ─── 1. الهيكل والاستراتيجية ────────────────────────────────────────
+    { type: 'radio', sectionId: 'sales_structure', id: 'sales_org',           label: '📊 هل لديك هيكل تنظيمي واضح لإدارة المبيعات؟',                       opts: ['نعم — محدّث ومعتمد', 'موجود لكن قديم', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'sales_structure', id: 'sales_team_size',     label: 'كم عدد فريق المبيعات؟',                                                 opts: ['10+', '5-10', '2-4', 'شخص واحد (المالك)'] },
+    { type: 'radio', sectionId: 'sales_structure', id: 'sales_roles',         label: 'هل الأدوار واضحة (مدير مبيعات، مندوبين، دعم)؟',                        opts: ['نعم — مفصلة ومعتمدة', 'جزئية', 'لا — الكل يبيع بدون تخصص'] },
+    { type: 'radio', sectionId: 'sales_structure', id: 'sales_strategy',      label: '🎯 هل لديك استراتيجية مبيعات واضحة ومكتوبة؟',                          opts: ['نعم — مكتوبة ومعتمدة', 'شفهية/عامة', 'لا'] },
+    { type: 'radio', sectionId: 'sales_structure', id: 'value_proposition',   label: 'هل لديك عرض قيمة واضح (Value Proposition) لكل منتج/خدمة؟',            opts: ['نعم — مُوثق وموحد', 'شفهي', 'لا'] },
+    { type: 'radio', sectionId: 'sales_structure', id: 'target_segments',     label: 'هل حددت شرائح العملاء المستهدفة بوضوح؟',                              opts: ['نعم — مع ملفات تعريفية', 'تقريباً', 'لا — نبيع للكل'] },
+
+    // ─── 2. المؤشرات والمستهدفات والقنوات ────────────────────────────
+    { type: 'checkbox', sectionId: 'sales_kpis', id: 'sales_kpis_list',    label: '📈 ما مؤشرات المبيعات التي تتابعها؟',                                    opts: ['إيراد شهري', 'معدل تحويل', 'متوسط قيمة الصفقة', 'دورة البيع', 'تكلفة اكتساب العميل', 'CLV', 'لا أتابع مؤشرات'] },
+    { type: 'radio',    sectionId: 'sales_kpis', id: 'sales_reporting',    label: 'كم مرة تراجع أداء المبيعات؟',                                             opts: ['يومياً', 'أسبوعياً', 'شهرياً', 'نادراً'] },
+    { type: 'radio',    sectionId: 'sales_kpis', id: 'sales_targets',      label: '🎯 هل لديك مستهدفات مبيعات واضحة؟',                                      opts: ['نعم — لكل مندوب/فريق/شهر', 'عامة للإدارة', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_kpis', id: 'target_achievement', label: 'ما نسبة تحقيق المستهدفات عادةً؟',                                          opts: ['أكثر من 90%', '70-90%', '50-70%', 'أقل من 50%', 'لا توجد مستهدفات'] },
+    { type: 'checkbox', sectionId: 'sales_kpis', id: 'acquisition_channels',label: '📡 كيف يصلك العملاء الآن؟',                                              opts: ['إحالة شخصية', 'سوشيال ميديا', 'موقع إلكتروني', 'معارض', 'مناقصات', 'زبائن متكررون', 'شراكات/وكلاء'] },
+    { type: 'radio',    sectionId: 'sales_kpis', id: 'channel_diversity',  label: 'كم قناة بيع فعالة لديك؟',                                                  opts: ['4+ قنوات (متنوع)', '2-3 قنوات', 'قناة واحدة'] },
+    { type: 'radio',    sectionId: 'sales_kpis', id: 'territory_mgmt',     label: 'هل لديك توزيع مناطق بيع على المندوبين؟',                                  opts: ['نعم — مع أهداف لكل منطقة', 'توزيع عام', 'لا — عشوائي'] },
+
+    // ─── 3. إدارة العملاء ودورة البيع ──────────────────────────────
+    { type: 'radio', sectionId: 'sales_customers', id: 'crm',                     label: '💼 هل لديك CRM أو نظام متابعة عملاء؟',                            opts: ['نعم متكامل', 'Excel / جزئي', 'لا'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'repeat_clients',          label: 'ما نسبة العملاء المتكررين؟',                                        opts: ['أكثر من 60%', '30-60%', 'أقل من 30%'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'customer_segmentation',   label: 'هل تصنف عملاءك (VIP, A, B, C)؟',                                    opts: ['نعم — مع معايير واضحة', 'تقريباً', 'لا'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'client_satisfaction',     label: 'هل تقيس رضا العملاء بانتظام؟',                                       opts: ['نعم — استبيان دوري + NPS', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'sales_cycle',             label: '🔄 ما دورة البيع المعتادة؟',                                        opts: ['أيام', 'أسابيع', '1-3 أشهر', 'أكثر من 3 أشهر'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'sales_process',           label: 'هل لديك عملية بيع موحدة وموثقة (Sales Playbook)؟',                  opts: ['نعم — خطوات واضحة ومُتبعة', 'غير رسمي', 'لا'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'deal_value',              label: 'ما متوسط قيمة الصفقة الواحدة؟',                                     opts: ['أقل من 10,000 ﷼', '10,000 – 50,000 ﷼', '50,000 – 200,000 ﷼', 'أكثر من 200,000 ﷼'] },
+    { type: 'radio', sectionId: 'sales_customers', id: 'pipeline_mgmt',           label: 'هل تدير Pipeline المبيعات بمراحل واضحة؟',                            opts: ['نعم — مع CRM', 'يدوياً', 'لا'] },
+
+    // ─── 4. إدارة الفريق والمخاطر والتنبؤ ──────────────────────────
+    { type: 'radio', sectionId: 'sales_team', id: 'sales_training',              label: '🎓 هل تدرب فريق المبيعات بانتظام؟',                                 opts: ['نعم — برنامج تدريب دوري', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'sales_compensation',          label: 'هل لديك نظام عمولات وحوافز واضح؟',                                    opts: ['نعم — مربوط بالأداء', 'عمولات بسيطة', 'راتب ثابت فقط'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'sales_turnover',              label: 'ما معدل دوران فريق المبيعات؟',                                        opts: ['منخفض (أقل من 15%)', 'متوسط (15-30%)', 'مرتفع (أكثر من 30%)'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'client_concentration_sales',  label: '⚠️ ما نسبة إيراداتك من أكبر 3 عملاء؟',                                opts: ['أقل من 30% (صحي)', '30-50%', '50-70%', 'أكثر من 70% (خطر)'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'demand_volatility',           label: 'كيف تتعامل مع تقلبات الطلب الموسمية؟',                                opts: ['خطة موسمية مع تنويع', 'نتأقلم', 'لا خطة'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'credit_risk',                 label: 'هل لديك سياسة ائتمانية واضحة للعملاء؟',                              opts: ['نعم — مع حدود ائتمان وتحصيل', 'جزئية', 'لا — نبيع بالآجل بدون ضوابط'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'sales_forecast',              label: '🔮 هل تتنبأ بالمبيعات المستقبلية؟',                                  opts: ['نعم — نموذج كمي + Pipeline', 'تقديرات تقريبية', 'لا'] },
+    { type: 'radio', sectionId: 'sales_team', id: 'forecast_accuracy',           label: 'ما دقة التنبؤ مقارنة بالفعلي؟',                                       opts: ['انحراف أقل من 15%', 'انحراف 15-30%', 'أكثر من 30%', 'لا أقارن'] },
+
+    // ─── 5. السياسات والأدوات والتكاليف ───────────────────────────
+    { type: 'radio',    sectionId: 'sales_tools', id: 'pricing_strategy',    label: '💲 كيف تحدد أسعارك؟',                                                  opts: ['استراتيجية تسعير مدروسة', 'بناءً على المنافسين', 'تكلفة + هامش', 'عشوائي'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'discount_policy',     label: 'هل لديك سياسة خصومات واضحة؟',                                            opts: ['نعم — مع حدود وصلاحيات', 'مرنة جداً', 'لا سياسة'] },
+    { type: 'checkbox', sectionId: 'sales_tools', id: 'sales_tools_list',    label: '💻 ما أدوات المبيعات المستخدمة؟',                                       opts: ['CRM متقدم', 'أتمتة مبيعات', 'عروض أسعار إلكترونية', 'توقيع رقمي', 'تحليلات AI', 'Excel فقط', 'لا أدوات'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'sales_automation',    label: 'ما مستوى أتمتة عمليات البيع؟',                                          opts: ['عالي — Pipeline آلي + إشعارات', 'متوسط', 'يدوي بالكامل'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'competitor_analysis', label: '🔍 هل تحلل المنافسين بانتظام؟',                                          opts: ['نعم — ملفات محدّثة لكل منافس', 'أحياناً', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'market_share',        label: 'هل تعرف حصتك السوقية؟',                                                   opts: ['نعم — بدقة', 'تقديرية', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'win_loss_analysis',   label: 'هل تحلل أسباب كسب وخسارة الصفقات؟',                                     opts: ['نعم — بشكل منهجي', 'أحياناً', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'cac_known',           label: '💰 هل تعرف تكلفة اكتساب العميل (CAC)؟',                                 opts: ['نعم — محسوبة', 'تقديرية', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'clv_known',           label: 'هل تحسب القيمة الدائمة للعميل (CLV/LTV)؟',                              opts: ['نعم', 'تقريباً', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'sales_profitability', label: 'هل تعرف ربحية كل منتج/خدمة/عميل؟',                                       opts: ['نعم — بالتفصيل', 'إجمالي فقط', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'conversion_rate',     label: '📊 ما معدل التحويل من عميل محتمل لصفقة؟',                              opts: ['أعلى من 25%', '15-25%', '5-15%', 'أقل من 5%', 'لا أعرف'] },
+    { type: 'radio',    sectionId: 'sales_tools', id: 'upsell_crosssell',    label: 'هل تطبق البيع الإضافي والمتقاطع (Upsell/Cross-sell)؟',                  opts: ['نعم — استراتيجية واضحة', 'أحياناً', 'لا'] },
+
+    // ─── 6. المعرفة والتكامل ───────────────────────────────────────
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'knowledge_base',              label: '📚 هل لديك قاعدة معارف مبيعات (Playbook, اعتراضات, قصص نجاح)؟',       opts: ['نعم — موثقة ومحدّثة', 'جزئية', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'sales_mentoring',             label: 'هل يوجد نظام mentoring للمندوبين الجدد؟',                              opts: ['نعم — برنامج رسمي', 'غير رسمي', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'lessons_learned',             label: 'هل توثق الدروس المستفادة من الصفقات الفاشلة والناجحة؟',                opts: ['نعم — بانتظام', 'أحياناً', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'sales_marketing_alignment',   label: '🔗 كيف تقيّم التكامل بين المبيعات والتسويق؟',                          opts: ['ممتاز — أهداف مشتركة واجتماعات دورية', 'متوسط', 'ضعيف — كل إدارة تعمل منفردة'] },
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'sales_finance_coord',         label: 'هل تتنسق المبيعات مع المالية (ائتمان، تحصيل، ميزانيات)؟',              opts: ['نعم — تنسيق مستمر', 'عند الحاجة', 'لا'] },
+    { type: 'radio',    sectionId: 'sales_knowledge', id: 'sales_ops_coord',             label: 'هل يتنسق فريق المبيعات مع العمليات/الإنتاج (توفر مخزون، مواعيد تسليم)؟', opts: ['نعم — تكامل كامل', 'جزئي', 'لا'] },
+    { type: 'textarea', sectionId: 'sales_knowledge', id: 'sales_free',                  label: 'ما أكبر سبب لخسارة صفقة؟',                                            placeholder: 'مثال: السعر، تأخر في الرد، ضعف العرض، منافس أقوى...' },
+  ],
+}
+
 // ─── الخريطة الكاملة ─────────────────────────────────────────────────────
 // كل إدارة تُلحق بها في commit مستقل. المستهلكون يجب أن يتعاملوا مع
 // الإدارات غير المُنقولة بعد بتحقّق حرصي.
 export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
   FINANCE,
+  SALES,
 }
