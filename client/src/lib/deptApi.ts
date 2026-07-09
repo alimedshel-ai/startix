@@ -111,10 +111,21 @@ export async function listDepartments(companyId: string): Promise<Department[]> 
   return data
 }
 
+// R4 — OPEX على Company (تشغيلي، يُستخدم لتغذية Gap/KPIs/Ansoff/Financial).
+export interface CompanyOpex {
+  team?: number
+  budget?: number
+  target?: number
+  avgSalary?: number
+}
+
 export interface Company {
   id: string
   name: string
   sector?: string | null
+  subsector?: string | null
+  entityType?: string | null
+  opex?: CompanyOpex | null
   size: 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE'
   stage?: string | null
   country: string

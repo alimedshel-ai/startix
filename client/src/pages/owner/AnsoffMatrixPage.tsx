@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
+import { OpexHint } from '@/components/OpexHint'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -41,6 +43,7 @@ export function AnsoffMatrixPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const { company } = useCompany()
   const [data, setData] = useState<AnsoffData>(EMPTY)
   const [title, setTitle] = useState('')
   const [quad, setQuad] = useState<Quadrant>('marketPenetration')
@@ -81,6 +84,8 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <OpexHint opex={company?.opex} focus={['target', 'budget']} title="أهدف النمو والميزانية يوجّهان اختيار الربع" />
+
       <Card>
         <CardHeader>
           <CardTitle>إضافة مبادرة نمو</CardTitle>

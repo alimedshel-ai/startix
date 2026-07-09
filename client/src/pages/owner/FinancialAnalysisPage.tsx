@@ -4,13 +4,15 @@ import { toast } from 'sonner'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { OpexHint } from '@/components/OpexHint'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
-import { getMyFirstCompany, type Company } from '@/lib/deptApi'
+import type { Company } from '@/lib/deptApi'
 import {
   createDupont,
   createMonteCarloRun,
@@ -37,6 +39,9 @@ export function FinancialAnalysisPage() {
 }
 
 function FinancialAnalysisContent() {
+  // R4.4 — نستهلك useCompany حتى يفتح المدير المستقل الأداة عبر ?client=X.
+  // نبقي الحالة الداخلية `company` لتوافق مع الاستخدامات السفلية بلا تغيير شامل.
+  const scope = useCompany()
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [dupont, setDupont] = useState<DupontAnalysis | null>(null)
@@ -44,11 +49,15 @@ function FinancialAnalysisContent() {
 
   useEffect(() => {
     let cancel = false
+    if (scope.loading) return
+    const co = scope.company
+    if (!co) {
+      setLoading(false)
+      return
+    }
+    setCompany(co)
     ;(async () => {
       try {
-        const { company: co } = await getMyFirstCompany()
-        if (cancel || !co) return
-        setCompany(co)
         const [d, m] = await Promise.allSettled([
           getLatestDupont(co.id),
           getLatestMonteCarloRun(co.id),
@@ -63,7 +72,7 @@ function FinancialAnalysisContent() {
       }
     })()
     return () => { cancel = true }
-  }, [])
+  }, [scope.loading, scope.company])
 
   if (loading) {
     return (
@@ -93,6 +102,8 @@ function FinancialAnalysisContent() {
         title="التحليل المالي المتقدّم"
         description="تحليل Dupont لتحديد محرّكات ROE + محاكاة Monte Carlo لتوقّع توزيع الأرباح."
       />
+
+      <OpexHint opex={company.opex} focus={['budget', 'target', 'avgSalary']} title="أرقام تشغيلية مغذّية لبنود التحليل" />
 
       <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} />
       <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} />

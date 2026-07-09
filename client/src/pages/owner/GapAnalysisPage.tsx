@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
+import { OpexHint } from '@/components/OpexHint'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
+import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -62,6 +64,7 @@ export function GapAnalysisPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const { company } = useCompany()
   const [data, setData] = useState<GapData>(EMPTY)
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -120,6 +123,8 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <OpexHint opex={company?.opex} focus={['target', 'budget', 'team']} title="OPEX يُساعد في تحديد المستهدفات" />
+
       <Card className="overflow-hidden border-rose-200 bg-gradient-to-bl from-rose-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-amber-500 to-rose-500" />
         <CardHeader>

@@ -7,9 +7,22 @@ import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
 
 const entitySize = z.enum(['MICRO', 'SMALL', 'MEDIUM', 'LARGE']);
 
+// R4 — OPEX schema يُستخدم في create + update. كل الحقول اختيارية —
+// المدير يُثري تدريجياً حسب ما يعرف.
+const opexSchema = z.object({
+  team: z.number().int().min(0).max(100000).optional(),
+  budget: z.number().min(0).optional(),
+  target: z.number().min(0).optional(),
+  avgSalary: z.number().min(0).optional(),
+}).optional();
+
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   sector: z.string().min(1).max(80).optional(),
+  // R1/R4 — حقول التسجيل الغنيّة على الشركة.
+  subsector: z.string().min(1).max(80).optional(),
+  entityType: z.string().min(1).max(40).optional(),
+  opex: opexSchema,
   size: entitySize,
   stage: z.string().min(1).max(80).optional(),
   country: z.string().min(2).max(2).optional(),
@@ -53,6 +66,9 @@ export const createCompany: RequestHandler = async (req, res, next) => {
         data: {
           name: body.name,
           sector: body.sector,
+          subsector: body.subsector,
+          entityType: body.entityType,
+          opex: body.opex ?? undefined,
           size: body.size,
           stage: body.stage,
           country: body.country ?? 'SA',

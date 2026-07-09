@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { OpexHint } from '@/components/OpexHint'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
 import { createKPI, deleteKPI, listKPIs, updateKPI, type KPI } from '@/lib/strategicApi'
 
@@ -52,9 +54,21 @@ export function KPIsPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const { company } = useCompany()
   const [kpis, setKpis] = useState<KPI[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  // R4.2 — لو OPEX.target موجود، نقترحه للـfrequency الحالي كافتراضي
+  // (السنوي كامل، الشهري ÷12، الربعي ÷4). هذا يوفّر إعادة كتابة الأرقام.
+  const opexTarget = company?.opex?.target
+  const suggestTarget = (freq: string) =>
+    opexTarget == null ? '100'
+    : freq === 'annual'    ? String(opexTarget)
+    : freq === 'quarterly' ? String(Math.round(opexTarget / 4))
+    : freq === 'monthly'   ? String(Math.round(opexTarget / 12))
+    : freq === 'weekly'    ? String(Math.round(opexTarget / 52))
+    : freq === 'daily'     ? String(Math.round(opexTarget / 365))
+    : '100'
   const [form, setForm] = useState({ name: '', unit: '%', targetValue: '100', frequency: 'monthly' })
 
   useEffect(() => {
@@ -143,6 +157,8 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       </div>
 
+      <OpexHint opex={company?.opex} focus={['budget', 'target']} title="أرقام لتغذية المستهدفات" />
+
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-rose-500 via-amber-500 to-emerald-500" />
         <CardHeader>
@@ -161,7 +177,19 @@ function Editor({ companyId }: { companyId: string }) {
             </div>
             <div className="space-y-1">
               <Label htmlFor="target">القيمة المستهدفة</Label>
-              <Input id="target" type="number" value={form.targetValue} onChange={(e) => setForm((p) => ({ ...p, targetValue: e.target.value }))} />
+              <div className="flex gap-1">
+                <Input id="target" type="number" value={form.targetValue} onChange={(e) => setForm((p) => ({ ...p, targetValue: e.target.value }))} />
+                {opexTarget != null && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, targetValue: suggestTarget(p.frequency) }))}
+                    className="shrink-0 rounded-md border bg-primary/5 px-2 text-xs hover:bg-primary hover:text-primary-foreground"
+                    title="استخدم OPEX.target حسب تكرار القياس"
+                  >
+                    من OPEX
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="freq">التكرار</Label>
