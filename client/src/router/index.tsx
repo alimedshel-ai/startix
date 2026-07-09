@@ -79,6 +79,8 @@ import { DeepAnalysisPage } from '@/pages/manager/DeepAnalysisPage'
 import { ContradictionsPage } from '@/pages/manager/ContradictionsPage'
 import { StrategicPlanPage } from '@/pages/manager/StrategicPlanPage'
 import { DeptSmartPage } from '@/pages/manager/DeptSmartPage'
+import { DeptPESTELPage } from '@/pages/manager/DeptPESTELPage'
+import { DeptGapPage } from '@/pages/manager/DeptGapPage'
 import { HRAuditPage } from '@/pages/manager/HRAuditPage'
 import { FinanceAuditPage } from '@/pages/manager/FinanceAuditPage'
 import { BreakEvenPage } from '@/pages/manager/BreakEvenPage'
@@ -195,6 +197,8 @@ export const router = createBrowserRouter([
               { path: '/manager/contradictions', element: <ContradictionsPage /> },
               { path: '/manager/strategic-plan', element: <StrategicPlanPage /> },
               { path: '/manager/dept-smart', element: <DeptSmartPage /> },
+              { path: '/manager/dept-pestel', element: <DeptPESTELPage /> },
+              { path: '/manager/dept-gap', element: <DeptGapPage /> },
               { path: '/manager/hr/audit', element: <HRAuditPage /> },
               { path: '/manager/finance/audit', element: <FinanceAuditPage /> },
               { path: '/manager/finance/break-even', element: <BreakEvenPage /> },

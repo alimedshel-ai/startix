@@ -171,6 +171,8 @@ const managerNav: NavSection[] = [
       { to: '/manager/contradictions',      label: 'تحليل التناقضات',       icon: '⚡' },
       { to: '/manager/strategic-plan',      label: 'الخطة الاستراتيجية',     icon: '🗺️', proOnly: true },
       { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
+      { to: '/manager/dept-pestel',         label: 'PESTEL للإدارة',       icon: '🌐', proOnly: true },
+      { to: '/manager/dept-gap',            label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
     ],
   },
   {

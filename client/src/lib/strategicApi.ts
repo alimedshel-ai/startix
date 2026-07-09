@@ -1,5 +1,12 @@
 import { api } from './api'
-import type { Company } from './deptApi'
+import type { Company, DeptCode } from './deptApi'
+
+// ─── PESTEL/Gap على مستوى الإدارة — أدوات المدير المستقل الخبير ─
+// المفاتيح `PESTEL_<DEPT>` و `GAP_ANALYSIS_<DEPT>` تعمل بمنهجية القديم
+// (pestel.html و gap-analysis.html) — كل إدارة تحتفظ بمخرَجها الخاص.
+type DeptScopedArtifactType =
+  | `PESTEL_${DeptCode}`
+  | `GAP_ANALYSIS_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
@@ -25,6 +32,7 @@ export type ArtifactType =
   | 'OGSM'
   | 'ANNUAL_PLAN'
   | 'DEPT_DEEP_ANSWERS'
+  | DeptScopedArtifactType
 
 export interface Artifact<T = unknown> {
   id: string

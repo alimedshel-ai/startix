@@ -5,7 +5,8 @@ import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
 
-const ARTIFACT_TYPES = [
+// ─── أنواع مخرجات استراتيجية ثابتة على مستوى الشركة ────────────────
+const BASE_ARTIFACT_TYPES = [
   'PESTEL',
   'PORTER',
   'BENCHMARK',
@@ -32,6 +33,22 @@ const ARTIFACT_TYPES = [
   // Data shape: { answers: Record<string, string> } — المفتاح فهرس السؤال.
   'DEPT_DEEP_ANSWERS',
 ] as const;
+
+// ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────
+// أدوات مصغّرة تعمل لكل إدارة على حِدَة بمنهجية القديم (pestel.html و
+// gap-analysis.html). المفاتيح: `PESTEL_<DEPT>` و `GAP_ANALYSIS_<DEPT>`.
+const DEPT_CODES = [
+  'HR', 'FINANCE', 'SALES', 'MARKETING', 'OPERATIONS', 'IT',
+  'CUSTOMER_SERVICE', 'SUPPORT', 'LOGISTICS', 'QUALITY',
+  'PROJECTS', 'COMPLIANCE', 'GOVERNANCE',
+] as const;
+
+const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
+  `PESTEL_${d}` as const,
+  `GAP_ANALYSIS_${d}` as const,
+]);
+
+const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;
 
 const typeSchema = z.enum(ARTIFACT_TYPES);
 const upsertSchema = z.object({

@@ -191,6 +191,21 @@ export function ClientDetailPage() {
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التوليف الاستراتيجي</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* أدوات بمنهجية القديم — مقترحات مخصّصة لتخصّص المدير */}
+          <ToolCard
+            icon="🌐"
+            title={`PESTEL — ${DEPT_LABEL[specialty]}`}
+            description="٦ عوامل خارجية بمقترحات جاهزة مخصّصة لتخصّصك (منهجية القديم)."
+            to={`/manager/dept-pestel${clientQ}`}
+            primary
+          />
+          <ToolCard
+            icon="📐"
+            title={`تحليل الفجوة — ${DEPT_LABEL[specialty]}`}
+            description="محاور الحالي/المستهدف (0-100) وخطة الردم — منهجية القديم."
+            to={`/manager/dept-gap${clientQ}`}
+            primary
+          />
           <ToolCard
             icon="🧭"
             title="تحليل SWOT"
@@ -202,12 +217,6 @@ export function ClientDetailPage() {
             title="مصفوفة TOWS"
             description="تحويل SWOT إلى استراتيجيات فعلية (SO/ST/WO/WT)."
             to={`/tows${clientQ}`}
-          />
-          <ToolCard
-            icon="📐"
-            title="تحليل الفجوة"
-            description="فرق بين الوضع الحالي والمستهدف على محاور الإدارة."
-            to={`/gap-analysis${clientQ}`}
           />
           <ToolCard
             icon="⚠️"
