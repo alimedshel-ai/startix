@@ -166,6 +166,12 @@ export function ClientDetailPage() {
             to={`/manager/dept-deep${clientQ}`}
           />
           <ToolCard
+            icon="⚡"
+            title="تحليل التناقضات"
+            description="يقارن بيانات الأقسام ويكشف التناقضات + يقترح OKR جاهز لكل تناقض."
+            to={`/manager/contradictions${clientQ}`}
+          />
+          <ToolCard
             icon="✨"
             title="تحليل SMART"
             description="توليد مؤشرات أداء وتوصيات تنفيذية بناءً على درجات التدقيق."

@@ -105,3 +105,46 @@ export async function getProOverview(): Promise<ProOverviewResponse> {
   const { data } = await api.get<ProOverviewResponse>('/api/pro/overview')
   return data
 }
+
+// ─── A4 — تحليل التناقضات بين الأقسام ─────────────────────────────────────
+
+export type ContradictionSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+
+export interface ContradictionOKR {
+  objective: string
+  keyResults: string[]
+  timeline: string
+}
+
+export interface ContradictionInsight {
+  id: string
+  severity: ContradictionSeverity
+  title: string
+  description: string
+  affectedDepts: DeptCode[]
+  suggestedOKR: ContradictionOKR
+}
+
+export interface DeptContradictionSnapshot {
+  code: DeptCode
+  labelAr: string
+  healthPct: number
+  axes: {
+    governance: number
+    financial: number
+    team: number
+    digital: number
+  }
+}
+
+export interface ContradictionsResponse {
+  companyId: string
+  snapshots: DeptContradictionSnapshot[]
+  insights: ContradictionInsight[]
+  message: string | null
+}
+
+export async function getContradictions(companyId: string): Promise<ContradictionsResponse> {
+  const { data } = await api.get<ContradictionsResponse>(`/api/pro/contradictions/${companyId}`)
+  return data
+}
