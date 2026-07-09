@@ -53,6 +53,13 @@ export async function upsertArtifact<T>(companyId: string, type: ArtifactType, p
   return data
 }
 
+// R5 — قائمة كل الـartifacts لشركة (يستهلكها /journey لحساب اكتمال المراحل).
+// السيرفر يرجّع array مباشرة، لا لفافة {artifacts:...}.
+export async function listAllArtifacts(companyId: string): Promise<Artifact[]> {
+  const { data } = await api.get<Artifact[]>(`/api/strategic/artifacts/${companyId}`)
+  return data
+}
+
 // ─── SWOT / TOWS ───────────────────────────────────────────────────────────
 
 export interface SWOT {
