@@ -489,6 +489,70 @@ const QUALITY: DeptQuestions = {
   ],
 }
 
+// ─── SUPPORT — الإمداد والدعم / الخدمات المساندة ────────────────────────
+// المصدر: dept-deep.js:1036-1090 (٥ أقسام، ١٢ سؤالاً).
+
+const SUPPORT: DeptQuestions = {
+  sections: [
+    { id: 'sup_infra',      icon: '💻', title: 'البنية التحتية التقنية (IT)',            priority: 'حرج', desc: 'الأساس التقني هو العمود الفقري لعمليات الشركة في العصر الحديث' },
+    { id: 'sup_security',   icon: '🔒', title: 'الأمن السيبراني والنسخ الاحتياطي',        priority: 'حرج', desc: 'فقدان البيانات أو اختراقها قد يعني نهاية الشركة' },
+    { id: 'sup_helpdesk',   icon: '🛠️', title: 'الدعم الفني والصيانة',                    priority: 'مهم', desc: 'سرعة الاستجابة تقلل أوقات التوقف (Downtime) وترفع الإنتاجية' },
+    { id: 'sup_procurement',icon: '🛒', title: 'المشتريات والعقود الإدارية',             priority: 'مهم', desc: 'إدارة المشتريات بشكل جيد توفر مبالغ ضخمة وتزيد الشفافية' },
+    { id: 'sup_freetext',   icon: '✍️', title: 'التحقق والإغلاق',                        priority: 'عادي', desc: 'سؤال مفتوح لتوثيق المخاطر التقنية' },
+  ],
+  questions: [
+    { type: 'radio', sectionId: 'sup_infra', id: 'sup_infrastructure', label: 'كيف تصف البنية التحتية التقنية للمنظمة؟',                                    opts: ['سحابية بالكامل وحديثة', 'مزيج (خوادم محلية وسحابة)', 'قديمة وتحتاج تحديث'] },
+    { type: 'radio', sectionId: 'sup_infra', id: 'sup_integration',    label: 'هل أنظمة الشركة متكاملة معاً بسلاسة؟',                                       opts: ['تكامل آلي بالكامل (APIs)', 'تكامل جزئي', 'جزر منعزلة (إدخال يدوي مكرر)'] },
+    { type: 'radio', sectionId: 'sup_infra', id: 'sup_uptime',         label: 'هل تواجهون انقطاعات متكررة في الأنظمة الأساسية؟',                            opts: ['نادراً — استقرار 99%+', 'أحياناً', 'كثيراً مما يعطل العمل'] },
+
+    { type: 'radio', sectionId: 'sup_security', id: 'sup_backup',         label: 'ما هي سياسة النسخ الاحتياطي للبيانات (Backups)؟',                        opts: ['تلقائي، ومفحوص دورياً', 'تلقائي لكن غير مفحوص', 'يدوي أو غير منتظم'] },
+    { type: 'radio', sectionId: 'sup_security', id: 'sup_cybersecurity',  label: 'هل تطبقون ضوابط أمن سيبراني صارمة؟',                                    opts: ['نعم — سياسات وتدريب مستمر', 'برامج حماية أساسية', 'لا يوجد اهتمام كافٍ'] },
+    { type: 'radio', sectionId: 'sup_security', id: 'sup_access_control', label: 'هل صلاحيات الوصول للأنظمة تدار بشكل صارم؟',                              opts: ['نعم — حسب الدور الوظيفي فقط', 'صلاحيات واسعة لأغلب الموظفين', 'لا توجد سياسة واضحة'] },
+
+    { type: 'radio', sectionId: 'sup_helpdesk', id: 'sup_helpdesk',       label: 'كيف تدار طلبات الدعم الفني والإداري الداخلي؟',                            opts: ['نظام تذاكر (Ticketing System)', 'إيميل / واتساب', 'شفهياً'] },
+    { type: 'radio', sectionId: 'sup_helpdesk', id: 'sup_sla',            label: 'هل يوجد وقت استجابة محدد (SLA) لحل المشاكل؟',                             opts: ['نعم ومُقاس بدقة', 'غير رسمي', 'لا يوجد'] },
+
+    { type: 'radio', sectionId: 'sup_procurement', id: 'sup_procurement', label: 'هل يوجد سياسة مشتريات واضحة بحدود اعتماد؟',                              opts: ['نعم — سياسة مؤتمتة', 'موجودة لكن ورقية', 'لا — الشراء يتم عشوائياً'] },
+    { type: 'radio', sectionId: 'sup_procurement', id: 'sup_vendor_mgmt', label: 'هل يتم تقييم عقود الموردين التقنيين والخدميين دورياً؟',                    opts: ['نعم — تقييم دوري منهجي', 'عند التجديد فقط', 'لا'] },
+
+    { type: 'textarea', sectionId: 'sup_freetext', id: 'support_free',   label: 'ما هو أكبر خطر تقني أو إداري يواجه المنظمة اليوم؟',                        placeholder: 'مثال: خوادم متهالكة، غياب النسخ الاحتياطي، نقص التراخيص...' },
+  ],
+}
+
+// ─── PROJECTS — إدارة المشاريع ────────────────────────────────────────
+// المصدر: dept-deep.js:1193-1217 (٥ أقسام، ١٤ سؤالاً).
+
+const PROJECTS: DeptQuestions = {
+  sections: [
+    { id: 'proj_pmo',       icon: '🏗️', title: 'هيكل إدارة المشاريع والـ PMO',    priority: 'حرج', desc: '70% من المشاريع تفشل بسبب غياب منهجية إدارة واضحة' },
+    { id: 'proj_planning',  icon: '📅', title: 'تخطيط وتنفيذ المشاريع',           priority: 'حرج', desc: 'المشاريع التي تبدأ بمتطلبات واضحة تنجح بنسبة 2.5x أكبر' },
+    { id: 'proj_tools',     icon: '🔧', title: 'الأدوات والأنظمة',                priority: 'مهم', desc: 'الأدوات الصحيحة ترفع إنتاجية فريق المشاريع 30%' },
+    { id: 'proj_resources', icon: '👥', title: 'إدارة الموارد وأصحاب المصلحة',   priority: 'مهم', desc: 'المشاريع تفشل بسبب الناس أكثر من التقنية' },
+    { id: 'proj_freetext',  icon: '✍️', title: 'التحقق والإغلاق',                priority: 'عادي', desc: 'ما التحدي الأكبر الذي يعرقل إنجاز مشاريعك؟' },
+  ],
+  questions: [
+    { type: 'radio', sectionId: 'proj_pmo', id: 'pmo_exists',        label: 'هل لديك مكتب إدارة مشاريع (PMO) رسمي؟',                            opts: ['نعم — PMO كامل', 'جزئياً — بعض الوظائف', 'لا'] },
+    { type: 'radio', sectionId: 'proj_pmo', id: 'pm_methodology',    label: 'ما المنهجية المستخدمة في إدارة المشاريع؟',                          opts: ['Agile/Scrum', 'Waterfall/PMBOK', 'هجين', 'لا منهجية محددة'] },
+    { type: 'radio', sectionId: 'proj_pmo', id: 'pm_certified',      label: 'هل مدراء المشاريع حاصلون على شهادات مهنية (PMP/Prince2)?',            opts: ['نعم — أغلبهم', 'بعضهم', 'لا'] },
+    { type: 'radio', sectionId: 'proj_pmo', id: 'project_portfolio', label: 'هل تدير محفظة مشاريع (Portfolio) بشكل رسمي؟',                       opts: ['نعم — مع أولويات واضحة', 'جزئياً', 'لا'] },
+
+    { type: 'radio', sectionId: 'proj_planning', id: 'project_charter',   label: 'هل تُعد وثيقة مشروع (Project Charter) لكل مشروع؟',              opts: ['نعم — دائماً', 'للمشاريع الكبيرة فقط', 'لا'] },
+    { type: 'radio', sectionId: 'proj_planning', id: 'scope_management',  label: 'كيف تتعامل مع تغييرات النطاق (Scope Creep)?',                    opts: ['نظام تغيير رسمي (Change Control)', 'غير رسمي', 'لا يوجد آلية'] },
+    { type: 'radio', sectionId: 'proj_planning', id: 'on_time_delivery',  label: 'ما نسبة المشاريع المسلّمة في الموعد؟',                          opts: ['80%+ في الموعد', '50-80%', 'أقل من 50%', 'لا نقيس'] },
+    { type: 'radio', sectionId: 'proj_planning', id: 'on_budget',         label: 'ما نسبة المشاريع المنتهية ضمن الميزانية المحددة؟',              opts: ['80%+ ضمن الميزانية', '50-80%', 'أقل من 50%', 'لا نقيس'] },
+
+    { type: 'checkbox', sectionId: 'proj_tools', id: 'pm_tools',           label: 'ما أدوات إدارة المشاريع المستخدمة؟',                              opts: ['Microsoft Project', 'Jira', 'Asana/Monday', 'Excel فقط', 'لا توجد أدوات'] },
+    { type: 'radio',    sectionId: 'proj_tools', id: 'risk_register',      label: 'هل تحتفظ بسجل مخاطر (Risk Register) لكل مشروع؟',                  opts: ['نعم — محدّث بانتظام', 'للمشاريع الكبيرة', 'لا'] },
+    { type: 'radio',    sectionId: 'proj_tools', id: 'lessons_learned_pm', label: 'هل توثق درس مستفادة (Lessons Learned) بعد كل مشروع؟',            opts: ['نعم — قاعدة معرفة', 'أحياناً', 'لا'] },
+
+    { type: 'radio', sectionId: 'proj_resources', id: 'resource_planning',       label: 'هل تخطط الموارد البشرية للمشاريع مسبقاً؟',                opts: ['نعم — خطة موارد رسمية', 'جزئياً', 'لا — حسب الحاجة'] },
+    { type: 'radio', sectionId: 'proj_resources', id: 'stakeholder_engagement',  label: 'كيف تدير توقعات وتواصل أصحاب المصلحة؟',                   opts: ['تقارير دورية + اجتماعات منتظمة', 'عند الطلب فقط', 'لا يوجد آلية'] },
+    { type: 'radio', sectionId: 'proj_resources', id: 'project_status_reports',  label: 'هل تُصدر تقارير حالة مشروع منتظمة؟',                     opts: ['نعم — أسبوعية', 'شهرية', 'عند الطلب', 'لا'] },
+
+    { type: 'textarea', sectionId: 'proj_freetext', id: 'projects_free',         label: 'ما أكبر سبب لتأخر أو فشل المشاريع لديكم؟',                placeholder: 'مثال: غياب نطاق واضح، موارد مشتركة، تغيير متطلبات متكرر، قرارات بطيئة...' },
+  ],
+}
+
 export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
   FINANCE,
@@ -498,4 +562,6 @@ export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   IT,
   CUSTOMER_SERVICE,
   QUALITY,
+  SUPPORT,
+  PROJECTS,
 }
