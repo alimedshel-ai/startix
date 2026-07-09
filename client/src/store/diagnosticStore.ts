@@ -37,6 +37,7 @@ import { persist } from 'zustand/middleware'
 
 import type { OwnerAnswers, OwnerDiagnosticResult } from '@/lib/diagnosticQuestions'
 import type { ManagerAnswers, ManagerResult, InvestorAnswers, InvestorResult } from '@/lib/managerInvestorQuestions'
+import type { ManagerType } from '@/types/user'
 
 export type DiagnosticRole = 'OWNER' | 'MANAGER' | 'INVESTOR'
 
@@ -49,7 +50,9 @@ interface DiagnosticState {
   ownerStep: number
   ownerResult: OwnerDiagnosticResult | null
 
-  // مدير
+  // مدير — الحقل managerType خارج managerDraft لأنه لا يُرسل للمحرّك؛
+  // يُستهلك فقط لضبط تدفّق التسجيل (INTERNAL vs INDEPENDENT_PRO).
+  managerType: ManagerType | null
   managerDraft: Partial<ManagerAnswers>
   managerStep: number
   managerResult: ManagerResult | null
@@ -67,6 +70,7 @@ interface DiagnosticState {
   setOwnerDraft: (patch: Partial<OwnerAnswers>) => void
   setOwnerStep: (step: number) => void
   setOwnerResult: (r: OwnerDiagnosticResult | null) => void
+  setManagerType: (t: ManagerType | null) => void
   setManagerDraft: (patch: Partial<ManagerAnswers>) => void
   setManagerStep: (step: number) => void
   setManagerResult: (r: ManagerResult | null) => void
@@ -83,6 +87,7 @@ const EMPTY = {
   ownerDraft: {} as Partial<OwnerAnswers>,
   ownerStep: 0,
   ownerResult: null as OwnerDiagnosticResult | null,
+  managerType: null as ManagerType | null,
   managerDraft: {} as Partial<ManagerAnswers>,
   managerStep: 0,
   managerResult: null as ManagerResult | null,
@@ -100,6 +105,7 @@ export const useDiagnosticStore = create<DiagnosticState>()(
       setOwnerDraft: (patch) => set((s) => ({ ownerDraft: { ...s.ownerDraft, ...patch } })),
       setOwnerStep: (ownerStep) => set({ ownerStep }),
       setOwnerResult: (ownerResult) => set({ ownerResult }),
+      setManagerType: (managerType) => set({ managerType }),
       setManagerDraft: (patch) => set((s) => ({ managerDraft: { ...s.managerDraft, ...patch } })),
       setManagerStep: (managerStep) => set({ managerStep }),
       setManagerResult: (managerResult) => set({ managerResult }),
@@ -117,6 +123,7 @@ export const useDiagnosticStore = create<DiagnosticState>()(
         ownerDraft: s.ownerDraft,
         ownerStep: s.ownerStep,
         ownerResult: s.ownerResult,
+        managerType: s.managerType,
         managerDraft: s.managerDraft,
         managerStep: s.managerStep,
         managerResult: s.managerResult,

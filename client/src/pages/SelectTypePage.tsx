@@ -49,6 +49,8 @@ export function SelectTypePage() {
   const setSelectedType = useAuthStore((s) => s.setSelectedType)
   const setSelectedManagerType = useAuthStore((s) => s.setSelectedManagerType)
   const setSelectedSpecialty = useAuthStore((s) => s.setSelectedSpecialty)
+  const storedManagerType = useAuthStore((s) => s.selectedManagerType)
+  const storedSpecialty = useAuthStore((s) => s.selectedSpecialty)
   const [params] = useSearchParams()
 
   // خطوات هذه الشاشة: role → managerType (إن كان MANAGER) → specialty (إن
@@ -57,18 +59,30 @@ export function SelectTypePage() {
   const [step, setStep] = useState<'role' | 'managerType' | 'specialty'>('role')
 
   // لو الزائر جاي من /diagnostic/try ومعه ?role=OWNER|MANAGER|INVESTOR،
-  // نخطّي اختيار النوع ونروح مباشرة لصفحة التسجيل (فقط للأدوار غير MANAGER
-  // لأن MANAGER يحتاج خطوة فرعية).
+  // نتصرّف حسب ما تمّ التقاطه سابقاً:
+  //   - OWNER/INVESTOR → مباشرة إلى /join.
+  //   - MANAGER + managerType محفوظ + (INTERNAL أو specialty محفوظ)
+  //     → مباشرة إلى /join (التشخيص التقط كل شيء).
+  //   - MANAGER بدون تفاصيل → عرض الخطوة الفرعية للاستكمال.
   useEffect(() => {
     const r = params.get('role')
     if (r === 'OWNER' || r === 'INVESTOR') {
       setSelectedType(r)
       navigate('/join', { replace: true })
-    } else if (r === 'MANAGER') {
+      return
+    }
+    if (r === 'MANAGER') {
       setSelectedType(r)
+      const managerReady =
+        storedManagerType === 'INTERNAL' ||
+        (storedManagerType === 'INDEPENDENT_PRO' && storedSpecialty != null)
+      if (managerReady) {
+        navigate('/join', { replace: true })
+        return
+      }
       setStep('managerType')
     }
-  }, [params, navigate, setSelectedType])
+  }, [params, navigate, setSelectedType, storedManagerType, storedSpecialty])
 
   const chooseRole = (type: UserType) => {
     if (type === 'MANAGER') {

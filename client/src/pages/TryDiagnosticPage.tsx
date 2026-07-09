@@ -20,6 +20,8 @@ import {
   type ManagerAnswers, type ManagerResult, type InvestorAnswers, type InvestorResult,
 } from '@/lib/managerInvestorQuestions'
 import { useDiagnosticStore, type DiagnosticRole } from '@/store/diagnosticStore'
+import { useAuthStore } from '@/store/authStore'
+import type { SpecialtyDeptType } from '@/types/user'
 
 // مولّد سؤال راديو موحّد للمدير + المستثمر
 type RadioStep<T extends string> = {
@@ -383,6 +385,8 @@ const MANAGER_STEPS = MANAGER_QUESTIONS.length
 
 function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const navigate = useNavigate()
+  const managerType = useDiagnosticStore((s) => s.managerType)
+  const setManagerType = useDiagnosticStore((s) => s.setManagerType)
   const draft = useDiagnosticStore((s) => s.managerDraft)
   const step = useDiagnosticStore((s) => s.managerStep)
   const result = useDiagnosticStore((s) => s.managerResult)
@@ -390,7 +394,47 @@ function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const setStep = useDiagnosticStore((s) => s.setManagerStep)
   const setResult = useDiagnosticStore((s) => s.setManagerResult)
   const markPendingPersist = useDiagnosticStore((s) => s.markPendingPersist)
+  const setSelectedType = useAuthStore((s) => s.setSelectedType)
+  const setSelectedManagerType = useAuthStore((s) => s.setSelectedManagerType)
+  const setSelectedSpecialty = useAuthStore((s) => s.setSelectedSpecialty)
   const [submitting, setSubmitting] = useState(false)
+
+  // خطوة صفرية قبل الـ 7 أسئلة: تحديد نوع المدير. لا تُرسل للمحرّك — تُستهلك
+  // فقط لضبط تدفّق التسجيل ولتصفية /manager/select-dept لاحقاً.
+  if (!managerType && !result) {
+    return (
+      <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-12">
+        <RoleHeader title="تشخيص المدير" subtitle="سؤال تمهيدي واحد قبل التقييم" onChangeRole={onChangeRole} />
+        <Card className="overflow-hidden shadow-sm">
+          <div className="h-1.5 bg-gradient-to-l from-sky-500 to-indigo-500" />
+          <CardHeader>
+            <CardTitle>هل أنت مدير داخلي أم مدير مستقل؟</CardTitle>
+            <CardDescription className="leading-relaxed">
+              المدير الداخلي يعمل داخل شركة واحدة. المدير المستقل خبير تخصّص واحد يخدم عملاء متعدّدين.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => setManagerType('INTERNAL')}
+              className="flex flex-col items-start gap-1 rounded-xl border bg-card p-4 text-right transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+            >
+              <span className="text-2xl" aria-hidden>🏢</span>
+              <span className="font-semibold">مدير داخلي</span>
+              <span className="text-xs text-muted-foreground">تدير قسماً داخل شركتك.</span>
+            </button>
+            <button
+              onClick={() => setManagerType('INDEPENDENT_PRO')}
+              className="flex flex-col items-start gap-1 rounded-xl border bg-card p-4 text-right transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+            >
+              <span className="text-2xl" aria-hidden>🤝</span>
+              <span className="font-semibold">مدير مستقل</span>
+              <span className="text-xs text-muted-foreground">خبير تخصّص يخدم عدّة عملاء.</span>
+            </button>
+          </CardContent>
+        </Card>
+      </section>
+    )
+  }
 
   const progress = Math.round(((step + 1) / MANAGER_STEPS) * 100)
   const q = MANAGER_QUESTIONS[step]
@@ -419,13 +463,31 @@ function ManagerFlow({ onChangeRole }: { onChangeRole: () => void }) {
     submit()
   }
 
+  // عند حفظ النتيجة نضخّ الاختيارات في authStore حتى يتخطّى /select-type
+  // الأسئلة ويقفز مباشرة لصفحة التسجيل بالحقول الصحيحة.
+  const persistToAuth = () => {
+    setSelectedType('MANAGER')
+    setSelectedManagerType(managerType)
+    if (managerType === 'INDEPENDENT_PRO') {
+      const dept = draft.departmentType as SpecialtyDeptType | undefined
+      if (dept) setSelectedSpecialty(dept)
+    } else {
+      setSelectedSpecialty(null)
+    }
+    navigate('/select-type?role=MANAGER')
+  }
+
   if (result) {
-    return <ManagerResultView result={result} onSave={() => navigate('/select-type?role=MANAGER')} onReset={onChangeRole} />
+    return <ManagerResultView result={result} onSave={persistToAuth} onReset={onChangeRole} />
   }
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-12">
-      <RoleHeader title="تشخيص المدير" subtitle={`${MANAGER_STEPS} خطوات · نتيجة فورية`} onChangeRole={onChangeRole} />
+      <RoleHeader
+        title="تشخيص المدير"
+        subtitle={`${MANAGER_STEPS} خطوات · ${managerType === 'INDEPENDENT_PRO' ? 'مستقل' : 'داخلي'}`}
+        onChangeRole={onChangeRole}
+      />
       <Card className="overflow-hidden shadow-sm">
         <div className="h-1.5 bg-gradient-to-l from-sky-500 to-indigo-500" />
         <CardHeader>
