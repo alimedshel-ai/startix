@@ -38,6 +38,15 @@ model User {
   // عبر عملائه المتعدّدين. null لكل الأنواع الأخرى.
   specialtyDeptType          DeptType?
 
+  // R1 — بيانات التسجيل الغنيّة للمدير المستقل (Handoff → التسلسل الاستراتيجي).
+  // pains: أكواد الآلام الست ("no_kpis", "no_alignment", "team_lost", "no_data",
+  // "no_time", "no_budget"). تُستخدم في Priority Matrix و Eisenhower.
+  // goals: أكواد الأهداف السبعة ("improve", "reports", "plan", "kpis",
+  // "alignment", "team", "swot"). تُستخدم كبوّابة تُشغّل أدوات معيّنة.
+  // كلاهما اختياري بـ default([]) لعدم كسر التسجيلات القائمة.
+  pains  String[] @default([])
+  goals  String[] @default([])
+
   companies      CompanyUser[]
   diagnostics    Diagnostic[]
   sessions       Session[]
@@ -82,10 +91,19 @@ model Company {
   id        String     @id @default(uuid())
   name      String
   sector    String?
+  // R1 — النشاط الفرعي داخل القطاع (مثال: "software" داخل "technology").
+  subsector String?
+  // R1 — نوع الكيان القانوني: LLC | JSC | SOLE_PROPRIETOR | ...
+  // نص حرّ لتفادي enum جديد؛ التحقق من الطرف السيرفري عبر zod.
+  entityType String?
   size      EntitySize
   stage     String?
   country   String     @default("SA")
   logoUrl   String?
+  // R1 — OPEX (بيانات تشغيلية غنيّة يُدخلها المدير المستقل في التسجيل، تُستهلَك
+  // في KPIs/Ansoff/GapAnalysis/RACI/FinancialAnalysis). Json مرن لتوسيع مستقبلي.
+  // شكل مُتوقَّع: { team?: number, budget?: number, target?: number, avgSalary?: number }
+  opex      Json?
   createdAt DateTime   @default(now())
 
   users            CompanyUser[]

@@ -8,6 +8,20 @@ export type SpecialtyDeptType =
   | 'CUSTOMER_SERVICE' | 'SUPPORT' | 'LOGISTICS' | 'QUALITY'
   | 'PROJECTS' | 'GOVERNANCE' | 'COMPLIANCE'
 
+// R1 — أكواد الآلام والأهداف من /onboarding.
+// pains: 6 أكواد ("no_kpis" | "no_alignment" | "team_lost" | "no_data" | "no_time" | "no_budget")
+// goals: 7 أكواد ("improve" | "reports" | "plan" | "kpis" | "alignment" | "team" | "swot")
+export type PainCode = 'no_kpis' | 'no_alignment' | 'team_lost' | 'no_data' | 'no_time' | 'no_budget'
+export type GoalCode = 'improve' | 'reports' | 'plan' | 'kpis' | 'alignment' | 'team' | 'swot'
+
+// R1 — OPEX (رأس مال تشغيلي) على مستوى الشركة.
+export interface OpexData {
+  team?: number      // عدد أعضاء الفريق
+  budget?: number    // الميزانية السنوية (SAR)
+  target?: number    // المستهدف السنوي (SAR أو %)
+  avgSalary?: number // متوسط الراتب الشهري (SAR)
+}
+
 export interface User {
   id: string
   email: string
@@ -20,5 +34,7 @@ export interface User {
   plan: PlanTier
   isVerified: boolean
   isAdmin: boolean
+  pains: string[]
+  goals: string[]
   createdAt: string
 }

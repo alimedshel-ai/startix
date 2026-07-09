@@ -10,17 +10,35 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { api } from '@/lib/api'
-import type { ManagerType, SpecialtyDeptType, User, UserType } from '@/types/user'
+import type { ManagerType, OpexData, SpecialtyDeptType, User, UserType } from '@/types/user'
+
+// R1 — بيانات onboarding transient (تُجمَع في UI قبل التسجيل، تُرسَل مع register).
+// نحفظها في localStorage عبر partialize لتبقى مقاومة للانتقال بين الصفحات
+// (/select-type → /diagnostic/... → /join)، وتُمسَح بعد التسجيل الناجح.
+export interface OnboardingDraft {
+  pains?: string[]
+  goals?: string[]
+  firstClientMeta?: {
+    sector?: string
+    subsector?: string
+    entityType?: string
+    size?: 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE'
+    opex?: OpexData
+  }
+}
 
 interface AuthState {
   user: User | null
   selectedType: UserType | null
   selectedManagerType: ManagerType | null
   selectedSpecialty: SpecialtyDeptType | null
+  onboardingDraft: OnboardingDraft
   isAuthenticated: boolean
   setSelectedType: (t: UserType) => void
   setSelectedManagerType: (t: ManagerType | null) => void
   setSelectedSpecialty: (s: SpecialtyDeptType | null) => void
+  setOnboardingDraft: (patch: Partial<OnboardingDraft>) => void
+  clearOnboardingDraft: () => void
   setUser: (u: User | null) => void
   login: (email: string, password: string) => Promise<void>
   register: (input: {
@@ -31,6 +49,9 @@ interface AuthState {
     managerType?: ManagerType
     specialtyDeptType?: SpecialtyDeptType
     firstClientName?: string
+    firstClientMeta?: OnboardingDraft['firstClientMeta']
+    pains?: string[]
+    goals?: string[]
     phone?: string
   }) => Promise<User>
   logout: () => Promise<void>
@@ -44,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
       selectedType: null,
       selectedManagerType: null,
       selectedSpecialty: null,
+      onboardingDraft: {},
       isAuthenticated: false,
 
       setSelectedType: (t) => {
@@ -64,6 +86,16 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       setSelectedSpecialty: (s) => set({ selectedSpecialty: s }),
+      setOnboardingDraft: (patch) => set((state) => ({
+        onboardingDraft: {
+          ...state.onboardingDraft,
+          ...patch,
+          firstClientMeta: patch.firstClientMeta
+            ? { ...state.onboardingDraft.firstClientMeta, ...patch.firstClientMeta }
+            : state.onboardingDraft.firstClientMeta,
+        },
+      })),
+      clearOnboardingDraft: () => set({ onboardingDraft: {} }),
       setUser: (u) => set({ user: u, isAuthenticated: !!u }),
 
       login: async (email, password) => {
@@ -99,6 +131,7 @@ export const useAuthStore = create<AuthState>()(
         selectedType: s.selectedType,
         selectedManagerType: s.selectedManagerType,
         selectedSpecialty: s.selectedSpecialty,
+        onboardingDraft: s.onboardingDraft,
       }),
     }
   )

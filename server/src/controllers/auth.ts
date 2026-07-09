@@ -55,6 +55,8 @@ function publicUser(u: {
   plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
   isVerified: boolean;
   isAdmin: boolean;
+  pains: string[];
+  goals: string[];
   createdAt: Date;
 }) {
   return {
@@ -69,9 +71,31 @@ function publicUser(u: {
     plan: u.plan,
     isVerified: u.isVerified,
     isAdmin: u.isAdmin,
+    pains: u.pains,
+    goals: u.goals,
     createdAt: u.createdAt,
   };
 }
+
+// R1 — بوّابة الأهداف والآلام. الأكواد الحرّة تُقيَّم في الـUI
+// (client/src/lib/onboardingOptions.ts) — السيرفر يقبل أي strings قصيرة
+// لأنه لا يفرض قائمة محدّدة (قد تتوسّع دون سرفير migration).
+const painsGoalsSchema = z.array(z.string().min(1).max(64)).max(20).optional();
+
+// R1 — بيانات الشركة الأولى (OPEX/قطاع/نوع كيان) عند bootstrap
+// المدير المستقل مع firstClientName. كلها اختيارية لعدم كسر التسجيل القديم.
+const firstClientMetaSchema = z.object({
+  sector: z.string().min(1).max(80).optional(),
+  subsector: z.string().min(1).max(80).optional(),
+  entityType: z.string().min(1).max(40).optional(),
+  size: z.enum(['MICRO', 'SMALL', 'MEDIUM', 'LARGE']).optional(),
+  opex: z.object({
+    team: z.number().int().min(0).max(100000).optional(),
+    budget: z.number().min(0).optional(),
+    target: z.number().min(0).optional(),
+    avgSalary: z.number().min(0).optional(),
+  }).optional(),
+}).optional();
 
 const registerSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -86,7 +110,12 @@ const registerSchema = z.object({
   // الحساب فاعلاً من اللحظة الأولى بدل الهبوط على قائمة عملاء فارغة، ويتيح
   // للصفحات المُقيَّدة بعميل أن تشتغل مباشرة على أوّل شركة موجودة.
   firstClientName: z.string().min(1).max(120).optional(),
+  firstClientMeta: firstClientMetaSchema,
   phone: z.string().max(40).optional(),
+  // R1 — الآلام (6 أكواد) والأهداف (7 أكواد) المُختارة في /onboarding.
+  // تُخزَّن على User لأنها ثابتة على مستوى المدير لا العميل.
+  pains: painsGoalsSchema,
+  goals: painsGoalsSchema,
 });
 
 export const register: RequestHandler = async (req, res, next) => {
@@ -125,15 +154,22 @@ export const register: RequestHandler = async (req, res, next) => {
           managerType: data.managerType,
           specialtyDeptType: data.specialtyDeptType,
           phone: data.phone,
+          pains: data.pains ?? [],
+          goals: data.goals ?? [],
           emailVerificationToken: verificationToken,
           emailVerificationExpiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
         },
       });
       if (shouldBootstrapClient) {
+        const meta = data.firstClientMeta;
         const company = await tx.company.create({
           data: {
             name: data.firstClientName!.trim(),
-            size: 'SMALL',
+            size: meta?.size ?? 'SMALL',
+            sector: meta?.sector,
+            subsector: meta?.subsector,
+            entityType: meta?.entityType,
+            opex: meta?.opex ?? undefined,
             country: 'SA',
           },
         });
@@ -173,6 +209,8 @@ async function issueSession(
     plan: 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE';
     isVerified: boolean;
     isAdmin: boolean;
+    pains: string[];
+    goals: string[];
     createdAt: Date;
   },
   ipAddress: string | undefined,
