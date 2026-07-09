@@ -553,6 +553,175 @@ const PROJECTS: DeptQuestions = {
   ],
 }
 
+// ─── COMPLIANCE — الامتثال ───────────────────────────────────────────
+// المصدر: dept-deep.js:32-240 (١٥ قسماً، ٤٢ سؤالاً). أكبر بنك تخصّصي — يغطي
+// كل الجهات التنظيمية السعودية.
+
+const COMPLIANCE: DeptQuestions = {
+  sections: [
+    { id: 'comp_gov',      icon: '🏛️', title: 'هيكل الحوكمة والامتثال',       priority: 'حرج', desc: 'الأساس الذي يُبنى عليه كل شيء — بدون هيكل = فوضى تنظيمية' },
+    { id: 'comp_cr',       icon: '📋', title: 'السجل التجاري — وزارة التجارة', priority: 'حرج', desc: 'أساس الوجود القانوني — بدونه لا تستطيع ممارسة أي نشاط' },
+    { id: 'comp_labor',    icon: '🟢', title: 'العمل والتوطين — نطاقات / قوى / مقيم', priority: 'حرج', desc: 'النطاق الأحمر = إيقاف تأشيرات + نقل كفالة + غرامات فورية' },
+    { id: 'comp_zatca',    icon: '🏛️', title: 'الزكاة والضريبة — ZATCA',       priority: 'حرج', desc: 'الغرامات تتراكم تلقائياً — التأخير يوم واحد يكلّفك آلاف' },
+    { id: 'comp_gosi',     icon: '🛡️', title: 'التأمينات الاجتماعية — GOSI',   priority: 'حرج', desc: 'عدم التسجيل أو الفروقات = غرامات بأثر رجعي + تحقيق' },
+    { id: 'comp_municipal',icon: '🏬', title: 'البلدية والتراخيص المحلية',     priority: 'مهم', desc: 'التشغيل بدون رخصة = إغلاق فوري + غرامة حتى 100,000 ﷼' },
+    { id: 'comp_sector',   icon: '📑', title: 'الجهات التنظيمية القطاعية',     priority: 'مهم', desc: 'كل قطاع له جهة مشرفة — تأكد أنك مسجل ومرخص' },
+    { id: 'comp_pdpl',     icon: '🔒', title: 'حماية البيانات الشخصية — PDPL', priority: 'مهم', desc: 'نظام PDPL جديد — الغرامات تصل 5 مليون ﷼' },
+    { id: 'comp_nca',      icon: '🔐', title: 'الأمن السيبراني — NCA',         priority: 'مهم', desc: 'الاختراق يكلّف الشركة المتوسطة 1.2 مليون ﷼ في المتوسط' },
+    { id: 'comp_ohs',      icon: '⛑️', title: 'الصحة والسلامة المهنية',       priority: 'عادي', desc: 'نظام العمل يُلزم بتوفير بيئة آمنة — غرامات حتى 25,000 ﷼' },
+    { id: 'comp_env',      icon: '🌿', title: 'الامتثال البيئي',                priority: 'عادي', desc: 'ينطبق على الصناعة والمقاولات والأنشطة ذات الأثر البيئي' },
+    { id: 'comp_aml',      icon: '🏦', title: 'مكافحة غسل الأموال — AML',      priority: 'عادي', desc: 'يُطبق على القطاع المالي والعقاري والتجارة عالية القيمة' },
+    { id: 'comp_policies', icon: '📚', title: 'السياسات والإجراءات الداخلية',  priority: 'مهم', desc: '68% من القضايا العمالية يكسبها الموظف بسبب غياب سياسات مكتوبة' },
+    { id: 'comp_tracking', icon: '📊', title: 'أنظمة المتابعة والتحقق',        priority: 'مهم', desc: '43% من المخالفات سببها نسيان تجديد ترخيص أو موعد إقرار' },
+    { id: 'comp_freetext', icon: '✍️', title: 'التحقق والإغلاق',              priority: 'عادي', desc: 'سؤال مفتوح لالتقاط ما لم تغطيه الأسئلة السابقة' },
+  ],
+  questions: [
+    // ─── 1. هيكل الحوكمة والامتثال ─────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_gov', id: 'compliance_officer',    label: 'هل لديك مسؤول امتثال داخلي؟',                            opts: ['نعم — موظف متفرغ', 'جزئي — مشترك مع مهام أخرى', 'لا — أنا أتولى ذلك', 'مستشار خارجي'] },
+    { type: 'radio', sectionId: 'comp_gov', id: 'governance_structure',  label: 'هل لديك لجنة حوكمة أو مجلس إدارة رسمي؟',                  opts: ['نعم — مع اجتماعات دورية', 'مجلس شكلي', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'comp_gov', id: 'compliance_policy',     label: 'هل لديك سياسة امتثال مكتوبة ومعتمدة؟',                    opts: ['نعم — محدّثة ومعتمدة', 'قديمة', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'comp_gov', id: 'compliance_awareness',  label: 'هل تُدرب الموظفين على أنظمة الامتثال بانتظام؟',            opts: ['نعم — برنامج سنوي', 'أحياناً', 'لا'] },
+
+    // ─── 2. السجل التجاري ─────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_cr', id: 'cr_status',      label: 'ما حالة سجلك التجاري؟',                                        opts: ['ساري ومحدّث', 'قارب على الانتهاء', 'منتهي', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'comp_cr', id: 'cr_activities',  label: 'هل أنشطة السجل التجاري تطابق ما تمارسه فعلاً؟',                  opts: ['نعم — تطابق تام', 'جزئياً', 'لا — أحتاج تعديل'] },
+    { type: 'radio', sectionId: 'comp_cr', id: 'cr_branch',      label: 'هل لديك فروع تحتاج تسجيل إضافي؟',                              opts: ['لا فروع', 'نعم — كلها مسجلة', 'نعم — بعضها غير مسجل'] },
+
+    // ─── 3. نطاقات / قوى / مقيم ─────────────────────────────────
+    { type: 'radio', sectionId: 'comp_labor', id: 'nitaqat_status',     label: 'ما نطاقك في نظام نطاقات؟',                                  opts: ['بلاتيني', 'أخضر مرتفع', 'أخضر منخفض', 'أصفر', 'أحمر', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'comp_labor', id: 'saudization_rate',   label: 'ما نسبة التوطين الحالية؟',                                 opts: ['أعلى من المطلوب', 'عند الحد الأدنى', 'أقل من المطلوب', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'comp_labor', id: 'labor_contracts',    label: 'هل عقود العمل محدّثة ومسجلة في قوى؟',                       opts: ['نعم — 100%', 'أغلبها', 'بعضها', 'لا'] },
+    { type: 'radio', sectionId: 'comp_labor', id: 'wps_compliance',     label: 'هل تلتزم بنظام حماية الأجور (WPS)؟',                       opts: ['نعم — كل شهر في موعده', 'تأخير أحياناً', 'غير مسجل'] },
+    { type: 'radio', sectionId: 'comp_labor', id: 'work_permits',       label: 'هل تصاريح العمل والإقامات للوافدين محدّثة؟',                opts: ['نعم — كلها سارية', 'بعضها قارب على الانتهاء', 'منتهية'] },
+
+    // ─── 4. ZATCA ────────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_zatca', id: 'zatca_registration', label: 'هل أنت مسجل في ZATCA (الزكاة والضريبة)؟',                   opts: ['نعم — مسجل ومُحدّث', 'مسجل لكن غير محدث', 'غير مسجل'] },
+    { type: 'radio', sectionId: 'comp_zatca', id: 'vat_status',         label: 'ما حالة ضريبة القيمة المضافة (VAT)؟',                      opts: ['مسجل ومنتظم في الإقرارات', 'مسجل لكن متأخر', 'غير مسجل (معفي)', 'غير مسجل (مطلوب)'] },
+    { type: 'radio', sectionId: 'comp_zatca', id: 'zakat_filing',       label: 'هل إقراراتك الزكوية/الضريبية مرفوعة في وقتها؟',              opts: ['نعم — دائماً', 'تأخير أحياناً', 'متأخرة', 'لم تُرفع'] },
+    { type: 'radio', sectionId: 'comp_zatca', id: 'fatoora_einvoice',   label: 'هل تطبق الفوترة الإلكترونية (فاتورة)؟',                    opts: ['نعم — المرحلة الثانية (ربط)', 'المرحلة الأولى فقط', 'لا'] },
+    { type: 'radio', sectionId: 'comp_zatca', id: 'transfer_pricing',   label: 'هل لديك معاملات مع أطراف ذات علاقة تحتاج تسعير محايد؟',      opts: ['لا توجد', 'نعم — مع سياسة تسعير', 'نعم — بدون سياسة'] },
+
+    // ─── 5. GOSI ─────────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_gosi', id: 'gosi_registration', label: 'هل جميع الموظفين مسجلين في GOSI؟',                          opts: ['نعم — 100%', 'أغلبهم', 'بعضهم', 'لا'] },
+    { type: 'radio', sectionId: 'comp_gosi', id: 'gosi_payment',      label: 'هل اشتراكات GOSI تُدفع في وقتها؟',                          opts: ['نعم — منتظم', 'تأخير أحياناً', 'متأخرة'] },
+    { type: 'radio', sectionId: 'comp_gosi', id: 'gosi_salary_match', label: 'هل الرواتب المسجلة في GOSI تطابق الفعلية؟',                  opts: ['نعم — تطابق تام', 'فروقات بسيطة', 'فروقات كبيرة'] },
+
+    // ─── 6. البلدية ─────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_municipal', id: 'municipal_license', label: 'ما حالة الرخصة البلدية (رخصة نشاط)؟',                     opts: ['سارية ومحدّثة', 'قاربت على الانتهاء', 'منتهية', 'لا يوجد'] },
+    { type: 'radio', sectionId: 'comp_municipal', id: 'civil_defense',     label: 'هل شهادة الدفاع المدني (سلامة) سارية؟',                    opts: ['نعم', 'منتهية', 'لا يوجد', 'لا تنطبق'] },
+    { type: 'radio', sectionId: 'comp_municipal', id: 'signage_permits',   label: 'هل لافتات المحل/المكتب مرخصة من البلدية؟',                  opts: ['نعم', 'لا', 'لا تنطبق'] },
+
+    // ─── 7. القطاعية ─────────────────────────────────────────────
+    { type: 'checkbox', sectionId: 'comp_sector', id: 'sector_regulator', label: 'ما الجهات التنظيمية الخاصة بقطاعك؟',                       opts: ['هيئة سوق المال (CMA)', 'هيئة الاتصالات (CST)', 'هيئة الغذاء والدواء (SFDA)', 'SAGIA/MISA', 'هيئة المقاولين', 'لا توجد جهة خاصة'] },
+    { type: 'radio',    sectionId: 'comp_sector', id: 'sector_license',   label: 'هل تراخيصك القطاعية سارية ومحدّثة؟',                       opts: ['نعم — كلها سارية', 'بعضها قارب', 'منتهية', 'لا تنطبق'] },
+
+    // ─── 8. PDPL ─────────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_pdpl', id: 'pdpl_awareness',  label: 'هل تعرف متطلبات نظام حماية البيانات الشخصية؟',                 opts: ['نعم — مُطبق بالكامل', 'نعرفه لكن لم نطبق', 'لا نعرفه'] },
+    { type: 'radio', sectionId: 'comp_pdpl', id: 'data_consent',    label: 'هل تحصل على موافقة العملاء قبل جمع بياناتهم؟',                  opts: ['نعم — بسياسة واضحة', 'أحياناً', 'لا'] },
+    { type: 'radio', sectionId: 'comp_pdpl', id: 'data_breach_plan',label: 'هل لديك خطة استجابة لحوادث تسرب البيانات؟',                     opts: ['نعم — موثقة ومُختبرة', 'موجودة غير مُختبرة', 'لا'] },
+
+    // ─── 9. NCA ──────────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_nca', id: 'cybersecurity_controls', label: 'ما مستوى الأمن السيبراني لديك؟',                          opts: ['عالي — معايير NCA مُطبقة', 'متوسط — ضوابط أساسية', 'ضعيف', 'لا أعرف'] },
+    { type: 'radio', sectionId: 'comp_nca', id: 'cybersecurity_audit',    label: 'هل أجريت تقييم أمن سيبراني؟',                            opts: ['نعم — خلال 12 شهر', 'أكثر من سنة', 'لم يتم أبداً'] },
+
+    // ─── 10. الصحة والسلامة ─────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_ohs', id: 'ohs_policy',         label: 'هل لديك سياسة صحة وسلامة مهنية؟',                            opts: ['نعم — معتمدة ومُفعّلة', 'موجودة غير مُفعّلة', 'لا'] },
+    { type: 'radio', sectionId: 'comp_ohs', id: 'safety_training',    label: 'هل تُدرب الموظفين على السلامة بانتظام؟',                     opts: ['نعم — برنامج سنوي', 'عند الحاجة', 'لا'] },
+    { type: 'radio', sectionId: 'comp_ohs', id: 'incidents_tracking', label: 'هل تسجل وتحلل حوادث العمل؟',                                  opts: ['نعم — نظام تتبع', 'يدوياً', 'لا'] },
+
+    // ─── 11. البيئي ─────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_env', id: 'env_compliance', label: 'هل تلتزم بالمتطلبات البيئية (إن وجدت)؟',                        opts: ['نعم — ترخيص بيئي ساري', 'جزئياً', 'لا', 'لا تنطبق'] },
+
+    // ─── 12. AML ─────────────────────────────────────────────────
+    { type: 'radio', sectionId: 'comp_aml', id: 'aml_policy',  label: 'هل لديك سياسة مكافحة غسل الأموال (إن انطبقت)؟',                    opts: ['نعم — مُطبقة', 'موجودة غير مُفعّلة', 'لا', 'لا تنطبق'] },
+    { type: 'radio', sectionId: 'comp_aml', id: 'kyc_process', label: 'هل تطبق إجراءات اعرف عميلك (KYC)؟',                                 opts: ['نعم — لكل العملاء', 'للعملاء الكبار فقط', 'لا', 'لا تنطبق'] },
+
+    // ─── 13. السياسات والإجراءات ──────────────────────────────
+    { type: 'radio', sectionId: 'comp_policies', id: 'compliance_handbook', label: 'هل لديك دليل سياسات وإجراءات داخلية؟',                    opts: ['نعم — شامل ومحدّث', 'موجود لكن قديم', 'لا'] },
+    { type: 'radio', sectionId: 'comp_policies', id: 'whistle_blowing',     label: 'هل لديك آلية إبلاغ عن المخالفات (Whistleblowing)؟',        opts: ['نعم — قنوات سرية', 'غير رسمية', 'لا'] },
+    { type: 'radio', sectionId: 'comp_policies', id: 'conflict_interest',   label: 'هل لديك سياسة تعارض المصالح؟',                           opts: ['نعم — موثقة ومُفعّلة', 'شفهية', 'لا'] },
+
+    // ─── 14. التتبع والمراقبة ──────────────────────────────────
+    { type: 'radio', sectionId: 'comp_tracking', id: 'license_review',      label: 'ما آخر مرة راجعت تراخيصك؟',                                opts: ['هذا الشهر', 'هذه السنة', 'أكثر من سنة', 'لا أتذكر'] },
+    { type: 'radio', sectionId: 'comp_tracking', id: 'compliance_tracking', label: 'كيف تتابع مواعيد التجديدات والمتطلبات؟',                   opts: ['نظام إلكتروني/تنبيهات', 'Excel + تذكير يدوي', 'حسب الذاكرة'] },
+    { type: 'radio', sectionId: 'comp_tracking', id: 'violations',          label: 'هل سبق أن تلقيت مخالفة رسمية؟',                          opts: ['لا', 'نعم — تم حلها', 'نعم — لا تزال قائمة'] },
+    { type: 'radio', sectionId: 'comp_tracking', id: 'compliance_budget',   label: 'هل لديك ميزانية مخصصة للامتثال؟',                        opts: ['نعم — سنوية', 'حسب الحاجة', 'لا'] },
+
+    // ─── 15. التحقق ─────────────────────────────────────────────
+    { type: 'textarea', sectionId: 'comp_freetext', id: 'compliance_free',  label: 'ما أكبر قلق امتثالي يشغل تفكيرك؟',                       placeholder: 'مثال: تسجيل ZATCA، نطاقات، حماية البيانات، تراخيص قطاعية...' },
+  ],
+}
+
+// ─── LOGISTICS — اللوجستيات (مُكيّفة من OPERATIONS) ──────────────────
+// المصدر: نُقلت من dept-config.js DEPT_LOGIC.logistics + تكييف أسئلة OPERATIONS.
+// نمط: نفس بنية OPERATIONS مع سؤالين إضافيين خاصّين بسلاسل الإمداد.
+
+const LOGISTICS: DeptQuestions = {
+  sections: [
+    { id: 'log_capacity',   icon: '🚚', title: 'تخطيط سلاسل الإمداد والطاقة',       priority: 'حرج', desc: 'التخطيط السليم يمنع تأخّر التسليم ويقلّل تكلفة النقل' },
+    { id: 'log_operations', icon: '📐', title: 'العمليات اللوجستية والأتمتة',         priority: 'مهم', desc: 'العمليات اليدوية في الشحن تكلّف 30% أكثر' },
+    { id: 'log_quality',    icon: '✅', title: 'جودة التسليم والمرتجعات',              priority: 'حرج', desc: 'تأخّر التسليم يفقد العميل — إعادة الشحن تأكل الهوامش' },
+    { id: 'log_suppliers',  icon: '📦', title: 'إدارة الموردين وسلسلة القيمة',        priority: 'مهم', desc: 'الاعتماد على مورد نقل واحد = مخاطرة استمرارية أعمال' },
+    { id: 'log_freetext',   icon: '✍️', title: 'التحقق والإغلاق',                     priority: 'عادي', desc: 'سؤال مفتوح لتوثيق تحديات اللوجستيات' },
+  ],
+  questions: [
+    { type: 'radio',    sectionId: 'log_capacity', id: 'log_capacity_util',   label: 'ما نسبة استغلال طاقتكم اللوجستية؟',                             opts: ['70-85% (مثالي)', 'أقل من 50% (هدر)', 'أكثر من 95% (ضغط)'] },
+    { type: 'radio',    sectionId: 'log_capacity', id: 'log_bottlenecks',    label: 'هل تعرف أين توجد الاختناقات في سلاسل التوريد؟',                  opts: ['نعم — محددة ونعمل على حلها', 'نعرفها تقريباً', 'لا نعلم'] },
+    { type: 'radio',    sectionId: 'log_capacity', id: 'log_forecasting',    label: 'هل تتنبأ بحجم الطلب لتخطيط اللوجستيات؟',                          opts: ['نعم — نموذج تنبؤ', 'تخمين', 'لا'] },
+
+    { type: 'radio',    sectionId: 'log_operations', id: 'log_sops',        label: 'هل إجراءات الشحن والتخزين موثقة؟',                                opts: ['نعم — 100% موثقة', 'بعضها', 'شفهي'] },
+    { type: 'radio',    sectionId: 'log_operations', id: 'log_automation',  label: 'ما مستوى أتمتة العمليات اللوجستية؟',                             opts: ['عالي — WMS + TMS متكامل', 'متوسط', 'يدوي مكثف'] },
+    { type: 'radio',    sectionId: 'log_operations', id: 'log_tracking',    label: 'هل توفر تتبع مباشر للشحنات (Real-time Tracking)؟',                opts: ['نعم — كل شحنة', 'شحنات مختارة', 'لا'] },
+
+    { type: 'radio',    sectionId: 'log_quality', id: 'otif',                label: 'ما معدل التسليم في الوقت وبالكامل (OTIF)?',                       opts: ['95%+', '85-95%', '70-85%', 'أقل من 70%', 'لا نقيس'] },
+    { type: 'radio',    sectionId: 'log_quality', id: 'log_returns',         label: 'ما نسبة المرتجعات بسبب أخطاء لوجستية؟',                          opts: ['أقل من 2%', '2-5%', 'أكثر من 5%', 'لا نقيس'] },
+    { type: 'radio',    sectionId: 'log_quality', id: 'log_damage',          label: 'ما نسبة الشحنات المتضررة أو المفقودة؟',                          opts: ['أقل من 1%', '1-3%', 'أكثر من 3%', 'لا نقيس'] },
+
+    { type: 'radio',    sectionId: 'log_suppliers', id: 'log_carriers',      label: 'كم شركة نقل تتعامل معها؟',                                       opts: ['3+ (متنوع)', '2 (احتياطي)', '1 (خطر)'] },
+    { type: 'radio',    sectionId: 'log_suppliers', id: 'log_inventory',     label: 'كيف تدير مستوى المخزون في المستودعات؟',                          opts: ['JIT + نظام آلي', 'مراجعة دورية', 'يدوي'] },
+    { type: 'radio',    sectionId: 'log_suppliers', id: 'log_kpi_cost',      label: 'هل تعرف تكلفة النقل لكل طلبية؟',                                 opts: ['نعم — بدقة', 'تقريباً', 'لا'] },
+
+    { type: 'textarea', sectionId: 'log_freetext', id: 'logistics_free',     label: 'ما أكبر تحدٍّ لوجستي يواجهك الآن؟',                              placeholder: 'مثال: تأخر الموردين، تكلفة الشحن، أخطاء المخزون، تلف الشحنات...' },
+  ],
+}
+
+// ─── GOVERNANCE — الحوكمة (مُكيّفة من COMPLIANCE) ──────────────────────
+// المصدر: تكييف مركّز على مجلس الإدارة والحوكمة المؤسسية (بدل الامتثال التنظيمي).
+
+const GOVERNANCE: DeptQuestions = {
+  sections: [
+    { id: 'gov_board',      icon: '🏛️', title: 'مجلس الإدارة وتشكيلته',              priority: 'حرج', desc: 'مجلس فعّال = قرارات صحيحة. مجلس شكلي = مخاطر خفية' },
+    { id: 'gov_policies',   icon: '📋', title: 'السياسات والميثاق',                   priority: 'حرج', desc: 'ميثاق الحوكمة يُحدّد قواعد اللعبة — بدونه تعارضات قرارات' },
+    { id: 'gov_risk',       icon: '⚠️', title: 'إدارة المخاطر المؤسسية',              priority: 'حرج', desc: 'الشركات بلا سجل مخاطر تُفاجَأ بأزمات كان يمكن تجنّبها' },
+    { id: 'gov_committees', icon: '👥', title: 'اللجان المتخصّصة',                     priority: 'مهم', desc: 'لجنة تدقيق ولجنة ترشيحات = رقابة داخلية فعّالة' },
+    { id: 'gov_transparency', icon: '🔍', title: 'الشفافية والإفصاح',                 priority: 'مهم', desc: 'الشفافية تبني ثقة المستثمرين وأصحاب المصلحة' },
+    { id: 'gov_freetext',    icon: '✍️', title: 'التحقق والإغلاق',                    priority: 'عادي', desc: 'ما التحدي الأكبر في حوكمة شركتك؟' },
+  ],
+  questions: [
+    { type: 'radio',    sectionId: 'gov_board', id: 'board_exists',         label: 'هل لديك مجلس إدارة رسمي؟',                                       opts: ['نعم — مع أعضاء مستقلين', 'رسمي بلا مستقلين', 'شكلي فقط', 'لا يوجد'] },
+    { type: 'radio',    sectionId: 'gov_board', id: 'board_meetings',       label: 'كم مرة يجتمع مجلس الإدارة؟',                                     opts: ['ربع سنوياً+', 'نصف سنوي', 'سنوياً', 'لا اجتماعات دورية'] },
+    { type: 'radio',    sectionId: 'gov_board', id: 'board_independence',   label: 'ما نسبة الأعضاء المستقلين في المجلس؟',                             opts: ['أكثر من 50%', '25-50%', 'أقل من 25%', 'لا يوجد مستقلون'] },
+    { type: 'radio',    sectionId: 'gov_board', id: 'ceo_chairman_split',   label: 'هل الفصل بين الرئيس التنفيذي ورئيس المجلس مطبّق؟',                  opts: ['نعم — منفصلان', 'أحياناً', 'لا — نفس الشخص'] },
+
+    { type: 'radio',    sectionId: 'gov_policies', id: 'gov_charter',         label: 'هل لديك ميثاق حوكمة معتمد؟',                                    opts: ['نعم — محدّث ومعتمد', 'موجود قديم', 'لا'] },
+    { type: 'radio',    sectionId: 'gov_policies', id: 'delegation_matrix',   label: 'هل مصفوفة الصلاحيات موثّقة؟',                                    opts: ['نعم — بحدود واضحة', 'شفهية', 'لا'] },
+    { type: 'radio',    sectionId: 'gov_policies', id: 'gov_review_cycle',    label: 'كم مرة تُراجَع سياسات الحوكمة؟',                                 opts: ['سنوياً', 'كل سنتين', 'عند الحاجة', 'لم تُراجَع'] },
+
+    { type: 'radio',    sectionId: 'gov_risk', id: 'risk_register_gov',     label: 'هل لديك سجل مخاطر مؤسسي (Enterprise Risk Register)؟',              opts: ['نعم — محدّث بانتظام', 'موجود قديم', 'لا'] },
+    { type: 'radio',    sectionId: 'gov_risk', id: 'risk_committee',        label: 'هل لديك لجنة أو مسؤول مخاطر؟',                                     opts: ['نعم — لجنة رسمية', 'مسؤول جزئي', 'لا'] },
+    { type: 'radio',    sectionId: 'gov_risk', id: 'risk_appetite',         label: 'هل حدّدتم "شهية المخاطر" (Risk Appetite) للمؤسسة؟',               opts: ['نعم — موثّقة', 'ضمنياً', 'لا'] },
+
+    { type: 'checkbox', sectionId: 'gov_committees', id: 'committees_list', label: 'ما اللجان المنبثقة عن المجلس؟',                                    opts: ['لجنة التدقيق', 'لجنة الترشيحات والمكافآت', 'لجنة المخاطر', 'لجنة الاستثمار', 'لا لجان متخصصة'] },
+    { type: 'radio',    sectionId: 'gov_committees', id: 'audit_committee', label: 'هل لجنة التدقيق مستقلة وفعّالة؟',                                 opts: ['نعم — أعضاء مستقلون', 'موجودة لكن غير مستقلة', 'لا'] },
+
+    { type: 'radio',    sectionId: 'gov_transparency', id: 'annual_report',    label: 'هل تُصدر تقريراً سنوياً شفافاً؟',                              opts: ['نعم — منشور علناً', 'تقرير داخلي فقط', 'لا'] },
+    { type: 'radio',    sectionId: 'gov_transparency', id: 'related_party',    label: 'كيف تدير معاملات الأطراف ذات العلاقة؟',                        opts: ['شفافية كاملة + إفصاح', 'إفصاح جزئي', 'غير موثّقة'] },
+    { type: 'radio',    sectionId: 'gov_transparency', id: 'stakeholder_comm', label: 'هل تتواصل بانتظام مع أصحاب المصلحة؟',                          opts: ['نعم — قنوات رسمية', 'أحياناً', 'لا'] },
+
+    { type: 'textarea', sectionId: 'gov_freetext', id: 'governance_free',      label: 'ما أكبر تحدٍّ في حوكمة الشركة الآن؟',                          placeholder: 'مثال: مجلس شكلي، تعارض مصالح، غياب لجان، ضعف الرقابة الداخلية...' },
+  ],
+}
+
 export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   HR,
   FINANCE,
@@ -564,4 +733,7 @@ export const DEPT_QUESTIONS: Partial<Record<DeptCode, DeptQuestions>> = {
   QUALITY,
   SUPPORT,
   PROJECTS,
+  COMPLIANCE,
+  LOGISTICS,
+  GOVERNANCE,
 }
