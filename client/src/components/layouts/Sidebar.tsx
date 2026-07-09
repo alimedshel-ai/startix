@@ -14,10 +14,18 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const userType = user?.userType ?? useAuthStore.getState().selectedType ?? null
   const isAdmin = user?.isAdmin === true
-  // نستنسخ الأقسام ونحذف عناصر adminOnly لغير المسؤولين، ثم نُسقط الأقسام
-  // التي فرغت — حتى لا يظهر عنوان قسم بلا عناصر.
+  const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+  // نستنسخ الأقسام ونحذف: adminOnly لغير المسؤولين + proOnly لغير المستقل،
+  // ثم نُسقط الأقسام التي فرغت (M1..M3 تختفي كلياً للمدير الداخلي).
   const sections = navFor(userType, user?.managerType, user?.specialtyDeptType)
-    .map((s) => ({ ...s, items: s.items.filter((i) => (i.adminOnly ? isAdmin : true)) }))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => {
+        if (i.adminOnly && !isAdmin) return false
+        if (i.proOnly && !isPro) return false
+        return true
+      }),
+    }))
     .filter((s) => s.items.length > 0)
 
   return (

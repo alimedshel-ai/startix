@@ -12,6 +12,10 @@ export interface NavItem {
   // نُخفي العناصر التي لا تطابق تخصّصه. عناصر بلا `dept` تظهر للجميع
   // (مثلاً "اختيار الإدارة" أو "لوحة الاحترافية").
   dept?: DeptCode
+  // M1..M3 — عنصر مخصّص للمدير المستقل (INDEPENDENT_PRO) فقط. يظهر
+  // للمالك والمستقل في السايدبار (المسار في الراوتر يفتح للـ OWNER أيضاً)،
+  // لكن يُخفى عن المدير الداخلي (INTERNAL) لأنّه أُنشئ لسير عمل المستشار.
+  proOnly?: boolean
 }
 
 /** Accent color used by the sidebar for the section header / left-bar marker. */
@@ -193,11 +197,11 @@ const managerNav: NavSection[] = [
     accent: 'rose',
     items: [
       // M1 — أدوات التوليف مُتاحة للمدير المستقل عبر ?client=<id>.
-      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭' },
-      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄' },
-      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐' },
-      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️' },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡' },
+      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭', proOnly: true },
+      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄', proOnly: true },
+      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐', proOnly: true },
+      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️', proOnly: true },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡', proOnly: true },
     ],
   },
   {
@@ -205,16 +209,16 @@ const managerNav: NavSection[] = [
     accent: 'emerald',
     items: [
       // M2 — أدوات التنفيذ متاحة للمدير المستقل عبر ?client=<id>.
-      { to: '/objectives',   label: 'الأهداف',          icon: '🎯' },
-      { to: '/okrs',         label: 'OKRs',             icon: '🏆' },
-      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩' },
-      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊' },
-      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️' },
-      { to: '/initiatives',  label: 'المبادرات',        icon: '💡' },
-      { to: '/projects',     label: 'المشاريع',         icon: '📁' },
-      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️' },
-      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅' },
-      { to: '/tasks',        label: 'المهام',           icon: '✓' },
+      { to: '/objectives',   label: 'الأهداف',          icon: '🎯', proOnly: true },
+      { to: '/okrs',         label: 'OKRs',             icon: '🏆', proOnly: true },
+      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩', proOnly: true },
+      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
+      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
+      { to: '/initiatives',  label: 'المبادرات',        icon: '💡', proOnly: true },
+      { to: '/projects',     label: 'المشاريع',         icon: '📁', proOnly: true },
+      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️', proOnly: true },
+      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅', proOnly: true },
+      { to: '/tasks',        label: 'المهام',           icon: '✓', proOnly: true },
     ],
   },
   {
@@ -222,7 +226,7 @@ const managerNav: NavSection[] = [
     accent: 'emerald',
     items: [
       // M3 — التحليل المالي متاح للمدير المستقل عبر ?client=<id>.
-      { to: '/financial-analysis',        label: 'Dupont و Monte Carlo', icon: '📐' },
+      { to: '/financial-analysis',        label: 'Dupont و Monte Carlo', icon: '📐', proOnly: true },
       { to: '/manager/finance/break-even', label: 'نقطة التعادل',        icon: '⚖️', dept: 'FINANCE' },
     ],
   },
