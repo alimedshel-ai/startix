@@ -149,10 +149,40 @@ export function DiagnosticManagerPage() {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true)
     try {
+      // ─── تحويل حقول الفورم (أرقام + textarea) → schema السيرفر (enum) ──
+      // السيرفر managerSchema في controllers/diagnostic.ts يتطلّب:
+      //   teamSize/experienceLevel/operationalMaturity/toolingMaturity/
+      //   reportingQuality/decisionAuthority — كلها enums.
+      // نُحوّل الأرقام إلى نطاقات، ونشتق النضج من toolingMaturity كافتراضي.
+      const team = Number(values.teamSize)
+      const teamSize: 'micro' | 'small' | 'medium' | 'large' =
+        team < 5     ? 'micro'
+      : team < 50    ? 'small'
+      : team < 250   ? 'medium' : 'large'
+
+      const years = Number(values.experienceYears)
+      const experienceLevel: 'junior' | 'mid' | 'senior' | 'expert' =
+        years < 3    ? 'junior'
+      : years < 8    ? 'mid'
+      : years < 15   ? 'senior' : 'expert'
+
+      const toolingToMaturity: Record<string, 'none' | 'partial' | 'good' | 'great'> = {
+        none:    'none',
+        basic:   'partial',
+        modern:  'good',
+        advanced:'great',
+      }
+      const maturity = toolingToMaturity[values.toolingMaturity] ?? 'partial'
+
       await api.post('/api/diagnostic/manager', {
-        ...values,
-        experienceYears: Number(values.experienceYears),
-        teamSize: Number(values.teamSize),
+        companyName: values.companyName,
+        departmentType: values.departmentType,
+        teamSize,
+        experienceLevel,
+        operationalMaturity: maturity,
+        toolingMaturity: values.toolingMaturity,
+        reportingQuality: maturity,
+        decisionAuthority: 'tactical',
       })
       toast.success('تم حفظ التشخيص')
       navigate('/manager/dept-dashboard')
