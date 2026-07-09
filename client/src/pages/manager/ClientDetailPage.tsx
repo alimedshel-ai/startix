@@ -155,8 +155,14 @@ export function ClientDetailPage() {
           />
           <ToolCard
             icon="🔬"
-            title="التحليل العميق"
-            description="أسئلة موصوفة متعدّدة الاختيار: القيود، الهشاشة، الأتمتة، الممارسات الجيّدة."
+            title="التحليل العميق المخصّص"
+            description="بنك أسئلة عميق لتخصّصك (~٦٠ سؤال على ٦ أقسام) — من stratix legacy."
+            to={`/manager/deep-analysis${clientQ}`}
+          />
+          <ToolCard
+            icon="📝"
+            title="تحليل عميق مبسّط"
+            description="٤ أسئلة سريعة عامّة (القيود / الهشاشة / الأتمتة / الممارسات)."
             to={`/manager/dept-deep${clientQ}`}
           />
           <ToolCard
