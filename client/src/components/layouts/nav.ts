@@ -170,13 +170,32 @@ const managerNav: NavSection[] = [
       { to: '/manager/select-dept',         label: 'اختيار الإدارة',    icon: '🏢' },
       { to: '/manager/dept-dashboard',      label: 'لوحة الإدارة',       icon: '📊' },
       { to: '/manager/pro-dashboard',       label: 'اللوحة الاحترافية',  icon: '⭐' },
-      { to: '/manager/deep-analysis',       label: 'التحليل العميق المخصّص', icon: '🔬' },
       { to: '/manager/dept-deep',           label: 'تحليل مبسّط',         icon: '📝' },
       { to: '/manager/contradictions',      label: 'تحليل التناقضات',       icon: '⚡' },
       { to: '/manager/strategic-plan',      label: 'الخطة الاستراتيجية',     icon: '🗺️', proOnly: true },
       { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
-      { to: '/manager/dept-pestel',         label: 'PESTEL للإدارة',       icon: '🌐', proOnly: true },
       { to: '/manager/dept-gap',            label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
+    ],
+  },
+  // ─── المرحلة ① — التشخيص وتحليل البيئة ─────────────────────────────
+  // ١١ أداة لتحليل البيئة الداخلية والخارجية لإدارة العميل. تُغذّي المرحلة
+  // ② (SWOT) في التسلسل الاستراتيجي المقفل (journeyStages.ts).
+  {
+    title: 'المرحلة ① — تحليل البيئة',
+    accent: 'sky',
+    items: [
+      // البيئة الداخلية للإدارة — بنك ٦٠+ سؤالاً على ٦ أقسام.
+      { to: '/manager/deep-analysis', label: 'البيئة الداخلية للإدارة',  icon: '🔬', proOnly: true },
+      // البيئة الخارجية.
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',          icon: '🌐', proOnly: true },
+      { to: '/pestel',                label: 'PESTEL على مستوى الشركة',  icon: '🌍', proOnly: true },
+      { to: '/porter',                label: 'قوى بورتر الخمس',          icon: '⚔️', proOnly: true },
+      { to: '/benchmarking',          label: 'المقارنة المرجعية',        icon: '🔍', proOnly: true },
+      // القدرات والسلسلة.
+      { to: '/value-chain',           label: 'سلسلة القيمة',             icon: '🔗', proOnly: true },
+      { to: '/core-capabilities',     label: 'القدرات الجوهرية',         icon: '💎', proOnly: true },
+      { to: '/org-dna',               label: 'DNA المنظمة',               icon: '🧬', proOnly: true },
+      { to: '/stakeholders',          label: 'أصحاب المصلحة',            icon: '👥', proOnly: true },
     ],
   },
   {

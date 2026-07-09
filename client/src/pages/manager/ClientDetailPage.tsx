@@ -195,12 +195,6 @@ export function ClientDetailPage() {
             primary
           />
           <ToolCard
-            icon="🔬"
-            title="التحليل العميق المخصّص"
-            description="بنك أسئلة عميق لتخصّصك (~٦٠ سؤال على ٦ أقسام) — من stratix legacy."
-            to={`/manager/deep-analysis${clientQ}`}
-          />
-          <ToolCard
             icon="📝"
             title="تحليل عميق مبسّط"
             description="٤ أسئلة سريعة عامّة (القيود / الهشاشة / الأتمتة / الممارسات)."
@@ -211,6 +205,72 @@ export function ClientDetailPage() {
             title="تحليل التناقضات"
             description="يقارن بيانات الأقسام ويكشف التناقضات + يقترح OKR جاهز لكل تناقض."
             to={`/manager/contradictions${clientQ}`}
+          />
+        </div>
+      </div>
+
+      {/* المرحلة ① — تحليل البيئة (الداخلية + الخارجية) */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+          المرحلة ① — تحليل البيئة (تُغذّي SWOT في المرحلة ②)
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="🔬"
+            title="البيئة الداخلية للإدارة"
+            description="بنك ٦٠+ سؤالاً على ٦ أقسام (حوكمة / مالي / فريق / رقمي / إلخ). حفظ آلي."
+            to={`/manager/deep-analysis${clientQ}`}
+            primary
+            muted={mutedFor('/manager/deep-analysis')}
+          />
+          <ToolCard
+            icon="🌐"
+            title={`PESTEL — ${DEPT_LABEL[specialty]}`}
+            description="٦ عوامل خارجية بمقترحات مخصّصة لتخصّصك."
+            to={`/manager/dept-pestel${clientQ}`}
+            muted={mutedFor('/manager/dept-pestel')}
+          />
+          <ToolCard
+            icon="🔗"
+            title="سلسلة القيمة"
+            description="تحليل أنشطة الشركة الأساسية والدعم لكشف مصادر القيمة."
+            to={`/value-chain${clientQ}`}
+            muted={mutedFor('/value-chain')}
+          />
+          <ToolCard
+            icon="⚔️"
+            title="قوى بورتر الخمس"
+            description="الموردون، المشترون، البدلاء، الداخلون الجدد، التنافس."
+            to={`/porter${clientQ}`}
+            muted={mutedFor('/porter')}
+          />
+          <ToolCard
+            icon="💎"
+            title="القدرات الجوهرية"
+            description="ما تتفوّق فيه إدارتك على المنافسين — Value/Rareness/Imitability/Org."
+            to={`/core-capabilities${clientQ}`}
+            muted={mutedFor('/core-capabilities')}
+          />
+          <ToolCard
+            icon="🔍"
+            title="المقارنة المرجعية"
+            description="Benchmarking مع معايير القطاع والحجم."
+            to={`/benchmarking${clientQ}`}
+            muted={mutedFor('/benchmarking')}
+          />
+          <ToolCard
+            icon="🧬"
+            title="DNA المنظمة"
+            description="القيم، الثقافة، الحمض التنظيمي للشركة."
+            to={`/org-dna${clientQ}`}
+            muted={mutedFor('/org-dna')}
+          />
+          <ToolCard
+            icon="👥"
+            title="أصحاب المصلحة"
+            description="خريطة نفوذ × اهتمام لكل صاحب مصلحة داخل/خارج الإدارة."
+            to={`/stakeholders${clientQ}`}
+            muted={mutedFor('/stakeholders')}
           />
         </div>
       </div>
