@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -61,6 +61,8 @@ const MANAGER_TYPE_LABEL: Record<ManagerType, string> = {
 
 export function JoinPage() {
   const navigate = useNavigate()
+  const authedUser = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const selectedType = useAuthStore((s) => s.selectedType)
   const selectedManagerType = useAuthStore((s) => s.selectedManagerType)
   const selectedSpecialty = useAuthStore((s) => s.selectedSpecialty)
@@ -68,7 +70,20 @@ export function JoinPage() {
   const login = useAuthStore((s) => s.login)
   const [submitting, setSubmitting] = useState(false)
 
-  const { register, watch, handleSubmit, formState: { errors } } = useForm<Form>({
+  // مستخدم مسجّل يفتح /join؟ لا نُتيح تسجيل حساب جديد فوق حساب قائم — نوجّهه
+  // لصفحته الرئيسية (dashboard/manager/investor). هذا يمنع الإرباك الذي
+  // ظهر سابقاً: زائر مسجّل كـ OWNER يمرّ بمسار المدير ثم يعود لصفحة تسجيل
+  // فيرى نفسه "OWNER" مصادفة.
+  useEffect(() => {
+    if (!isAuthenticated || !authedUser) return
+    const home =
+      authedUser.userType === 'MANAGER' ? '/manager/dept-dashboard'
+      : authedUser.userType === 'INVESTOR' ? '/investor/dashboard'
+      : '/dashboard'
+    navigate(home, { replace: true })
+  }, [isAuthenticated, authedUser, navigate])
+
+  const { register, watch, handleSubmit, reset, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: {
       userType: (selectedType as UserType | null) ?? 'OWNER',
@@ -79,6 +94,19 @@ export function JoinPage() {
   })
   const userType = watch('userType')
   const managerType = watch('managerType')
+
+  // useForm.defaultValues تُقرأ مرّة واحدة عند التحميل — لذا لو تغيّر
+  // selectedType/selectedManagerType/selectedSpecialty في الـ store بعد
+  // تحميل الصفحة (مثلاً بعد إعادة التوجيه من /diagnostic/try)، الفورم
+  // يبقى بالقيم القديمة ما لم نستدعِ reset() صراحة. هذا الـ effect
+  // يحسم البقّ الذي أدّى إلى تسجيل مدير كـ OWNER.
+  useEffect(() => {
+    reset({
+      userType: (selectedType as UserType | null) ?? 'OWNER',
+      managerType: selectedManagerType ?? undefined,
+      specialtyDeptType: selectedSpecialty ?? undefined,
+    })
+  }, [selectedType, selectedManagerType, selectedSpecialty, reset])
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true)
@@ -105,7 +133,7 @@ export function JoinPage() {
     }
   })
 
-  const roleLabel = TYPE_LABEL[(selectedType as UserType | null) ?? 'OWNER']
+  const roleLabel = TYPE_LABEL[(userType as UserType | null) ?? 'OWNER']
   // نُخفي حقول المدير الفرعية لو كان المستخدم اختارها مسبقاً من /select-type،
   // ونعرض بدلها ملخّصاً للقراءة فقط مع رابط للتعديل. لو رجع بحقن قيمة غير
   // متّسقة يدوياً، schema.superRefine يمنع الإرسال.
@@ -122,12 +150,28 @@ export function JoinPage() {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
-          <CardDescription>
-            انضمام كـ <span className="font-medium text-foreground">{roleLabel}</span>.
-            <Link to="/select-type" className="mr-1 underline-offset-4 hover:underline">
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border bg-primary/5 p-3">
+            <div className="flex flex-col text-sm">
+              <span className="text-xs text-muted-foreground">ستنضمّ كـ</span>
+              <span className="font-semibold">
+                {roleLabel}
+                {userType === 'MANAGER' && selectedManagerType
+                  ? ` · ${MANAGER_TYPE_LABEL[selectedManagerType]}`
+                  : ''}
+                {userType === 'MANAGER' &&
+                selectedManagerType === 'INDEPENDENT_PRO' &&
+                selectedSpecialty
+                  ? ` · ${SPECIALTY_OPTIONS.find((o) => o.value === selectedSpecialty)?.label ?? selectedSpecialty}`
+                  : ''}
+              </span>
+            </div>
+            <Link
+              to="/select-type"
+              className="text-xs text-primary underline-offset-4 hover:underline"
+            >
               تغيير
             </Link>
-          </CardDescription>
+          </div>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">

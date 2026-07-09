@@ -46,12 +46,25 @@ const SPECIALTIES: { value: SpecialtyDeptType; label: string; icon: string }[] =
 
 export function SelectTypePage() {
   const navigate = useNavigate()
+  const authedUser = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const setSelectedType = useAuthStore((s) => s.setSelectedType)
   const setSelectedManagerType = useAuthStore((s) => s.setSelectedManagerType)
   const setSelectedSpecialty = useAuthStore((s) => s.setSelectedSpecialty)
   const storedManagerType = useAuthStore((s) => s.selectedManagerType)
   const storedSpecialty = useAuthStore((s) => s.selectedSpecialty)
   const [params] = useSearchParams()
+
+  // مستخدم مسجّل يفتح /select-type؟ نوجّهه لصفحته الرئيسية بدل السماح
+  // له باختيار دور جديد فوق حسابه القائم. يمنع خلط الأدوار في نفس المتصفّح.
+  useEffect(() => {
+    if (!isAuthenticated || !authedUser) return
+    const home =
+      authedUser.userType === 'MANAGER' ? '/manager/dept-dashboard'
+      : authedUser.userType === 'INVESTOR' ? '/investor/dashboard'
+      : '/dashboard'
+    navigate(home, { replace: true })
+  }, [isAuthenticated, authedUser, navigate])
 
   // خطوات هذه الشاشة: role → managerType (إن كان MANAGER) → specialty (إن
   // كان INDEPENDENT_PRO). نستعمل حالة محلية بدلاً من الاعتماد على الـ store
