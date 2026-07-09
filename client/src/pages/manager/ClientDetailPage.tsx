@@ -174,16 +174,69 @@ export function ClientDetailPage() {
         </div>
       </div>
 
-      {/* العمل التشغيلي — أدوات جمع البيانات والتنفيذ اليومي للمدير الخبير */}
+      {/* التوليف الاستراتيجي — أدوات تحليل إدارة العميل */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-          العمل التشغيلي
-        </h2>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التوليف الاستراتيجي</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="🧭"
+            title="تحليل SWOT"
+            description="نقاط القوة والضعف والفرص والتهديدات لإدارة العميل — مع بذر تلقائي."
+            to={`/swot${clientQ}`}
+          />
+          <ToolCard
+            icon="🔄"
+            title="مصفوفة TOWS"
+            description="تحويل SWOT إلى استراتيجيات فعلية (SO/ST/WO/WT)."
+            to={`/tows${clientQ}`}
+          />
+          <ToolCard
+            icon="📐"
+            title="تحليل الفجوة"
+            description="فرق بين الوضع الحالي والمستهدف على محاور الإدارة."
+            to={`/gap-analysis${clientQ}`}
+          />
+          <ToolCard
+            icon="⚠️"
+            title="خريطة المخاطر"
+            description="مصفوفة الاحتمال × الأثر لمخاطر الإدارة."
+            to={`/risk-map${clientQ}`}
+          />
+          <ToolCard
+            icon="⚡"
+            title="مصفوفة الأولوية"
+            description="ترتيب المبادرات حسب الأثر والجهد."
+            to={`/priority-matrix${clientQ}`}
+          />
+        </div>
+      </div>
+
+      {/* التخطيط والتنفيذ — خطة الإدارة على مستوى عميل */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التخطيط والتنفيذ</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="🎯"
+            title="الأهداف الاستراتيجية"
+            description="أهداف الإدارة السنوية لعميلك."
+            to={`/objectives${clientQ}`}
+          />
+          <ToolCard
+            icon="🏆"
+            title="OKRs"
+            description="أهداف ونتائج رئيسية قابلة للقياس."
+            to={`/okrs${clientQ}`}
+          />
+          <ToolCard
+            icon="🧩"
+            title="إطار OGSM"
+            description="Objective, Goals, Strategies, Measures — إطار تخطيط متكامل."
+            to={`/ogsm${clientQ}`}
+          />
           <ToolCard
             icon="📊"
             title="مؤشرات الأداء"
-            description="تعريف KPIs التخصّصية والمعايير القطاعية للعميل."
+            description="تعريف KPIs التخصّصية والمعايير القطاعية."
             to={`/kpis${clientQ}`}
           />
           <ToolCard
@@ -195,7 +248,7 @@ export function ClientDetailPage() {
           <ToolCard
             icon="💡"
             title="المبادرات"
-            description="مبادرات تحسين تشغيلي على مستوى الإدارة."
+            description="مبادرات تحسين على مستوى الإدارة."
             to={`/initiatives${clientQ}`}
           />
           <ToolCard
@@ -205,15 +258,34 @@ export function ClientDetailPage() {
             to={`/projects${clientQ}`}
           />
           <ToolCard
+            icon="🗓️"
+            title="الخطة السنوية"
+            description="خارطة طريق ١٢ شهراً للإدارة."
+            to={`/annual-plan${clientQ}`}
+          />
+          <ToolCard
             icon="✓"
             title="المهام"
-            description="متابعة المهام اليومية."
+            description="متابعة المهام التنفيذية."
             to={`/tasks${clientQ}`}
+          />
+        </div>
+      </div>
+
+      {/* التحليل المالي */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">التحليل المالي</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ToolCard
+            icon="📐"
+            title="Dupont و Monte Carlo"
+            description="تفكيك ROE + محاكاة توزيعات مالية للسيناريوهات."
+            to={`/financial-analysis${clientQ}`}
           />
           <ToolCard
             icon="⚖️"
             title="نقطة التعادل"
-            description="حاسبة تشغيلية للسيولة وهامش الأمان."
+            description="حساب نقطة التعادل + هامش الأمان."
             to={`/manager/finance/break-even${clientQ}`}
           />
           <ToolCard

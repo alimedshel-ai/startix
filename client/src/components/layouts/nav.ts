@@ -192,38 +192,49 @@ const managerNav: NavSection[] = [
       { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️', dept: 'GOVERNANCE' },
     ],
   },
-  // ─── تصحيح Wave M ──────────────────────────────────────────────────────
-  // الفصل بين طبقتين:
-  //   المستشار (Consultant, غير موجود حالياً كدور): يستخدم SWOT/TOWS/OKRs/
-  //   OGSM/Objectives/AnnualPlan/GapAnalysis/PriorityMatrix/RiskMap/Dupont/
-  //   MonteCarlo — أطر عليا لاتخاذ القرار.
-  //
-  //   المدير المستقل الخبير (INDEPENDENT_PRO): يعمل بعمق تشغيلي على تخصّصه،
-  //   يزوّد المستشار بالمادة الخام. يستخدم فقط أدوات جمع البيانات والتنفيذ
-  //   اليومي.
-  //
-  // لذا كل أدوات M1 وأغلب M2/M3 أُخفيت هنا. المسارات في الراوتر تبقى
-  // مفتوحة للـ MANAGER (لو احتاج URL مباشر) لكن السايدبار لا يعلن عنها.
+  // ─── الأدوات الاستراتيجية للمدير المستقل الخبير ───────────────────────
+  // المدير المستقل الخبير يستخدم كل الأدوات الاستراتيجية على مستوى إدارة
+  // عميله. مثلاً مستشار HR يعمل SWOT لإدارة HR، Objectives لخطة HR، KPIs
+  // لقياس أداء HR، إلخ. الفرق مع "المستشار" (طبقة أعلى غير مُنمذجة كدور):
+  //   المدير الخبير: أدوات استراتيجية على مستوى إدارة واحدة/عميل واحد.
+  //   المستشار:     نفس الأدوات على مستوى شركة كاملة أو عدّة عملاء.
+  // بمعنى الأدوات هي هي، فقط النطاق يختلف — نتيجة `?client=<id>` تُحدّد.
   {
-    title: 'العمل التشغيلي',
-    accent: 'emerald',
+    title: 'التوليف الاستراتيجي',
+    accent: 'rose',
     items: [
-      // أدوات جمع البيانات والتنفيذ اليومي للمدير الخبير.
-      { to: '/kpis',        label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
-      { to: '/kpi-entries', label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
-      { to: '/initiatives', label: 'المبادرات',        icon: '💡', proOnly: true },
-      { to: '/projects',    label: 'المشاريع',         icon: '📁', proOnly: true },
-      { to: '/gantt-chart', label: 'مخطط جانت',        icon: '📅', proOnly: true },
-      { to: '/tasks',       label: 'المهام',           icon: '✓', proOnly: true },
+      // M1 — التوليف الاستراتيجي لإدارة العميل.
+      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭', proOnly: true },
+      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄', proOnly: true },
+      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐', proOnly: true },
+      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️', proOnly: true },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡', proOnly: true },
     ],
   },
   {
-    title: 'الحسابات التشغيلية',
+    title: 'التخطيط والتنفيذ',
     accent: 'emerald',
     items: [
-      // BreakEven أداة حساب تشغيلي — تبقى. Dupont/MonteCarlo أدوات تحليل
-      // استشارية — تُخفى.
-      { to: '/manager/finance/break-even', label: 'نقطة التعادل', icon: '⚖️', dept: 'FINANCE' },
+      // M2 — أدوات التخطيط والتنفيذ لإدارة العميل.
+      { to: '/objectives',   label: 'الأهداف',          icon: '🎯', proOnly: true },
+      { to: '/okrs',         label: 'OKRs',             icon: '🏆', proOnly: true },
+      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩', proOnly: true },
+      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
+      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
+      { to: '/initiatives',  label: 'المبادرات',        icon: '💡', proOnly: true },
+      { to: '/projects',     label: 'المشاريع',         icon: '📁', proOnly: true },
+      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️', proOnly: true },
+      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅', proOnly: true },
+      { to: '/tasks',        label: 'المهام',           icon: '✓', proOnly: true },
+    ],
+  },
+  {
+    title: 'التحليل المالي',
+    accent: 'emerald',
+    items: [
+      // M3 — التحليل المالي للإدارة (مالية/عمليات/مبيعات — كلها تحتاج تحليل).
+      { to: '/financial-analysis',         label: 'Dupont و Monte Carlo', icon: '📐', proOnly: true },
+      { to: '/manager/finance/break-even', label: 'نقطة التعادل',        icon: '⚖️', dept: 'FINANCE' },
     ],
   },
   {
