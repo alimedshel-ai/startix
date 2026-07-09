@@ -32,6 +32,7 @@ export type ArtifactType =
   | 'OGSM'
   | 'ANNUAL_PLAN'
   | 'DEPT_DEEP_ANSWERS'
+  | 'DEPT_DEEP_FULL'
   // R6 — الأدوات الأربع الأساسية المفقودة.
   | 'BMC' | 'BSC' | 'RACI' | 'EISENHOWER'
   | DeptScopedArtifactType

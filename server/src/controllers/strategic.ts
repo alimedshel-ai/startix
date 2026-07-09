@@ -32,6 +32,10 @@ const BASE_ARTIFACT_TYPES = [
   // إجابات تحليل قسم عميق — 4 أسئلة نصّية مفتوحة على /manager/dept-deep.
   // Data shape: { answers: Record<string, string> } — المفتاح فهرس السؤال.
   'DEPT_DEEP_ANSWERS',
+  // إجابات التحليل العميق الكامل (بنك ٣٣٠ سؤالاً على 6 أقسام) —
+  // /manager/deep-analysis. Data shape: { deptCode, answers: Record<string,
+  // string | string[]> }. مستقلّ عن DEPT_DEEP_ANSWERS الأخف.
+  'DEPT_DEEP_FULL',
   // R6 — الأدوات الأربع الأساسية المفقودة (ملف الاقتراح).
   'BMC',          // نموذج الأعمال Canvas (٩ كتل)
   'BSC',          // Balanced Scorecard (٤ أبعاد)
