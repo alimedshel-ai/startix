@@ -8,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import type { DeptCode } from '@/lib/deptApi'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 interface Capability {
   id: string
@@ -40,6 +42,63 @@ const MATURITY_COLOR: Record<number, string> = {
   5: 'hsl(160 70% 40%)',
 }
 
+// S2.3 — قدرات مقترحة شائعة حسب تخصّص المدير المستقل.
+// المدير ينقر → تُضاف إلى القائمة كقدرة جديدة بنضج مبدئي = 3.
+const CAP_SUGGESTIONS: Partial<Record<DeptCode, string[]>> = {
+  HR: [
+    'استقطاب الكفاءات', 'الاحتفاظ بالموظفين', 'التطوير المهني',
+    'ثقافة أداء', 'قيادة تنفيذية', 'توطين الكفاءات',
+  ],
+  FINANCE: [
+    'التحكم في التكاليف', 'تحليل الربحية', 'التخطيط المالي',
+    'إدارة النقد', 'شفافية التقارير', 'إدارة المخاطر المالية',
+  ],
+  SALES: [
+    'إغلاق الصفقات الكبيرة', 'توليد العملاء المحتملين', 'التسعير الديناميكي',
+    'إدارة الحسابات الرئيسية', 'التنبّؤ بالإيرادات', 'قنوات بيع متعدّدة',
+  ],
+  MARKETING: [
+    'بناء العلامة التجارية', 'تسويق رقمي', 'تحليل السوق',
+    'قصص محتوى قوية', 'ولاء العملاء', 'استهداف دقيق للجمهور',
+  ],
+  OPERATIONS: [
+    'كفاءة سلاسل الإمداد', 'أتمتة العمليات', 'ضبط الجودة',
+    'مرونة الإنتاج', 'إدارة السعة', 'Lean/Six Sigma',
+  ],
+  IT: [
+    'أمن سيبراني', 'موثوقية البنية التحتية', 'تكامل الأنظمة',
+    'DevOps وسرعة النشر', 'الذكاء الاصطناعي وتحليل البيانات', 'الحوسبة السحابية',
+  ],
+  CUSTOMER_SERVICE: [
+    'حل شكاوى سريع (FCR)', 'رضا العملاء العالي', 'دعم متعدّد القنوات',
+    'قاعدة معرفة قوية', 'تدريب الفريق', 'تخصيص الخدمة',
+  ],
+  SUPPORT: [
+    'إدارة المشتريات', 'تفاوض مع المورّدين', 'إدارة الأصول',
+    'صيانة استباقية', 'إدارة العقود', 'دعم لوجستي',
+  ],
+  LOGISTICS: [
+    'شبكة توزيع واسعة', 'كفاءة تسليم OTIF', 'إدارة المخزون',
+    'أتمتة المستودعات', 'تنويع الناقلين', 'تتبّع الشحنات',
+  ],
+  QUALITY: [
+    'شهادات ISO', 'خفض معدل العيوب', 'ضبط عمليات SPC',
+    'CAPA فعّال', 'ثقافة جودة شاملة', 'تدقيق مستمر',
+  ],
+  PROJECTS: [
+    'تسليم في الموعد', 'ضمن الميزانية', 'إدارة المخاطر',
+    'PMO ناضج', 'منهجية مرنة (Agile)', 'إدارة أصحاب المصلحة',
+  ],
+  COMPLIANCE: [
+    'التزام ZATCA', 'التزام GOSI', 'حماية البيانات PDPL',
+    'مراجعة داخلية', 'أخلاقيات وحوكمة', 'التزام قطاعي متخصّص',
+  ],
+  GOVERNANCE: [
+    'فعالية مجلس الإدارة', 'استقلالية اللجان', 'إفصاح شفاف',
+    'إدارة المخاطر المؤسسية', 'تدقيق داخلي مستقل', 'قيم أخلاقية معتمَدة',
+  ],
+}
+
 export function CoreCapabilitiesPage() {
   return (
     <StrategicShell
@@ -52,8 +111,21 @@ export function CoreCapabilitiesPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
+  const suggestions = specialty ? CAP_SUGGESTIONS[specialty] ?? [] : []
   const [data, setData] = useState<CoreCapData>(EMPTY)
   const [saving, setSaving] = useState(false)
+
+  function addSuggestion(name: string) {
+    if (data.capabilities.some((c) => c.name === name)) return
+    setData((p) => ({
+      capabilities: [
+        ...p.capabilities,
+        { id: crypto.randomUUID(), name, description: '', maturity: 3, isCore: false },
+      ],
+    }))
+  }
 
   useEffect(() => {
     getArtifact<CoreCapData>(companyId, 'CORE_CAPABILITIES').then((row) => {
@@ -122,6 +194,35 @@ function Editor({ companyId }: { companyId: string }) {
           </CardHeader>
         </Card>
       </div>
+
+      {suggestions.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">💡 قدرات مقترحة لتخصّصك — انقر للإضافة</CardTitle>
+            <CardDescription>ابدأ بالقدرات الشائعة في مجالك، ثم صنّف الجوهرية منها.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => {
+              const already = data.capabilities.some((c) => c.name === s)
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => addSuggestion(s)}
+                  disabled={already}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                    already
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-primary/40 bg-card hover:bg-primary hover:text-primary-foreground'
+                  }`}
+                >
+                  {already ? '✓ ' : '＋ '}{s}
+                </button>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">

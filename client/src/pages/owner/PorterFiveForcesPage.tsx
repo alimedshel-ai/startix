@@ -38,6 +38,45 @@ const FORCES: { key: keyof PorterData; label: string; description: string; icon:
   { key: 'newEntrants',   label: 'تهديد الداخلين الجدد', description: 'سهولة دخول لاعبين جدد للسوق.',           icon: '🚪', tint: 'border-sky-200 bg-sky-50/50' },
 ]
 
+// S2.1 — مقترحات جاهزة لكل قوة تُضاف إلى notes بضغطة واحدة.
+const SUGGESTIONS: Record<keyof PorterData, string[]> = {
+  rivalry: [
+    'عدد كبير من المنافسين بحصص متقاربة',
+    'تشابه المنتجات → منافسة سعرية',
+    'تكاليف تبديل منخفضة للعميل',
+    'نمو السوق بطيء → حرب حصص',
+    'حواجز خروج عالية (استثمارات ثابتة)',
+  ],
+  supplierPower: [
+    'عدد قليل من الموردين المسيطرين',
+    'مواد أوّلية بلا بدائل قريبة',
+    'تكلفة تبديل المورّد مرتفعة',
+    'خطر تكامل رأسي أمامي من المورّد',
+    'حجم مشترياتنا صغير مقارنة بحجم المورّد',
+  ],
+  buyerPower: [
+    'عدد قليل من العملاء يمثّلون أغلب الإيرادات',
+    'العملاء يشترون بكميات ضخمة',
+    'المنتج قابل للاستبدال بسهولة',
+    'العميل حساس جداً للسعر',
+    'خطر تكامل عكسي (العميل يُصنع بنفسه)',
+  ],
+  substitutes: [
+    'وجود بدائل رقمية للمنتج التقليدي',
+    'بدائل بسعر أقل من خارج الصناعة',
+    'تحسّن الأداء/الميّزات في البدائل',
+    'ميل ثقافي للانتقال للبديل (استدامة، صحّة)',
+    'تكلفة تبديل العميل للبديل منخفضة',
+  ],
+  newEntrants: [
+    'رأس المال المطلوب للدخول منخفض',
+    'التقنية متاحة ومفتوحة',
+    'قنوات التوزيع سهلة (مثل الرقمي)',
+    'لا توجد براءات اختراع أو حواجز تنظيمية',
+    'ولاء العميل للعلامة ضعيف',
+  ],
+}
+
 export function PorterFiveForcesPage() {
   return (
     <StrategicShell title="قوى بورتر الخمس" description="قيّم كل قوة من ١ (ضعيفة) إلى ٥ (قوية) مع ملاحظات.">
@@ -100,6 +139,32 @@ function Editor({ companyId }: { companyId: string }) {
                 value={data[f.key].notes}
                 onChange={(e) => setData((p) => ({ ...p, [f.key]: { ...p[f.key], notes: e.target.value } }))}
               />
+              <div className="flex flex-wrap gap-1.5">
+                {SUGGESTIONS[f.key].map((s) => {
+                  const already = data[f.key].notes.includes(s)
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setData((p) => ({
+                        ...p,
+                        [f.key]: {
+                          ...p[f.key],
+                          notes: p[f.key].notes.trim() ? `${p[f.key].notes.trim()}\n• ${s}` : `• ${s}`,
+                        },
+                      }))}
+                      disabled={already}
+                      className={`rounded-full border px-2.5 py-0.5 text-[10px] transition ${
+                        already
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-muted-foreground/30 bg-card hover:bg-primary hover:text-primary-foreground'
+                      }`}
+                    >
+                      {already ? '✓ ' : '＋ '}{s}
+                    </button>
+                  )
+                })}
+              </div>
             </CardContent>
           </Card>
         ))}

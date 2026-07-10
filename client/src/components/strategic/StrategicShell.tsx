@@ -1,8 +1,12 @@
 import { type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { PageHeader, type BreadcrumbItem } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCompany } from '@/hooks/useCompany'
+
+import { NextStepCard } from './NextStepCard'
+import { StageBanner } from './StageBanner'
 
 interface Props {
   title: string
@@ -19,10 +23,15 @@ interface Props {
  */
 export function StrategicShell({ title, description, breadcrumbs, actions, children }: Props) {
   const { company, loading, error } = useCompany()
+  const [params] = useSearchParams()
+  const clientQuery = params.get('client') ? `?client=${params.get('client')}` : ''
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={title} description={description} breadcrumbs={breadcrumbs} actions={actions} />
+
+      {/* S1 — شريط تسلسل مرئي في أعلى كل أداة استراتيجية. */}
+      <StageBanner clientQuery={clientQuery} />
 
       {loading && (
         <Card>
@@ -46,6 +55,9 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
       )}
 
       {company && !loading && !error && children(company.id)}
+
+      {/* S3 — بطاقة «الأداة التالية» في نهاية الصفحة. */}
+      {company && !loading && !error && <NextStepCard clientQuery={clientQuery} />}
     </div>
   )
 }
