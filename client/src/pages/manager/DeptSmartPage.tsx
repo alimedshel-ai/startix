@@ -1,184 +1,315 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { EmptyState } from '@/components/EmptyState'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { OpexHint } from '@/components/OpexHint'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCompany } from '@/hooks/useCompany'
+import { apiErrorMessage } from '@/lib/api'
 import {
-  DEPT_LABEL,
-  listDepartments,
-  submitDeptSmart,
-  type Department,
+  DEPT_ICON, DEPT_LABEL,
+  listDepartments, type Department,
 } from '@/lib/deptApi'
-import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
+import { generateSmartInsights, generateSmartKPIs, type SmartInsight, type SmartKPISuggestion } from '@/lib/smartKpis'
+import { createKPI, listKPIs, type KPI } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
-interface KPIRow {
-  name: string
-  unit: string
-  targetValue: number
-  frequency: string
+// ─── مركز ذكاء KPIs الإداري ────────────────────────────────────────
+// المستخدم يفتح الصفحة → نُحضّر السياق من (specialty + opex + pains +
+// goals + آخر تدقيق) → نُوَلِّد KPIs جاهزة + رؤى مبنيّة على البيانات →
+// المستخدم يضغط زر بجوار كل KPI مقترح ليُنشِأه في القاعدة (createKPI).
+//
+// الفارق عن النسخة القديمة: كل مقترح فيه (rationale + source) واضح،
+// ونستخدم البيانات الفعلية لا سؤالاً يدوياً.
+
+const SEVERITY_STYLE: Record<SmartInsight['severity'], { chip: string; icon: string; label: string }> = {
+  info:     { chip: 'bg-sky-100 text-sky-800 border-sky-200',       icon: 'ℹ️', label: 'معلومة' },
+  positive: { chip: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: '✓', label: 'إيجابي' },
+  warning:  { chip: 'bg-amber-100 text-amber-800 border-amber-200', icon: '⚠️', label: 'تحذير' },
+  critical: { chip: 'bg-rose-100 text-rose-800 border-rose-200',    icon: '🔥', label: 'حرج' },
 }
 
-interface InsightRow {
-  axis: string
-  severity: string
-  insight: string
+const SOURCE_LABEL: Record<SmartKPISuggestion['source'], { icon: string; label: string }> = {
+  specialty: { icon: '🎯', label: 'تخصّصك' },
+  opex:      { icon: '💰', label: 'من OPEX' },
+  pain:      { icon: '😤', label: 'من آلامك' },
+  goal:      { icon: '🏆', label: 'من أهدافك' },
+  audit:     { icon: '🩺', label: 'من التدقيق' },
+}
+
+const FREQ_LABEL: Record<SmartKPISuggestion['frequency'], string> = {
+  daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', quarterly: 'ربعي', annual: 'سنوي',
 }
 
 export function DeptSmartPage() {
-  const scope = useClientScopedCompany()
-  const company = scope.company
+  const scope = useCompany()
+  const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
+
   const [departments, setDepartments] = useState<Department[]>([])
-  const [selected, setSelected] = useState<string | null>(null)
-  const [recs, setRecs] = useState<{ kpis: KPIRow[]; insights: InsightRow[] } | null>(null)
-  const [deptsLoading, setDeptsLoading] = useState(false)
-  const [running, setRunning] = useState(false)
+  const [savedKpis, setSavedKpis] = useState<KPI[]>([])
+  const [creating, setCreating] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!company) return
-    let cancel = false
-    setDeptsLoading(true)
-    setDepartments([])
-    setSelected(null)
-    setRecs(null)
+    if (!scope.company) return
+    let alive = true
+    setLoading(true)
     ;(async () => {
       try {
-        const list = await listDepartments(company.id)
-        if (cancel) return
-        setDepartments(list)
-        const audited = list.find((d) => (d.auditScore ?? 0) > 0)
-        if (audited) setSelected(audited.id)
+        const cid = scope.company!.id
+        const [deps, ks] = await Promise.allSettled([listDepartments(cid), listKPIs(cid)])
+        if (!alive) return
+        if (deps.status === 'fulfilled') setDepartments(deps.value)
+        if (ks.status === 'fulfilled') setSavedKpis(ks.value)
       } catch (err) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر تحميل الأقسام'
-        toast.error(msg)
+        toast.error(apiErrorMessage(err, 'تعذّر التحميل'))
       } finally {
-        if (!cancel) setDeptsLoading(false)
+        if (alive) setLoading(false)
       }
     })()
-    return () => { cancel = true }
-  }, [company])
+    return () => { alive = false }
+  }, [scope.company])
 
-  const loading = scope.loading || deptsLoading
+  // آخر تدقيق للتخصّص (لاستنتاج auditHealthPct).
+  const myDept = specialty ? departments.find((d) => d.type === specialty) : null
+  const auditHealthPct = myDept?.auditData?.healthPct ?? myDept?.auditScore ?? null
 
-  const selectedDept = useMemo(() => departments.find((d) => d.id === selected) ?? null, [departments, selected])
+  const context = useMemo(() => ({
+    specialty,
+    opex: scope.company?.opex ?? {},
+    pains: user?.pains ?? [],
+    goals: user?.goals ?? [],
+    auditHealthPct,
+  }), [specialty, scope.company?.opex, user?.pains, user?.goals, auditHealthPct])
 
-  async function run() {
-    if (!selected) return
-    setRunning(true)
+  const kpiSuggestions = useMemo(() => generateSmartKPIs(context), [context])
+  const insights = useMemo(() => generateSmartInsights(context), [context])
+
+  // معرفة أي مقترح مُنشَأ فعلياً في القاعدة.
+  const savedKpiNames = useMemo(() => new Set(savedKpis.map((k) => k.name)), [savedKpis])
+
+  async function addKpi(suggestion: SmartKPISuggestion) {
+    if (!scope.company) return
+    setCreating(suggestion.key)
     try {
-      const { recommendations } = await submitDeptSmart(selected)
-      setRecs(recommendations)
-      toast.success('تم توليد مؤشرات الأداء والرؤى.')
+      const k = await createKPI({
+        companyId: scope.company.id,
+        name: suggestion.name,
+        unit: suggestion.unit,
+        targetValue: suggestion.targetValue,
+        frequency: suggestion.frequency,
+      })
+      setSavedKpis((prev) => [...prev, k])
+      toast.success(`أُضيف "${suggestion.name}" إلى KPIs الشركة`)
     } catch (err) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'تعذّر توليد التوصيات'
-      toast.error(msg)
+      toast.error(apiErrorMessage(err, 'تعذّر إضافة المؤشر'))
     } finally {
-      setRunning(false)
+      setCreating(null)
     }
   }
+
+  async function addAllKpisFrom(source: SmartKPISuggestion['source']) {
+    if (!scope.company) return
+    const list = kpiSuggestions.filter((s) => s.source === source && !savedKpiNames.has(s.name))
+    if (list.length === 0) {
+      toast.error('لا مقترحات جديدة من هذا المصدر — كلها مُضافة أو غير موجودة.')
+      return
+    }
+    setCreating(`__ALL_${source}__`)
+    let added = 0
+    for (const s of list) {
+      try {
+        const k = await createKPI({
+          companyId: scope.company.id,
+          name: s.name,
+          unit: s.unit,
+          targetValue: s.targetValue,
+          frequency: s.frequency,
+        })
+        setSavedKpis((prev) => [...prev, k])
+        added++
+      } catch { /* skip individual failures */ }
+    }
+    setCreating(null)
+    if (added > 0) toast.success(`أُضيف ${added} مؤشراً`)
+    else toast.error('تعذّر إضافة أي مؤشر')
+  }
+
+  if (scope.loading) return <LoadingSpinner fullPage label="جاري تحميل الشركة…" />
+  if (!scope.company) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="مركز ذكاء KPIs" />
+        <EmptyState title={scope.error ?? 'لا شركة نشطة'} description="اختر عميلاً أو أكمل التسجيل." />
+      </div>
+    )
+  }
+
+  const clientQ = `?client=${scope.company.id}`
+
+  // نُصنّف المقترحات حسب المصدر لعرضها مجموعات.
+  const bySource: Record<SmartKPISuggestion['source'], SmartKPISuggestion[]> = {
+    specialty: [], opex: [], pain: [], goal: [], audit: [],
+  }
+  for (const s of kpiSuggestions) bySource[s.source].push(s)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={company ? `توصيات SMART — ${company.name}` : 'توصيات SMART'}
+        title={`مركز ذكاء KPIs${specialty ? ' — ' + DEPT_LABEL[specialty] : ''}`}
         description={
-          scope.error
-            ? scope.error
-            : 'أهداف مؤشرات الأداء لكل قسم ورؤى مستخلصة من آخر تدقيق.'
+          specialty
+            ? `${DEPT_ICON[specialty]} توصيات مؤشرات ذكية مبنيّة على تخصّصك + OPEX + آلامك + آخر تدقيق.`
+            : 'حدّد تخصّصك من إعدادات الحساب لتحصل على مقترحات مخصّصة.'
         }
       />
 
-      {loading && <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>}
+      {/* Hero: ملخّص السياق */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <ContextChip icon="🎯" label="تخصّص" value={specialty ? DEPT_LABEL[specialty] : 'غير محدّد'} highlight={!specialty} />
+        <ContextChip icon="💰" label="مستهدف سنوي" value={scope.company.opex?.target ? `${scope.company.opex.target.toLocaleString('ar-SA')} ر.س` : '—'} highlight={!scope.company.opex?.target} />
+        <ContextChip icon="😤" label="آلام مُختارة" value={context.pains.length > 0 ? `${context.pains.length}` : '—'} highlight={context.pains.length === 0} />
+        <ContextChip icon="🩺" label="صحة التدقيق" value={auditHealthPct != null ? `${Math.round(auditHealthPct)}%` : 'لم يبدأ'} highlight={auditHealthPct == null} />
+      </div>
 
-      {!loading && departments.length === 0 && (
-        <Card className="bg-gradient-to-br from-teal-500/10 to-transparent border-teal-200">
-          <CardHeader>
-            <CardTitle>لا توجد أقسام بعد</CardTitle>
-            <CardDescription>اختر قسماً ونفّذ تدقيقه أولاً.</CardDescription>
+      {/* رؤى ذكية */}
+      {insights.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">💡 رؤى ذكية</CardTitle>
+            <CardDescription>مبنيّة على السياق الحالي — عالجها لتحسين جودة المقترحات.</CardDescription>
           </CardHeader>
-        </Card>
-      )}
-
-      {!loading && departments.length > 0 && (
-        <Card className="bg-gradient-to-br from-teal-500/10 to-transparent border-teal-200">
-          <CardHeader>
-            <CardTitle>اختر القسم</CardTitle>
-            <CardDescription>الأقسام التي تم تدقيقها فقط يمكنها توليد التوصيات.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {departments.map((d) => (
-              <Button
-                key={d.id}
-                size="sm"
-                variant={selected === d.id ? 'default' : 'outline'}
-                onClick={() => setSelected(d.id)}
-                disabled={!d.auditScore}
-              >
-                {DEPT_LABEL[d.type]}
-                {d.auditScore != null && <span className="ml-1 text-xs tabular-nums">({Math.round(d.auditScore)}%)</span>}
-              </Button>
-            ))}
-            <div className="ml-auto">
-              <Button onClick={run} disabled={!selected || running}>
-                {running ? 'جاري التوليد…' : 'توليد'}
-              </Button>
-            </div>
+          <CardContent className="grid gap-2">
+            {insights.map((i, idx) => {
+              const style = SEVERITY_STYLE[i.severity]
+              return (
+                <div key={idx} className={`flex items-start gap-3 rounded-lg border p-3 ${style.chip}`}>
+                  <div className="text-lg">{style.icon}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{i.title}</div>
+                    <div className="mt-0.5 text-xs opacity-80">{i.detail}</div>
+                  </div>
+                  <span className="rounded-full border bg-card/60 px-2 py-0.5 text-[10px] font-medium">{style.label}</span>
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
       )}
 
-      {recs && selectedDept && (
-        <>
-          <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-l from-teal-500 via-cyan-500 to-emerald-500" />
-            <CardHeader>
-              <CardTitle>أهداف مؤشرات الأداء — {DEPT_LABEL[selectedDept.type]}</CardTitle>
-              <CardDescription>{recs.kpis.length} مؤشر معدّل حسب صحة التدقيق لديك.</CardDescription>
+      {/* OPEX hint (يُظهر تحذير لو نقص) */}
+      <OpexHint opex={scope.company.opex} title="OPEX الحالي يُغذّي حسابات KPI" />
+
+      {loading && <LoadingSpinner label="جاري تحميل البيانات…" />}
+
+      {/* المقترحات مقسّمة حسب المصدر */}
+      {!loading && kpiSuggestions.length === 0 && (
+        <EmptyState title="لا مقترحات بعد" description="حدّد تخصّصك من الحساب أو أكمل onboarding." />
+      )}
+
+      {(['specialty', 'opex', 'pain', 'goal', 'audit'] as const).map((source) => {
+        const list = bySource[source]
+        if (list.length === 0) return null
+        const src = SOURCE_LABEL[source]
+        const remaining = list.filter((s) => !savedKpiNames.has(s.name)).length
+        return (
+          <Card key={source}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span aria-hidden>{src.icon}</span>
+                  {src.label}
+                  <span className="text-xs font-normal text-muted-foreground">({list.length} مقترح)</span>
+                </CardTitle>
+              </div>
+              {remaining > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addAllKpisFrom(source)}
+                  disabled={creating !== null}
+                >
+                  {creating === `__ALL_${source}__` ? 'جاري…' : `＋ أضِف الكل (${remaining})`}
+                </Button>
+              )}
             </CardHeader>
-            <CardContent>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-right text-muted-foreground">
-                    <th className="py-2">مؤشر الأداء</th>
-                    <th className="py-2">الهدف</th>
-                    <th className="py-2">الوحدة</th>
-                    <th className="py-2">التكرار</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recs.kpis.map((k) => (
-                    <tr key={k.name} className="border-b">
-                      <td className="py-2 font-medium">{k.name}</td>
-                      <td className="py-2 tabular-nums">{k.targetValue}</td>
-                      <td className="py-2 text-muted-foreground">{k.unit}</td>
-                      <td className="py-2 text-muted-foreground">{k.frequency}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <CardContent className="grid gap-2 md:grid-cols-2">
+              {list.map((s) => {
+                const isSaved = savedKpiNames.has(s.name)
+                return (
+                  <div
+                    key={s.key}
+                    className={`rounded-lg border p-3 transition ${
+                      isSaved ? 'border-emerald-300 bg-emerald-50/40' : 'bg-card hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold">{s.name}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span>الهدف: <span className="tabular-nums font-medium text-foreground">{s.targetValue.toLocaleString('ar-SA')} {s.unit}</span></span>
+                          <span>·</span>
+                          <span>{FREQ_LABEL[s.frequency]}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{s.rationale}</p>
+                      </div>
+                      {isSaved ? (
+                        <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
+                          ✓ مُنشَأ
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => addKpi(s)}
+                          disabled={creating !== null}
+                          className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                        >
+                          {creating === s.key ? 'جاري…' : '＋ أضِف'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </CardContent>
           </Card>
+        )
+      })}
 
-          {recs.insights.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>رؤى</CardTitle>
-                <CardDescription>المحاور الأقل نقاطاً تقود التوصيات.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm">
-                  {recs.insights.map((i) => (
-                    <li key={i.axis} className="rounded border p-3 transition hover:-translate-y-0.5 hover:shadow-md">
-                      <div className="text-xs font-medium uppercase text-muted-foreground">{i.axis} · {i.severity}</div>
-                      <p className="mt-1">{i.insight}</p>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-        </>
+      {/* CTA للخطوة التالية */}
+      {savedKpis.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+            <div>
+              <div className="text-sm font-semibold">لديك {savedKpis.length} مؤشراً محفوظاً — الخطوة التالية</div>
+              <div className="text-xs text-muted-foreground">سجّل قراءات دورية لهذه المؤشرات لتراقب الأداء الفعلي.</div>
+            </div>
+            <Link
+              to={`/kpi-entries${clientQ}`}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
+            >
+              افتح إدخالات المؤشرات ←
+            </Link>
+          </CardContent>
+        </Card>
       )}
+    </div>
+  )
+}
+
+function ContextChip({ icon, label, value, highlight }: { icon: string; label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-3 ${highlight ? 'border-amber-300 bg-amber-50/40' : 'bg-card'}`}>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span aria-hidden>{icon}</span>
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold tabular-nums">{value}</div>
     </div>
   )
 }
