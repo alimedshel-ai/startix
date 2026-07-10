@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, getSWOT, putSWOT, seedSwotFromDiagnostic, type SWOT } from '@/lib/strategicApi'
+import { DEPT_QUESTIONS } from '@/lib/deptQuestions'
 import { useAuthStore } from '@/store/authStore'
 
 type Quadrant = 'strengths' | 'weaknesses' | 'opportunities' | 'threats'
@@ -52,6 +53,8 @@ function Editor({ companyId }: { companyId: string }) {
   const [saving, setSaving] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedingPestel, setSeedingPestel] = useState(false)
+  const [seedingDeep, setSeedingDeep] = useState(false)
+  const [seedingGap, setSeedingGap] = useState(false)
 
   useEffect(() => {
     getSWOT(companyId).then((s: SWOT) => {
@@ -171,6 +174,120 @@ function Editor({ companyId }: { companyId: string }) {
     return Array.from(new Set(arr))
   }
 
+  // ─── ترابط: DEPT_DEEP_FULL → SWOT (S/W) ─────────────────────────
+  // يقرأ إجابات التحليل العميق (بنك ٣٣٠ سؤالاً) ويحوّلها إلى نقاط قوة/ضعف
+  // بمنطق بسيط:
+  //   • radio: الخيار الأول = قوة، الخيار الأخير = ضعف، الوسط = يُتجاهل
+  //   • checkbox: فراغ أو "لا يوجد/لا مزايا" = ضعف، عكسه = قوة (تُدرج
+  //     العناصر المُختارة كأدلّة).
+  //   • textarea: يُتجاهل — نصوص حرّة يصعب تصنيفها.
+  // تُدمج مع الموجود بلا تكرار.
+  async function seedFromDeepAnalysis() {
+    if (!specialty) {
+      toast.error('لا تخصّص محدّد — يعمل هذا الزر للمدير المستقل فقط.')
+      return
+    }
+    const bank = DEPT_QUESTIONS[specialty]
+    if (!bank) {
+      toast.error(`بنك أسئلة ${specialty} غير متوفّر.`)
+      return
+    }
+    setSeedingDeep(true)
+    try {
+      interface Deep { deptCode: string; answers: Record<string, string | string[]> }
+      const art = await getArtifact<Deep>(companyId, 'DEPT_DEEP_FULL')
+      if (!art?.data?.answers) {
+        toast.error('لا يوجد تحليل عميق محفوظ — افتح /manager/deep-analysis أوّلاً.')
+        return
+      }
+      const answers = art.data.answers
+      const strengths: string[] = []
+      const weaknesses: string[] = []
+
+      for (const q of bank.questions) {
+        const a = answers[q.id]
+        if (a == null) continue
+        if (q.type === 'radio' && typeof a === 'string') {
+          const idx = q.opts.indexOf(a)
+          if (idx < 0) continue
+          if (idx === 0) strengths.push(a)
+          else if (idx === q.opts.length - 1) weaknesses.push(a)
+        } else if (q.type === 'checkbox' && Array.isArray(a)) {
+          if (a.length === 0) {
+            weaknesses.push(`${q.label.replace(/^[^\p{L}]*/u, '')} — بلا إجابة`)
+            continue
+          }
+          const hasNegative = a.some((x) => /^لا\b|^لا يوجد|^لا مزايا|^غير|^بلا/.test(x))
+          if (hasNegative) weaknesses.push(a.join(' · '))
+          else strengths.push(a.join(' · '))
+        }
+      }
+
+      if (strengths.length === 0 && weaknesses.length === 0) {
+        toast.error('التحليل موجود لكن لم نستخرج قوى/ضعف — تحقّق من ملء أسئلة radio/checkbox.')
+        return
+      }
+
+      setData((prev) => ({
+        ...prev,
+        strengths: uniq([...prev.strengths, ...strengths]),
+        weaknesses: uniq([...prev.weaknesses, ...weaknesses]),
+      }))
+      toast.success(`أُضيف ${strengths.length} قوة و ${weaknesses.length} ضعف من التحليل العميق — راجعها ثم احفظ.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر القراءة من التحليل العميق'))
+    } finally {
+      setSeedingDeep(false)
+    }
+  }
+
+  // ─── ترابط: dept-gap → SWOT (Weaknesses + Strengths) ───────────
+  // الفجوات ذات الفارق (target − current) عالٍ → ضعف صريح.
+  // الفجوات المُقلَبَة (current ≥ target) → قوى.
+  //   • فارق ≥ 30 → weakness ("فجوة كبيرة")
+  //   • فارق 15-29 → weakness ("فجوة متوسطة")
+  //   • فارق < 15 → يُتجاهل (فجوة صغيرة أو محقّقة)
+  //   • current ≥ target ⇒ strength ("متفوّق على المستهدف")
+  async function seedFromDeptGap() {
+    if (!specialty) {
+      toast.error('لا تخصّص محدّد — يعمل هذا الزر للمدير المستقل فقط.')
+      return
+    }
+    setSeedingGap(true)
+    try {
+      interface GapItem { name: string; current: number; target: number; action: string }
+      interface GapData { gaps: GapItem[] }
+      const art = await getArtifact<GapData>(companyId, `GAP_ANALYSIS_${specialty}`)
+      if (!art?.data?.gaps || art.data.gaps.length === 0) {
+        toast.error('لا فجوات محفوظة — افتح /manager/dept-gap أوّلاً.')
+        return
+      }
+      const strengths: string[] = []
+      const weaknesses: string[] = []
+      for (const g of art.data.gaps) {
+        if (!g.name) continue
+        const diff = g.target - g.current
+        if (diff >= 30) weaknesses.push(`${g.name} (${g.current}٪ / مستهدف ${g.target}٪ — فجوة كبيرة)`)
+        else if (diff >= 15) weaknesses.push(`${g.name} (${g.current}٪ / مستهدف ${g.target}٪ — فجوة متوسطة)`)
+        else if (g.current >= g.target && g.target > 0) strengths.push(`${g.name} (${g.current}٪ — يفوق المستهدف)`)
+      }
+      if (strengths.length === 0 && weaknesses.length === 0) {
+        toast.error('الفجوات مسجّلة لكن كلها صغيرة (< 15٪) — لا مخرج قابل للاستخدام.')
+        return
+      }
+      setData((prev) => ({
+        ...prev,
+        strengths: uniq([...prev.strengths, ...strengths]),
+        weaknesses: uniq([...prev.weaknesses, ...weaknesses]),
+      }))
+      toast.success(`أُضيف ${strengths.length} قوة و ${weaknesses.length} ضعف من تحليل الفجوة — راجعها ثم احفظ.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر القراءة من تحليل الفجوة'))
+    } finally {
+      setSeedingGap(false)
+    }
+  }
+
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2">
@@ -216,13 +333,19 @@ function Editor({ companyId }: { companyId: string }) {
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="outline" onClick={seedFromPESTEL} disabled={seedingPestel || seeding || saving}>
-          {seedingPestel ? 'جاري القراءة…' : '🌐 استخرج من PESTEL'}
+        <Button variant="outline" onClick={seedFromDeepAnalysis} disabled={seedingDeep || seedingPestel || seedingGap || seeding || saving}>
+          {seedingDeep ? 'جاري القراءة…' : '🔬 استخرج S/W من التحليل العميق'}
         </Button>
-        <Button variant="outline" onClick={seedFromDiagnostic} disabled={seeding || seedingPestel || saving}>
+        <Button variant="outline" onClick={seedFromDeptGap} disabled={seedingGap || seedingDeep || seedingPestel || seeding || saving}>
+          {seedingGap ? 'جاري القراءة…' : '📐 استخرج S/W من تحليل الفجوة'}
+        </Button>
+        <Button variant="outline" onClick={seedFromPESTEL} disabled={seedingPestel || seedingDeep || seedingGap || seeding || saving}>
+          {seedingPestel ? 'جاري القراءة…' : '🌐 استخرج O/T من PESTEL'}
+        </Button>
+        <Button variant="outline" onClick={seedFromDiagnostic} disabled={seeding || seedingPestel || seedingDeep || seedingGap || saving}>
           {seeding ? 'جاري البذر…' : 'ابنِ من تشخيصي'}
         </Button>
-        <Button onClick={save} disabled={saving || seeding || seedingPestel}>{saving ? 'جاري الحفظ…' : 'حفظ التحليل'}</Button>
+        <Button onClick={save} disabled={saving || seeding || seedingPestel || seedingDeep || seedingGap}>{saving ? 'جاري الحفظ…' : 'حفظ التحليل'}</Button>
       </div>
     </>
   )
