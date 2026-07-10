@@ -39,6 +39,24 @@ const EMPTY: ChoiceData = {
 type Quad = 'SO' | 'ST' | 'WO' | 'WT'
 interface Roadmap { short: string[]; mid: string[]; long: string[] }
 
+// نتيجة تسجيل ذكيّة لاتجاه — تُستخدم في التوصية والترتيب وشرح «لماذا؟».
+interface ScoredDirection {
+  direction: DirectionLite
+  category: Category
+  quadrant: Quad | null
+  score: number       // 0..100
+  breakdown: {
+    base: number       // من قابلية × أثر (٠..٤٠)
+    support: number    // من عدد داعمي SWOT (٠..٢٠)
+    riskPenalty: number // -٠..-١٥
+    quadrant: number   // ٠..١٠
+    pathMatch: number  // ٠..١٥
+  }
+  supportingSwot: string[]  // نصوص SWOT المطابقة (لعرض «لماذا؟»)
+  riskSwot: string[]
+  reasons: string[]   // مبرّرات مختصرة قابلة للعرض في «لماذا؟»
+}
+
 export function ChoicesPage() {
   return (
     <StrategicShell
@@ -69,6 +87,11 @@ function Editor({ companyId }: { companyId: string }) {
   const [quadFilter, setQuadFilter] = useState<Quad | null>(null)
   // لوحة الفلترة مخفيّة افتراضياً — أقل ضوضاء بصريّة.
   const [showFilters, setShowFilters] = useState(false)
+  // نُخفي الاتجاهات ما بعد الأعلى ٣ افتراضياً — تُوسَّع بالضغط.
+  const [showAll, setShowAll] = useState(false)
+  // معرّف الاتجاه الذي فُتح شرح «لماذا؟» له (واحد في المرّة الواحدة).
+  const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null)
+  const strategyPath = useAuthStore((s) => s.user?.strategyPath ?? null)
 
   useEffect(() => {
     Promise.all([
@@ -234,10 +257,14 @@ function Editor({ companyId }: { companyId: string }) {
     if (quadFilter && q !== quadFilter) return false
     return true
   })
-  // ترتيب تنازلي بحسب (قابلية × أثر) — الأعلى في الأعلى.
-  const rankedDirections = [...filteredDirections].sort(
-    (a, b) => b.feasibility * b.impact - a.feasibility * a.impact,
-  )
+  // ترتيب ذكي متعدّد المعايير — القابلية × الأثر + دعم SWOT + مطابقة المسار
+  // + بونص TOWS — ثم نُرشّح الأعلى.
+  const scored: ScoredDirection[] = filteredDirections
+    .map((d) => scoreDirection(d, swot, strategyPath))
+    .sort((a, b) => b.score - a.score)
+  const topThree = scored.slice(0, 3)
+  const rest = scored.slice(3)
+  const bestPick = scored[0] ?? null
   const picked = choice.selectedDirectionId
     ? directions.find((d) => d.id === choice.selectedDirectionId) ?? null
     : null
@@ -272,79 +299,96 @@ function Editor({ companyId }: { companyId: string }) {
       {/* الخطوة ١ — اختيار الاتجاه */}
       {!picked && (
         <>
-          <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 text-center">
-            <div className="text-lg font-bold">
-              👇 اضغط على أفضل اتجاه في نظرك
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              الاتجاهات مرتّبة تنازلياً بحسب (قابلية × أثر) — الأعلى ترتيباً هو الأكثر جاذبية للتنفيذ.
-            </div>
-          </div>
+          {/* 🏆 توصية المنصّة — الاتجاه الأعلى تسجيلاً بشرح تفصيلي */}
+          {bestPick && (
+            <RecommendationCard
+              pick={bestPick}
+              onAccept={() => {
+                const rationale = buildRationale(bestPick.direction, swot)
+                setChoice((p) => ({ ...p, selectedDirectionId: bestPick.direction.id, rationale: p.rationale || rationale }))
+                toast.success(`✓ اخترت «${bestPick.direction.title}» — راجع المبرّر أدناه.`)
+                setTimeout(() => {
+                  document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 100)
+              }}
+            />
+          )}
 
-          <div className="grid gap-3 md:grid-cols-2">
-            {rankedDirections.map((d, i) => {
-              const ev = evidence(d, swot)
-              const q = extractQuadrant(d.title)
-              const cat = categorize(d.title + ' ' + d.description)
-              const catMeta = CATEGORY_META[cat]
-              const score = d.feasibility * d.impact
-              const rankColor = i === 0 ? 'border-emerald-400 bg-emerald-50/40' : i === 1 ? 'border-sky-300 bg-sky-50/40' : 'bg-card'
-              return (
-                <div
-                  key={d.id}
-                  className={`flex flex-col gap-2 rounded-xl border-2 p-4 transition hover:-translate-y-0.5 hover:shadow-md ${rankColor}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex size-8 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
-                      i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-sky-500 text-white' : 'bg-muted text-foreground'
-                    }`}>
-                      #{i + 1}
-                    </span>
-                    <span className="text-2xl" title={catMeta.labelAr}>{catMeta.icon}</span>
-                    <span className="flex-1 text-base font-bold">{d.title || '—'}</span>
-                    <span className="rounded-lg border bg-background px-2 py-1 text-xs font-bold tabular-nums" title="قابلية × أثر">
-                      {score}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                    {d.description || '—'}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1 text-[10px]">
-                    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${catMeta.bgClass} ${catMeta.colorClass}`}>
-                      <span>{catMeta.icon}</span>
-                      <span>{catMeta.labelAr}</span>
-                    </span>
-                    {q && <QuadBadge q={q} />}
-                    {ev.support > 0 && (
-                      <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                        ✓ {ev.support} داعم
-                      </span>
-                    )}
-                    {ev.risk > 0 && (
-                      <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-rose-800">
-                        ⚠️ {ev.risk} خطر
-                      </span>
-                    )}
-                  </div>
-                  <Button
-                    onClick={() => {
-                      const rationale = buildRationale(d, swot)
-                      setChoice((p) => ({ ...p, selectedDirectionId: d.id, rationale: p.rationale || rationale }))
-                      toast.success(`✓ اخترت «${d.title}» — راجع المبرّر والخطة أدناه.`)
+          {scored.length > 1 && (
+            <>
+              <div className="flex items-center justify-between px-2 pt-2">
+                <div className="text-sm font-semibold text-muted-foreground">
+                  بدائل مقترحة {rest.length > 0 ? `(الأعلى ٣ من ${scored.length})` : ''}
+                </div>
+                <span className="text-[10px] text-muted-foreground">اضغط «لماذا؟» على أي بطاقة لفهم الترتيب.</span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {topThree.map((s, i) => (
+                  <RankedCard
+                    key={s.direction.id}
+                    scored={s}
+                    rank={i}
+                    isBest={i === 0 && !bestPick}
+                    expanded={expandedReasonId === s.direction.id}
+                    onToggleReason={() => setExpandedReasonId(expandedReasonId === s.direction.id ? null : s.direction.id)}
+                    onPick={() => {
+                      const rationale = buildRationale(s.direction, swot)
+                      setChoice((p) => ({ ...p, selectedDirectionId: s.direction.id, rationale: p.rationale || rationale }))
+                      toast.success(`✓ اخترت «${s.direction.title}» — راجع المبرّر أدناه.`)
                       setTimeout(() => {
                         document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }, 100)
                     }}
-                    className="mt-1 w-full"
-                    size="lg"
+                  />
+                ))}
+              </div>
+
+              {/* الاتجاهات المتبقّية — مطويّة افتراضياً */}
+              {rest.length > 0 && !showAll && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="mx-auto rounded-full border-2 border-dashed border-muted-foreground/40 bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                >
+                  ▼ أظهر باقي {rest.length} اتجاه (أدنى ترتيباً)
+                </button>
+              )}
+              {rest.length > 0 && showAll && (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {rest.map((s, i) => (
+                      <RankedCard
+                        key={s.direction.id}
+                        scored={s}
+                        rank={i + 3}
+                        isBest={false}
+                        expanded={expandedReasonId === s.direction.id}
+                        onToggleReason={() => setExpandedReasonId(expandedReasonId === s.direction.id ? null : s.direction.id)}
+                        onPick={() => {
+                          const rationale = buildRationale(s.direction, swot)
+                          setChoice((p) => ({ ...p, selectedDirectionId: s.direction.id, rationale: p.rationale || rationale }))
+                          toast.success(`✓ اخترت «${s.direction.title}»`)
+                          setTimeout(() => {
+                            document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }, 100)
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(false)}
+                    className="mx-auto text-xs text-muted-foreground hover:underline"
                   >
-                    ✓ اختر هذا الاتجاه
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-          {rankedDirections.length === 0 && directions.length > 0 && (
+                    ▲ أخفِ البدائل الإضافيّة
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {scored.length === 0 && directions.length > 0 && (
             <p className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
               لا اتجاهات مطابقة للفلترة — امسح الفلترات من الشريط العلوي.
             </p>
@@ -356,7 +400,7 @@ function Editor({ companyId }: { companyId: string }) {
       {picked && (
         <ReviewAndCommit
           picked={picked}
-          allDirections={rankedDirections}
+          allDirections={scored.map((s) => s.direction)}
           swot={swot}
           rationale={choice.rationale}
           onChangeRationale={(v) => setChoice((p) => ({ ...p, rationale: v }))}
@@ -670,6 +714,293 @@ function QuadBadge({ q }: { q: Quad }) {
 function QuadBadgeInline({ q }: { q: Quad }) {
   const label: Record<Quad, string> = { SO: 'هجومي', ST: 'دفاعي', WO: 'تحويلي', WT: 'تقليصي' }
   return <span>{q} • {label[q]}</span>
+}
+
+// ─── 🏆 توصية المنصّة — الاتجاه الأعلى تسجيلاً مع سبب مفصّل ─────
+function RecommendationCard({ pick, onAccept }: { pick: ScoredDirection; onAccept: () => void }) {
+  const cat = CATEGORY_META[pick.category]
+  return (
+    <Card className="overflow-hidden border-2 border-emerald-400 bg-gradient-to-bl from-emerald-500/10 to-primary/5 shadow-md">
+      <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="text-4xl leading-none">🏆</div>
+          <div className="flex-1">
+            <CardDescription className="text-xs font-semibold text-emerald-800">
+              توصية المنصّة — الأعلى ترتيباً بناءً على تحليلاتك
+            </CardDescription>
+            <CardTitle className="mt-1 flex items-center gap-2 text-xl">
+              <span className="text-2xl">{cat.icon}</span>
+              <span>{pick.direction.title}</span>
+            </CardTitle>
+            <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+              <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${cat.bgClass} ${cat.colorClass}`}>
+                <span>{cat.icon}</span>
+                <span>{cat.labelAr}</span>
+              </span>
+              {pick.quadrant && <QuadBadge q={pick.quadrant} />}
+              <span className="rounded-full border border-emerald-400 bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">
+                نقاط ذكيّة: {Math.round(pick.score)}/١٠٠
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {pick.direction.description || '—'}
+        </p>
+
+        {/* لماذا رشّحنا هذا؟ — قائمة مبرّرات محدَّدة */}
+        <div className="rounded-lg border-2 border-dashed border-emerald-300 bg-card p-3">
+          <div className="mb-2 flex items-center gap-1 text-xs font-bold text-emerald-800">
+            <span>🎯</span>
+            <span>لماذا هذا الاتجاه بالتحديد؟</span>
+          </div>
+          <ul className="space-y-1.5 text-xs">
+            {pick.reasons.map((r, i) => (
+              <li key={i} className="flex gap-2 leading-relaxed">
+                <span className="text-emerald-600">✓</span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+          {pick.supportingSwot.length > 0 && (
+            <div className="mt-2 border-t pt-2">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
+                مدعوم بـ {pick.supportingSwot.length} بند من SWOT:
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {pick.supportingSwot.slice(0, 4).map((s, i) => (
+                  <span key={i} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-800">
+                    ✓ {s.length > 40 ? s.slice(0, 40) + '…' : s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {pick.riskSwot.length > 0 && (
+            <div className="mt-2 border-t pt-2">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
+                ⚠️ تحدّيات معروفة — سنعالجها في التنفيذ:
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {pick.riskSwot.slice(0, 2).map((s, i) => (
+                  <span key={i} className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-800">
+                    {s.length > 40 ? s.slice(0, 40) + '…' : s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Button onClick={onAccept} size="lg" className="w-full">
+          ✓ اختر هذا الاتجاه (توصية المنصّة)
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── بطاقة اتجاه في الترتيب — مع «لماذا؟» قابل للفتح ────────────
+function RankedCard({
+  scored, rank, isBest, expanded, onToggleReason, onPick,
+}: {
+  scored: ScoredDirection
+  rank: number
+  isBest: boolean
+  expanded: boolean
+  onToggleReason: () => void
+  onPick: () => void
+}) {
+  const { direction: d, category, quadrant: q, score, breakdown, supportingSwot, riskSwot, reasons } = scored
+  const catMeta = CATEGORY_META[category]
+  const rankColor = rank === 0 ? 'border-emerald-400 bg-emerald-50/40' : rank === 1 ? 'border-sky-300 bg-sky-50/40' : 'bg-card'
+  return (
+    <div className={`flex flex-col gap-2 rounded-xl border-2 p-3 transition hover:-translate-y-0.5 hover:shadow-md ${rankColor}`}>
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex size-8 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
+          rank === 0 ? 'bg-emerald-500 text-white' : rank === 1 ? 'bg-sky-500 text-white' : 'bg-muted text-foreground'
+        }`}>
+          #{rank + 1}
+        </span>
+        <span className="text-xl" title={catMeta.labelAr}>{catMeta.icon}</span>
+        <span className="flex-1 truncate text-sm font-bold">{d.title || '—'}</span>
+        <span
+          className="rounded-md border bg-background px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+          title="نقاط ذكية 0-100"
+        >
+          {Math.round(score)}
+        </span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+        {d.description || '—'}
+      </p>
+      <div className="flex flex-wrap items-center gap-1 text-[9px]">
+        {q && <QuadBadge q={q} />}
+        {supportingSwot.length > 0 && (
+          <span className="rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-800">
+            ✓ {supportingSwot.length} داعم
+          </span>
+        )}
+        {riskSwot.length > 0 && (
+          <span className="rounded-full border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-rose-800">
+            ⚠️ {riskSwot.length} خطر
+          </span>
+        )}
+      </div>
+
+      {/* زرّان: لماذا + اختر */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onToggleReason}
+          className="flex-1 rounded-md border bg-card px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-muted"
+        >
+          {expanded ? '▲ إخفاء' : '❔ لماذا؟'}
+        </button>
+        <Button size="sm" onClick={onPick} className="flex-1">
+          ✓ {isBest ? 'رشّحه' : 'اختر'}
+        </Button>
+      </div>
+
+      {/* شرح «لماذا؟» — يفتح عند الضغط، يُظهر التقسيم والأدلّة */}
+      {expanded && (
+        <div className="rounded-lg border border-dashed bg-muted/20 p-2 text-[11px] space-y-2">
+          {/* تفكيك نقاط التقييم */}
+          <div className="space-y-1">
+            <div className="mb-0.5 font-semibold text-foreground">من أين النقاط ({Math.round(score)}/١٠٠)؟</div>
+            <ScoreBar label={`قابلية × أثر (${d.feasibility}×${d.impact})`} value={breakdown.base} max={40} color="bg-emerald-400" />
+            {breakdown.support > 0 && <ScoreBar label={`أدلّة داعمة (${supportingSwot.length})`} value={breakdown.support} max={20} color="bg-sky-400" />}
+            {breakdown.riskPenalty < 0 && <ScoreBar label={`خصم مخاطر (${riskSwot.length})`} value={Math.abs(breakdown.riskPenalty)} max={15} color="bg-rose-400" negative />}
+            {breakdown.quadrant > 0 && <ScoreBar label={`ربع TOWS (${q})`} value={breakdown.quadrant} max={10} color="bg-amber-400" />}
+            {breakdown.pathMatch > 0 && <ScoreBar label="مطابقة مسارك الاستراتيجي" value={breakdown.pathMatch} max={15} color="bg-violet-400" />}
+          </div>
+
+          {/* مبرّرات نصّية */}
+          {reasons.length > 0 && (
+            <div className="border-t pt-1.5">
+              <div className="mb-0.5 font-semibold text-foreground">ملاحظات:</div>
+              <ul className="space-y-0.5">
+                {reasons.map((r, i) => (
+                  <li key={i} className="flex gap-1.5 leading-relaxed">
+                    <span className="text-primary">•</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScoreBar({ label, value, max, color, negative = false }: { label: string; value: number; max: number; color: string; negative?: boolean }) {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100))
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`tabular-nums font-medium ${negative ? 'text-rose-700' : 'text-foreground'}`}>
+          {negative ? '−' : '+'}{Math.round(value)}
+        </span>
+      </div>
+      <div className="h-1 rounded-full bg-muted">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── التسجيل الذكي — يدمج ٥ مؤشرات ──────────────────────────────
+// النتيجة ٠..١٠٠. المؤشرات:
+//   • base (٠..٤٠): قابلية × أثر منسوباً إلى ٢٥ (الأقصى).
+//   • support (٠..٢٠): ٤ نقاط لكل بند SWOT داعم (بحد ٥).
+//   • riskPenalty (−٠..−١٥): ٣ نقاط سالبة لكل خطر (بحد ٥).
+//   • quadrant (٠..١٠): SO=١٠، WO=٧، ST=٦، WT=٣، بلا=٠.
+//   • pathMatch (٠..١٥): فئة الاتجاه تطابق مسار المدير (QUICK/MEDIUM/LONG).
+function scoreDirection(
+  d: DirectionLite,
+  swot: SWOT | null,
+  path: 'QUICK' | 'MEDIUM' | 'LONG' | null,
+): ScoredDirection {
+  const category = categorize(d.title + ' ' + d.description)
+  const quadrant = extractQuadrant(d.title)
+
+  const base = (d.feasibility * d.impact / 25) * 40
+
+  // أدلّة SWOT — نُطابق نصّياً حتى نعرض النصوص الفعلية للمدير.
+  const supportingSwot: string[] = []
+  const riskSwot: string[] = []
+  if (swot) {
+    const text = (d.title + ' ' + d.description).toLowerCase()
+    const tokens = text.split(/\s+/).filter((w) => w.length > 3)
+    const match = (s: string) => tokens.some((t) => s.toLowerCase().includes(t))
+    if (quadrant === 'SO') {
+      supportingSwot.push(...(swot.strengths ?? []).filter(match))
+      supportingSwot.push(...(swot.opportunities ?? []).filter(match))
+    } else if (quadrant === 'ST') {
+      supportingSwot.push(...(swot.strengths ?? []).filter(match))
+      riskSwot.push(...(swot.threats ?? []).filter(match))
+    } else if (quadrant === 'WO') {
+      supportingSwot.push(...(swot.opportunities ?? []).filter(match))
+      riskSwot.push(...(swot.weaknesses ?? []).filter(match))
+    } else if (quadrant === 'WT') {
+      riskSwot.push(...(swot.weaknesses ?? []).filter(match))
+      riskSwot.push(...(swot.threats ?? []).filter(match))
+    } else {
+      supportingSwot.push(...(swot.strengths ?? []).filter(match))
+      supportingSwot.push(...(swot.opportunities ?? []).filter(match))
+      riskSwot.push(...(swot.weaknesses ?? []).filter(match))
+      riskSwot.push(...(swot.threats ?? []).filter(match))
+    }
+  }
+  const supportCount = Math.min(5, supportingSwot.length)
+  const riskCount = Math.min(5, riskSwot.length)
+  const support = supportCount * 4
+  const riskPenalty = -(riskCount * 3)
+
+  const quadScore: Record<Quad, number> = { SO: 10, WO: 7, ST: 6, WT: 3 }
+  const quadrantPts = quadrant ? quadScore[quadrant] : 0
+
+  const pathPreference: Record<'QUICK' | 'MEDIUM' | 'LONG', Category[]> = {
+    QUICK:  ['efficiency', 'defense', 'customer', 'quality'],
+    MEDIUM: ['growth', 'partnership', 'digital', 'people'],
+    LONG:   ['innovation', 'growth', 'digital'],
+  }
+  const pathMatch = path && pathPreference[path].includes(category) ? 15 : 0
+
+  const score = Math.min(100, Math.max(0, base + support + riskPenalty + quadrantPts + pathMatch))
+
+  // مبرّرات نصّية للعرض في «لماذا؟».
+  const reasons: string[] = []
+  if (d.feasibility >= 4 && d.impact >= 4) reasons.push('قابلية تنفيذ وأثر عاليان معاً — الأثمر والأقل مخاطرة.')
+  else if (d.feasibility >= 4) reasons.push('قابلية تنفيذ عالية — يمكن البدء بسرعة.')
+  else if (d.impact >= 4) reasons.push('أثر متوقّع كبير — مضاعف نتائج.')
+  if (supportCount >= 3) reasons.push(`مدعوم بـ ${supportCount} بند SWOT — قرار مبنيّ على أدلّة.`)
+  if (quadrant === 'SO') reasons.push('في الربع الهجومي — يستفيد من قوّتك ويلاحق فرصة.')
+  else if (quadrant === 'WO') reasons.push('في الربع التحويلي — يعالج ضعفاً ويفتح فرصة.')
+  else if (quadrant === 'ST') reasons.push('في الربع الدفاعي — يوظّف القوّة ضدّ تهديد.')
+  else if (quadrant === 'WT') reasons.push('في الربع التقليصي — قرار حماية عند مواجهة تهديد وضعف معاً.')
+  if (path && pathPreference[path].includes(category)) {
+    reasons.push(`فئته «${CATEGORY_META[category].labelAr}» تناسب مسارك ${path === 'QUICK' ? 'السريع (٠-٣ شهر)' : path === 'MEDIUM' ? 'المتوسط (٣-١٢ شهر)' : 'الطويل (١٢-٣٦+ شهر)'}.`)
+  }
+  if (riskCount > supportCount) reasons.push(`⚠️ عدد المخاطر (${riskCount}) أكبر من الدعم — يحتاج خطة تنفيذ حذرة.`)
+  if (reasons.length === 0) reasons.push('تقييم متوسط — مراجعة يدوية مستحسنة.')
+
+  return {
+    direction: d,
+    category,
+    quadrant,
+    score,
+    breakdown: { base, support, riskPenalty, quadrant: quadrantPts, pathMatch },
+    supportingSwot,
+    riskSwot,
+    reasons,
+  }
 }
 
 // عدّ عام: يُرجع Record<K, number>.
