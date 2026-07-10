@@ -194,8 +194,7 @@ const managerNav: NavSection[] = [
       { to: '/value-chain',           label: 'سلسلة القيمة',              icon: '🔗', proOnly: true },
       // #٣ — Porter الخمس
       { to: '/porter',                label: 'قوى بورتر الخمس',           icon: '⚔️', proOnly: true },
-      // #٤ — PESTEL ⭐ (شركة + إدارة)
-      { to: '/pestel',                label: 'PESTEL على مستوى الشركة',   icon: '🌍', proOnly: true },
+      // #٤ — PESTEL ⭐ (نسخة الإدارة فقط للمدير المستقل — نسخة الشركة مخفيّة)
       { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',            icon: '🌐', proOnly: true },
       // #٥ — القدرات الجوهرية
       { to: '/core-capabilities',     label: 'القدرات الجوهرية',          icon: '💎', proOnly: true },
@@ -241,9 +240,9 @@ const managerNav: NavSection[] = [
     accent: 'rose',
     items: [
       // M1 — التوليف الاستراتيجي لإدارة العميل.
+      // /gap-analysis (نسخة الشركة) مخفيّة — يستخدم المدير /manager/dept-gap.
       { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭', proOnly: true },
       { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄', proOnly: true },
-      { to: '/gap-analysis',    label: 'تحليل الفجوة',      icon: '📐', proOnly: true },
       { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️', proOnly: true },
       { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡', proOnly: true },
     ],

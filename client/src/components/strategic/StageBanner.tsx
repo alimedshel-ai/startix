@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 
-import { JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
+import { filterToolsForUser, JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
+import { useAuthStore } from '@/store/authStore'
 
 // ─── S1 — شريط تسلسل مرئي أعلى كل أداة استراتيجية ──────────────────
 // يعرض المرحلة الحالية، المرحلة السابقة (الاستكمال المُقتَرَح)، والتالية
@@ -16,11 +17,26 @@ function findStage(pathname: string): JourneyStage | null {
 
 export function StageBanner({ clientQuery = '' }: { clientQuery?: string }) {
   const { pathname } = useLocation()
+  const user = useAuthStore((s) => s.user)
+  const isDeptScoped =
+    user?.userType === 'MANAGER' &&
+    user?.managerType === 'INDEPENDENT_PRO' &&
+    user?.specialtyDeptType != null
   const currentStage = findStage(pathname)
   if (!currentStage) return null
 
   const prevStage = JOURNEY_STAGES.find((s) => s.order === currentStage.order - 1) ?? null
   const nextStage = JOURNEY_STAGES.find((s) => s.order === currentStage.order + 1) ?? null
+
+  // نُصفّي أدوات المرحلتين السابقة والتالية لاختيار الرابط الصحيح للمستخدم.
+  const prevPath = prevStage
+    ? filterToolsForUser(prevStage.starredPaths, isDeptScoped)[0]
+      ?? filterToolsForUser(prevStage.toolPaths, isDeptScoped)[0]
+    : null
+  const nextPath = nextStage
+    ? filterToolsForUser(nextStage.starredPaths, isDeptScoped)[0]
+      ?? filterToolsForUser(nextStage.toolPaths, isDeptScoped)[0]
+    : null
 
   const accent = ACCENT_CLASS[currentStage.accent]
 
@@ -50,11 +66,11 @@ export function StageBanner({ clientQuery = '' }: { clientQuery?: string }) {
         </div>
 
         {/* Previous hint */}
-        {prevStage && (
+        {prevStage && prevPath && (
           <div className="hidden items-center gap-1 text-muted-foreground sm:flex">
             <span>· قبلها:</span>
             <Link
-              to={`${prevStage.starredPaths[0] ?? prevStage.toolPaths[0]}${clientQuery}`}
+              to={`${prevPath}${clientQuery}`}
               className="underline-offset-2 hover:underline"
             >
               {prevStage.icon} {shortStageName(prevStage)}
@@ -63,11 +79,11 @@ export function StageBanner({ clientQuery = '' }: { clientQuery?: string }) {
         )}
 
         {/* Next hint */}
-        {nextStage && (
+        {nextStage && nextPath && (
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <span>التالي:</span>
             <Link
-              to={`${nextStage.starredPaths[0] ?? nextStage.toolPaths[0]}${clientQuery}`}
+              to={`${nextPath}${clientQuery}`}
               className="rounded-md border bg-card px-2 py-0.5 text-[10px] font-medium hover:bg-accent"
             >
               {nextStage.icon} {shortStageName(nextStage)} ←

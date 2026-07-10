@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
+import { filterToolsForUser, JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
+import { useAuthStore } from '@/store/authStore'
 
 // ─── S3 — بطاقة «الخطوة التالية» أسفل كل أداة استراتيجية ──────────
 // تُوصي بالأداة التالية في نفس المرحلة إذا كانت موجودة، وإلا بالأداة
@@ -23,21 +24,33 @@ function findStage(pathname: string): { stage: JourneyStage; index: number } | n
 
 export function NextStepCard({ clientQuery = '' }: Props) {
   const { pathname } = useLocation()
+  const user = useAuthStore((s) => s.user)
+  const isDeptScoped =
+    user?.userType === 'MANAGER' &&
+    user?.managerType === 'INDEPENDENT_PRO' &&
+    user?.specialtyDeptType != null
   const cur = findStage(pathname)
   if (!cur) return null
 
-  // الأولوية 1: الأداة التالية في نفس المرحلة (إن وُجدت).
+  // نُصفّي أدوات المرحلة الحالية حسب السياق (نحذف نسخ الشركة للمدير المستقل).
+  const filteredPaths = filterToolsForUser(cur.stage.toolPaths, isDeptScoped)
+  const currentIdx = filteredPaths.indexOf(cur.stage.toolPaths[cur.index])
+  // لو المسار الحالي غير موجود في المُصفَّى (لا يجب أن يحدث بعد التصفية)، نستخدم index=-1.
+
   let nextPath: string | null = null
   let stageIcon = cur.stage.icon
   let stageLabel = 'داخل نفس المرحلة'
 
-  if (cur.index + 1 < cur.stage.toolPaths.length) {
-    nextPath = cur.stage.toolPaths[cur.index + 1]
+  // الأولوية 1: الأداة التالية في نفس المرحلة (بعد التصفية).
+  if (currentIdx >= 0 && currentIdx + 1 < filteredPaths.length) {
+    nextPath = filteredPaths[currentIdx + 1]
   } else {
-    // الأولوية 2: أوّل أداة نجمية في المرحلة التالية.
+    // الأولوية 2: أوّل أداة نجمية (مُصفَّاة) في المرحلة التالية.
     const next = JOURNEY_STAGES.find((s) => s.order === cur.stage.order + 1)
     if (next) {
-      nextPath = next.starredPaths[0] ?? next.toolPaths[0]
+      const nextFiltered = filterToolsForUser(next.starredPaths, isDeptScoped)
+      const nextAll = filterToolsForUser(next.toolPaths, isDeptScoped)
+      nextPath = nextFiltered[0] ?? nextAll[0] ?? null
       stageIcon = next.icon
       stageLabel = next.labelAr
     }

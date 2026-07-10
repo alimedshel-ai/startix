@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
+import { NextStepCard } from '@/components/strategic/NextStepCard'
+import { StageBanner } from '@/components/strategic/StageBanner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -160,6 +162,9 @@ export function DeptPESTELPage() {
         }
       />
 
+      {/* شريط تسلسل المرحلة — يعرض قبل/بعد ويربطها بمسارات مُصفَّاة للمدير */}
+      <StageBanner clientQuery={`?client=${scope.company.id}`} />
+
       {/* 🧠 توليد تلقائي — يملأ كل المحاور بمقترحات مخصّصة لتخصّصك */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
         <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
@@ -228,6 +233,9 @@ export function DeptPESTELPage() {
           {saving ? 'جاري الحفظ…' : 'حفظ PESTEL في القاعدة'}
         </Button>
       </div>
+
+      {/* بطاقة الأداة التالية — انتقال مباشر للخطوة القادمة في التسلسل */}
+      <NextStepCard clientQuery={`?client=${scope.company.id}`} />
     </div>
   )
 }

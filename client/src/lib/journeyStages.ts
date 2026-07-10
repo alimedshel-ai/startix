@@ -202,3 +202,30 @@ export function overallProgressPct(completions: Record<StageId, boolean>): numbe
   const done = locked.filter((s) => completions[s.id]).length
   return locked.length ? Math.round((done / locked.length) * 100) : 0
 }
+
+// ─── سياق المستخدم — يُستخدم لفلترة المسارات ─────────────────────
+// المدير المستقل (INDEPENDENT_PRO) يعمل على إدارة واحدة، فنُخفي أدوات
+// الشركة الكاملة التي لها نظير على مستوى الإدارة:
+//   /pestel           → /manager/dept-pestel
+//   /gap-analysis     → /manager/dept-gap
+// الـOWNER بالعكس — لا نُظهر له أدوات إدارية (لا يوجد له تخصّص).
+
+const DEPT_SCOPED_REPLACEMENTS: Record<string, string> = {
+  '/pestel':       '/manager/dept-pestel',
+  '/gap-analysis': '/manager/dept-gap',
+}
+
+/**
+ * فلترة قائمة toolPaths حسب سياق المستخدم:
+ * - isDeptScoped=true (INDEPENDENT_PRO مع تخصّص): حذف نسخ الشركة، إبقاء نسخ الإدارة.
+ * - isDeptScoped=false: حذف نسخ الإدارة، إبقاء نسخ الشركة.
+ */
+export function filterToolsForUser(paths: string[], isDeptScoped: boolean): string[] {
+  const deptEquivalents = new Set(Object.values(DEPT_SCOPED_REPLACEMENTS))
+  const companyOnly = new Set(Object.keys(DEPT_SCOPED_REPLACEMENTS))
+  return paths.filter((p) => {
+    if (isDeptScoped && companyOnly.has(p)) return false        // مدير مستقل → احذف نسخة الشركة
+    if (!isDeptScoped && deptEquivalents.has(p)) return false   // مالك/داخلي → احذف نسخة الإدارة
+    return true
+  })
+}
