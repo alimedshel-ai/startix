@@ -7,7 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { DEPT_VALUE_CHAIN, type ActivityDef } from '@/lib/deptValueChain'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 interface Activity {
   text: string
@@ -115,12 +118,30 @@ const EMPTY: ValueChainData = {
 }
 
 export function ValueChainPage() {
+  // نُحدّد السياق مبكراً: هل المستخدم مدير مستقل بتخصّص؟ لو نعم → نستخدم سلسلة
+  // قيمة الإدارة (VALUE_CHAIN_<DEPT>) بدل سلسلة القيمة الكلاسيكية للشركة.
+  const user = useAuthStore((s) => s.user)
+  const isDeptScoped =
+    user?.userType === 'MANAGER' &&
+    user?.managerType === 'INDEPENDENT_PRO' &&
+    user?.specialtyDeptType != null &&
+    DEPT_VALUE_CHAIN[user.specialtyDeptType] != null
+
+  const specialty = user?.specialtyDeptType ?? null
+  const title = isDeptScoped
+    ? `سلسلة القيمة — ${DEPT_LABEL[specialty as DeptCode]}`
+    : 'سلسلة القيمة'
+  const description = isDeptScoped
+    ? 'الأنشطة الأساسية والمُمكِّنة لإدارة العميل، مع تقييم نضج كل نشاط.'
+    : 'تحديد الأنشطة الأساسية والمساندة وفق نموذج بورتر، مع تقييم نضج كل نشاط من 1 إلى 5.'
+
   return (
-    <StrategicShell
-      title="سلسلة القيمة"
-      description="تحديد الأنشطة الأساسية والمساندة وفق نموذج بورتر، مع تقييم نضج كل نشاط من 1 إلى 5."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
+    <StrategicShell title={title} description={description}>
+      {(companyId) =>
+        isDeptScoped
+          ? <DeptScopedEditor companyId={companyId} specialty={specialty as DeptCode} />
+          : <Editor companyId={companyId} />
+      }
     </StrategicShell>
   )
 }
@@ -276,6 +297,212 @@ function ActivityCard({
         <div className="mt-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">اختر ما يصفك (يضبط النضج):</div>
           {templates.map((t) => {
+            const chosen = activity.text === t.text
+            return (
+              <button
+                key={t.text}
+                type="button"
+                onClick={() => onChange({ text: t.text, rating: t.rating })}
+                className={`block w-full rounded-md border px-2 py-1 text-right text-[11px] transition ${
+                  chosen
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-muted-foreground/20 bg-background/60 hover:bg-primary/5'
+                }`}
+              >
+                <span className="tabular-nums font-bold text-muted-foreground">{t.rating}★</span>
+                <span className="mr-1.5">{t.text}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className="mt-2 flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">النضج:</span>
+        <select
+          className="rounded-md border bg-background px-2 py-1"
+          value={activity.rating}
+          onChange={(e) => onChange({ rating: Number(e.target.value) as Activity['rating'] })}
+        >
+          {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <span className="text-muted-foreground">1 = ضعيف · 5 = ممتاز</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── سلسلة قيمة على مستوى الإدارة (للمدير المستقل الخبير) ───────────
+// شكل التخزين: {core: Record<key, Activity>, enablers: Record<key, Activity>}
+// نوع الـartifact: VALUE_CHAIN_<DEPT> — مستقلّ عن سلسلة القيمة الشركية.
+
+interface DeptVCData {
+  core: Record<string, Activity>
+  enablers: Record<string, Activity>
+}
+
+function DeptScopedEditor({ companyId, specialty }: { companyId: string; specialty: DeptCode }) {
+  const config = DEPT_VALUE_CHAIN[specialty]!
+  const empty: DeptVCData = {
+    core: Object.fromEntries(config.core.map((a) => [a.key, emptyActivity()])),
+    enablers: Object.fromEntries(config.enablers.map((a) => [a.key, emptyActivity()])),
+  }
+
+  const [data, setData] = useState<DeptVCData>(empty)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    getArtifact<DeptVCData>(companyId, `VALUE_CHAIN_${specialty}`).then((row) => {
+      if (row?.data) {
+        setData({
+          core: { ...empty.core, ...row.data.core },
+          enablers: { ...empty.enablers, ...row.data.enablers },
+        })
+        setSavedAt(row.updatedAt)
+      }
+    }).catch(() => undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, specialty])
+
+  function update(group: 'core' | 'enablers', key: string, patch: Partial<Activity>) {
+    setData((p) => ({
+      ...p,
+      [group]: { ...p[group], [key]: { ...(p[group][key] ?? emptyActivity()), ...patch } },
+    }))
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const saved = await upsertArtifact(companyId, `VALUE_CHAIN_${specialty}`, data)
+      setSavedAt(saved.updatedAt)
+      toast.success('تم حفظ سلسلة قيمة الإدارة')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'فشل الحفظ'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const all = [
+    ...config.core.map((a) => data.core[a.key] ?? emptyActivity()),
+    ...config.enablers.map((a) => data.enablers[a.key] ?? emptyActivity()),
+  ]
+  const avg = Math.round((all.reduce((s, a) => s + a.rating, 0) / all.length) * 20)
+
+  return (
+    <>
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+          <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+            🎯 السياق: إدارة {DEPT_LABEL[specialty]} فقط
+          </span>
+          <span className="text-muted-foreground">
+            الأنشطة أدناه مخصّصة لهذه الإدارة (وليست سلسلة قيمة الشركة الكاملة).
+          </span>
+          {savedAt && (
+            <span className="ml-auto text-muted-foreground">
+              آخر حفظ: {new Date(savedAt).toLocaleDateString('ar-SA')}
+            </span>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden border-emerald-200 bg-gradient-to-bl from-emerald-500/10 to-transparent">
+        <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
+        <CardHeader>
+          <CardTitle>متوسط نضج الإدارة</CardTitle>
+          <CardDescription>
+            {config.core.length} نشاط أساسي + {config.enablers.length} مُمكِّن.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="text-3xl font-bold tabular-nums text-emerald-700">{avg}%</div>
+          <Progress value={avg} className="h-2" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="text-xl">⚡</span>
+            الأنشطة الأساسية للإدارة
+          </CardTitle>
+          <CardDescription>الأنشطة التي تُنتج قيمة إدارتك مباشرة.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
+            {config.core.map((a) => (
+              <DeptActivityCard
+                key={a.key}
+                def={a}
+                tint="border-sky-200 bg-sky-50/40"
+                activity={data.core[a.key] ?? emptyActivity()}
+                onChange={(patch) => update('core', a.key, patch)}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="text-xl">🧱</span>
+            الأنشطة المُمكِّنة
+          </CardTitle>
+          <CardDescription>الأنشطة الداعمة التي تُمكّن الأنشطة الأساسية.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {config.enablers.map((a) => (
+              <DeptActivityCard
+                key={a.key}
+                def={a}
+                tint="border-violet-200 bg-violet-50/40"
+                activity={data.enablers[a.key] ?? emptyActivity()}
+                onChange={(patch) => update('enablers', a.key, patch)}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="sticky bottom-4 z-10 flex justify-end">
+        <Button onClick={save} disabled={saving} size="lg" className="shadow-lg">
+          {saving ? 'جاري الحفظ…' : 'حفظ سلسلة قيمة الإدارة'}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+function DeptActivityCard({
+  def, tint, activity, onChange,
+}: {
+  def: ActivityDef
+  tint: string
+  activity: Activity
+  onChange: (patch: Partial<Activity>) => void
+}) {
+  return (
+    <div className={`rounded-xl border p-3 ${tint}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{def.icon}</span>
+        <h4 className="text-sm font-semibold">{def.labelAr}</h4>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{def.desc}</p>
+      <Textarea
+        rows={2}
+        className="mt-2 bg-background"
+        value={activity.text}
+        onChange={(e) => onChange({ text: e.target.value })}
+        placeholder="وصف موجز للوضع الحالي…"
+      />
+      {def.templates.length > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">اختر ما يصفك (يضبط النضج):</div>
+          {def.templates.map((t) => {
             const chosen = activity.text === t.text
             return (
               <button

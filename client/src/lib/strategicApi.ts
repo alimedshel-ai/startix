@@ -7,6 +7,7 @@ import type { Company, DeptCode } from './deptApi'
 type DeptScopedArtifactType =
   | `PESTEL_${DeptCode}`
   | `GAP_ANALYSIS_${DeptCode}`
+  | `VALUE_CHAIN_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
