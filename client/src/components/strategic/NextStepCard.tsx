@@ -5,10 +5,17 @@ import { filterToolsForUser, JOURNEY_STAGES, type JourneyStage } from '@/lib/jou
 import { useAuthStore } from '@/store/authStore'
 
 // ─── S3 — بطاقة «الخطوة التالية» أسفل كل أداة استراتيجية ──────────
-// تُوصي بالأداة التالية في نفس المرحلة إذا كانت موجودة، وإلا بالأداة
-// النجمية (⭐) من المرحلة التالية. نقاط الاتصال:
-//   • داخل المرحلة: نستخدم toolPaths كتسلسل صريح.
-//   • بين المراحل: نستخدم starredPaths[0] من المرحلة اللاحقة.
+// المبدأ: نتقدّم دائماً للأمام — لا نُعيد المدير لأدوات مُتوازية في
+// نفس المرحلة. مثال: /porter و /pestel كلتاهما "عدسات استكشاف" في
+// المرحلة ①، فالانتقال من إحداهما للأخرى ليس تقدّماً — الأدوات
+// المُتوازية يصل إليها المدير عبر السايدبار.
+//
+// المنطق:
+//   ١) إذا كانت الأداة الحالية ⭐ (starred): جرّب الأداة ⭐ التالية في
+//      نفس المرحلة (مثل SWOT→TOWS، directions→BMC→choices، KPIs→OGSM).
+//   ٢) وإلا (الأداة الحالية غير ⭐، أي "عدسة مساندة"): اقفز إلى ⭐ الأولى
+//      في المرحلة التالية. هذا يمنع الدوّامات بين الأدوات المتوازية.
+//   ٣) إذا لا مرحلة تالية → لا نعرض شيئاً.
 
 interface Props {
   clientQuery?: string
@@ -32,25 +39,25 @@ export function NextStepCard({ clientQuery = '' }: Props) {
   const cur = findStage(pathname)
   if (!cur) return null
 
-  // نُصفّي أدوات المرحلة الحالية حسب السياق (نحذف نسخ الشركة للمدير المستقل).
-  const filteredPaths = filterToolsForUser(cur.stage.toolPaths, isDeptScoped)
-  const currentIdx = filteredPaths.indexOf(cur.stage.toolPaths[cur.index])
-  // لو المسار الحالي غير موجود في المُصفَّى (لا يجب أن يحدث بعد التصفية)، نستخدم index=-1.
+  // أدوات المرحلة النجمية (⭐) — الترتيب الحقيقي للتقدّم.
+  const starredFiltered = filterToolsForUser(cur.stage.starredPaths, isDeptScoped)
+  const currentPath = cur.stage.toolPaths[cur.index]
+  const starredIdx = starredFiltered.indexOf(currentPath)
 
   let nextPath: string | null = null
   let stageIcon = cur.stage.icon
   let stageLabel = 'داخل نفس المرحلة'
 
-  // الأولوية 1: الأداة التالية في نفس المرحلة (بعد التصفية).
-  if (currentIdx >= 0 && currentIdx + 1 < filteredPaths.length) {
-    nextPath = filteredPaths[currentIdx + 1]
+  if (starredIdx >= 0 && starredIdx + 1 < starredFiltered.length) {
+    // ١) الأداة الحالية ⭐ ولها ⭐ تالية → اقتراح خطي طبيعي (SWOT→TOWS، …).
+    nextPath = starredFiltered[starredIdx + 1]
   } else {
-    // الأولوية 2: أوّل أداة نجمية (مُصفَّاة) في المرحلة التالية.
+    // ٢) الحالية عدسة مساندة (أو آخر ⭐ في المرحلة) → اقفز للمرحلة التالية.
     const next = JOURNEY_STAGES.find((s) => s.order === cur.stage.order + 1)
     if (next) {
-      const nextFiltered = filterToolsForUser(next.starredPaths, isDeptScoped)
+      const nextStarred = filterToolsForUser(next.starredPaths, isDeptScoped)
       const nextAll = filterToolsForUser(next.toolPaths, isDeptScoped)
-      nextPath = nextFiltered[0] ?? nextAll[0] ?? null
+      nextPath = nextStarred[0] ?? nextAll[0] ?? null
       stageIcon = next.icon
       stageLabel = next.labelAr
     }
