@@ -67,6 +67,8 @@ function Editor({ companyId }: { companyId: string }) {
   const [categoryFilter, setCategoryFilter] = useState<Category | null>(null)
   // فلترة بحسب ربع TOWS (SO/ST/WO/WT).
   const [quadFilter, setQuadFilter] = useState<Quad | null>(null)
+  // لوحة الفلترة مخفيّة افتراضياً — أقل ضوضاء بصريّة.
+  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -222,7 +224,7 @@ function Editor({ companyId }: { companyId: string }) {
     )
   }
 
-  // إحصاءات الفئات + الأرباع لعرض رقائق الفلترة.
+  // إحصاءات الفئات + الأرباع لعرض رقائق الفلترة (تحت زر «فلترة» فقط).
   const categoryCounts = countBy(directions, (d) => categorize(d.title + ' ' + d.description))
   const quadCounts = countBy(directions, (d) => extractQuadrant(d.title) ?? 'none')
   const filteredDirections = directions.filter((d) => {
@@ -232,248 +234,426 @@ function Editor({ companyId }: { companyId: string }) {
     if (quadFilter && q !== quadFilter) return false
     return true
   })
+  // ترتيب تنازلي بحسب (قابلية × أثر) — الأعلى في الأعلى.
+  const rankedDirections = [...filteredDirections].sort(
+    (a, b) => b.feasibility * b.impact - a.feasibility * a.impact,
+  )
+  const picked = choice.selectedDirectionId
+    ? directions.find((d) => d.id === choice.selectedDirectionId) ?? null
+    : null
+  const currentStep: 1 | 2 | 3 = picked ? (choice.rationale.trim() ? 3 : 2) : 1
 
   return (
     <>
-      {/* لوحة جاهزية البيانات — يحث المدير على تجهيز التحليلات قبل القرار */}
-      <ReadinessBar readiness={readiness} />
+      {/* شريط علوي مضغوط: خطوات + جاهزية + فلترة */}
+      <StepStrip
+        currentStep={currentStep}
+        readiness={readiness}
+        directionsCount={directions.length}
+        swot={swot}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
+        hasActiveFilter={!!(categoryFilter || quadFilter)}
+        onClearFilters={() => { setCategoryFilter(null); setQuadFilter(null) }}
+      />
 
-      {/* بطاقة أدلّة موجزة من SWOT — تُعطي المدير صورة سريعة */}
-      {swot && (
-        <EvidenceSummary swot={swot} directionsCount={directions.length} />
+      {/* لوحة فلترة مخفيّة افتراضياً — تظهر فقط عند الضغط على "فلترة" */}
+      {showFilters && (
+        <FilterPanel
+          categoryCounts={categoryCounts}
+          quadCounts={quadCounts}
+          categoryFilter={categoryFilter}
+          quadFilter={quadFilter}
+          onCategoryToggle={(c) => setCategoryFilter(categoryFilter === c ? null : c)}
+          onQuadToggle={(q) => setQuadFilter(quadFilter === q ? null : q)}
+        />
       )}
 
-      {/* رقائق فلترة الفئات (نمو/كفاءة/رقمنة/…) — تُظهر فقط الأنواع الموجودة */}
-      {Object.keys(categoryCounts).length > 1 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">🏷️ فلترة الاتجاهات حسب النوع</CardTitle>
-            <CardDescription className="text-xs">
-              اضغط أيقونة لعرض اتجاهات نوعها فقط، أو اضغط ثانياً للإلغاء.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-1.5">
-            {(Object.keys(categoryCounts) as Category[]).map((cat) => {
-              const meta = CATEGORY_META[cat]
-              const active = categoryFilter === cat
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategoryFilter(active ? null : cat)}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                    active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : `${meta.bgClass} ${meta.colorClass}`
-                  }`}
-                >
-                  <span>{meta.icon}</span>
-                  <span>{meta.labelAr}</span>
-                  <span className="rounded-full bg-card/70 px-1.5 text-[10px] font-bold">{categoryCounts[cat]}</span>
-                </button>
-              )
-            })}
-            {(quadFilter || categoryFilter) && (
-              <button
-                type="button"
-                onClick={() => { setCategoryFilter(null); setQuadFilter(null) }}
-                className="ml-2 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-card"
-              >
-                × إزالة الفلترات
-              </button>
-            )}
-          </CardContent>
-          {/* رقائق الأرباع (SO/ST/WO/WT) — للاتجاهات المُستوردة من TOWS */}
-          {(quadCounts.SO ?? 0) + (quadCounts.ST ?? 0) + (quadCounts.WO ?? 0) + (quadCounts.WT ?? 0) > 0 && (
-            <CardContent className="pt-0">
-              <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">فلترة حسب ربع TOWS:</div>
-              <div className="flex flex-wrap gap-1.5">
-                {(['SO', 'ST', 'WO', 'WT'] as Quad[]).map((q) => {
-                  const cnt = quadCounts[q] ?? 0
-                  if (cnt === 0) return null
-                  const active = quadFilter === q
-                  return (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => setQuadFilter(active ? null : q)}
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition ${
-                        active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : 'bg-card hover:bg-muted'
-                      }`}
-                    >
-                      <QuadBadgeInline q={q} />
-                      <span className="rounded-full bg-card/70 px-1 text-[9px] font-bold">{cnt}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
+      {/* الخطوة ١ — اختيار الاتجاه */}
+      {!picked && (
+        <>
+          <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 text-center">
+            <div className="text-lg font-bold">
+              👇 اضغط على أفضل اتجاه في نظرك
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              الاتجاهات مرتّبة تنازلياً بحسب (قابلية × أثر) — الأعلى ترتيباً هو الأكثر جاذبية للتنفيذ.
+            </div>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>اختر اتجاهاً</CardTitle>
-          <CardDescription>
-            {filteredDirections.length}{filteredDirections.length !== directions.length ? ` من ${directions.length}` : ''} اتجاه —
-            كل بطاقة تعرض الأدلّة الداعمة من تحليلاتك السابقة.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
-            {filteredDirections.map((d) => {
-              const selected = choice.selectedDirectionId === d.id
+            {rankedDirections.map((d, i) => {
               const ev = evidence(d, swot)
               const q = extractQuadrant(d.title)
               const cat = categorize(d.title + ' ' + d.description)
               const catMeta = CATEGORY_META[cat]
+              const score = d.feasibility * d.impact
+              const rankColor = i === 0 ? 'border-emerald-400 bg-emerald-50/40' : i === 1 ? 'border-sky-300 bg-sky-50/40' : 'bg-card'
               return (
-                <button
+                <div
                   key={d.id}
-                  type="button"
-                  onClick={() => setChoice((p) => ({ ...p, selectedDirectionId: d.id }))}
-                  className={`rounded-xl border p-4 text-right transition ${
-                    selected
-                      ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/40'
-                      : 'bg-card hover:-translate-y-0.5 hover:shadow-sm'
-                  }`}
+                  className={`flex flex-col gap-2 rounded-xl border-2 p-4 transition hover:-translate-y-0.5 hover:shadow-md ${rankColor}`}
                 >
                   <div className="flex items-center gap-2">
+                    <span className={`inline-flex size-8 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
+                      i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-sky-500 text-white' : 'bg-muted text-foreground'
+                    }`}>
+                      #{i + 1}
+                    </span>
                     <span className="text-2xl" title={catMeta.labelAr}>{catMeta.icon}</span>
-                    <span className="flex-1 font-semibold">{d.title || '—'}</span>
-                    <span className="rounded-md border bg-background px-2 py-0.5 text-xs tabular-nums" title="قابلية × أثر">
-                      {d.feasibility * d.impact}
+                    <span className="flex-1 text-base font-bold">{d.title || '—'}</span>
+                    <span className="rounded-lg border bg-background px-2 py-1 text-xs font-bold tabular-nums" title="قابلية × أثر">
+                      {score}
                     </span>
                   </div>
-                  {/* شارة تصنيف الفئة */}
-                  <div className="mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-medium bg-muted/40">
-                    <span>{catMeta.icon}</span>
-                    <span>{catMeta.labelAr}</span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-3">
+                  <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
                     {d.description || '—'}
                   </p>
-                  {/* دلائل */}
-                  <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px]">
+                  <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${catMeta.bgClass} ${catMeta.colorClass}`}>
+                      <span>{catMeta.icon}</span>
+                      <span>{catMeta.labelAr}</span>
+                    </span>
                     {q && <QuadBadge q={q} />}
                     {ev.support > 0 && (
                       <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                        ✓ {ev.support} داعم من SWOT
+                        ✓ {ev.support} داعم
                       </span>
                     )}
                     {ev.risk > 0 && (
                       <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-rose-800">
-                        ⚠️ {ev.risk} خطر مرتبط
-                      </span>
-                    )}
-                    {ev.support === 0 && ev.risk === 0 && !q && (
-                      <span className="rounded-full border border-dashed px-2 py-0.5 text-muted-foreground">
-                        لا بيانات ربط — أكمل SWOT/TOWS
+                        ⚠️ {ev.risk} خطر
                       </span>
                     )}
                   </div>
-                  {selected && <div className="mt-2 text-xs font-medium text-primary">✓ مختار</div>}
-                </button>
+                  <Button
+                    onClick={() => {
+                      const rationale = buildRationale(d, swot)
+                      setChoice((p) => ({ ...p, selectedDirectionId: d.id, rationale: p.rationale || rationale }))
+                      toast.success(`✓ اخترت «${d.title}» — راجع المبرّر والخطة أدناه.`)
+                      setTimeout(() => {
+                        document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }, 100)
+                    }}
+                    className="mt-1 w-full"
+                    size="lg"
+                  >
+                    ✓ اختر هذا الاتجاه
+                  </Button>
+                </div>
               )
             })}
           </div>
-          {filteredDirections.length === 0 && directions.length > 0 && (
+          {rankedDirections.length === 0 && directions.length > 0 && (
             <p className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-              لا اتجاهات مطابقة للفلترة — امسح الفلترات أعلاه.
+              لا اتجاهات مطابقة للفلترة — امسح الفلترات من الشريط العلوي.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
 
-      {/* أزرار عمل سريع للاتجاه المختار — قبل التثبيت */}
-      {choice.selectedDirectionId && (() => {
-        const picked = directions.find((d) => d.id === choice.selectedDirectionId)
-        if (!picked) return null
-        const cat = categorize(picked.title + ' ' + picked.description)
-        return <QuickActionsCard direction={picked} category={cat} />
-      })()}
+      {/* الخطوات ٢+٣ — بعد الاختيار: مراجعة + تثبيت */}
+      {picked && (
+        <ReviewAndCommit
+          picked={picked}
+          allDirections={rankedDirections}
+          swot={swot}
+          rationale={choice.rationale}
+          onChangeRationale={(v) => setChoice((p) => ({ ...p, rationale: v }))}
+          onRegenerate={generateRationale}
+          onPickAnother={(id) => {
+            const d = directions.find((x) => x.id === id)
+            if (!d) return
+            const rationale = buildRationale(d, swot)
+            setChoice((p) => ({ ...p, selectedDirectionId: id, rationale }))
+          }}
+          onUnpick={() => setChoice(EMPTY)}
+          onCommit={commit}
+          saving={saving}
+        />
+      )}
+    </>
+  )
+}
 
-      {/* معاينة خارطة التنفيذ قبل الحفظ (للاتجاه المختار) */}
-      {choice.selectedDirectionId && (() => {
-        const picked = directions.find((d) => d.id === choice.selectedDirectionId)
-        if (!picked) return null
-        const rm = buildRoadmap(picked, swot)
-        return <RoadmapCard roadmap={rm} preview />
-      })()}
+// ─── شريط الخطوات (خطوة ١-٢-٣ + جاهزية موجزة + فلترة) ─────────
+function StepStrip({
+  currentStep,
+  readiness,
+  directionsCount,
+  swot,
+  showFilters,
+  onToggleFilters,
+  hasActiveFilter,
+  onClearFilters,
+}: {
+  currentStep: 1 | 2 | 3
+  readiness: { pestel: boolean; swot: boolean; tows: boolean; directions: boolean }
+  directionsCount: number
+  swot: SWOT | null
+  showFilters: boolean
+  onToggleFilters: () => void
+  hasActiveFilter: boolean
+  onClearFilters: () => void
+}) {
+  const readyCount = [readiness.pestel, readiness.swot, readiness.tows, readiness.directions].filter(Boolean).length
+  const swotCounts = swot
+    ? (swot.strengths?.length ?? 0) + (swot.weaknesses?.length ?? 0) + (swot.opportunities?.length ?? 0) + (swot.threats?.length ?? 0)
+    : 0
+  const steps = [
+    { n: 1, icon: '👆', labelAr: 'اختر' },
+    { n: 2, icon: '📝', labelAr: 'راجع' },
+    { n: 3, icon: '🔒', labelAr: 'ثبّت' },
+  ] as const
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+        {/* خطوات ١-٢-٣ */}
+        <div className="flex items-center gap-2">
+          {steps.map((s, i) => {
+            const active = s.n === currentStep
+            const done = s.n < currentStep
+            return (
+              <div key={s.n} className="flex items-center gap-1.5">
+                <div
+                  className={`inline-flex items-center gap-1 rounded-full border-2 px-2.5 py-1 text-xs font-medium transition ${
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                      : done
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-muted-foreground/20 bg-card text-muted-foreground'
+                  }`}
+                >
+                  <span>{done ? '✓' : s.icon}</span>
+                  <span>{s.labelAr}</span>
+                </div>
+                {i < steps.length - 1 && (
+                  <span className="text-muted-foreground/50" aria-hidden>◀</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
 
+        {/* حالة مضغوطة: جاهزية + عدد الاتجاهات + عناصر SWOT */}
+        <div className="flex flex-wrap items-center gap-2 text-[10px]">
+          <span
+            title="جاهزية القرار: PESTEL + SWOT + TOWS + Directions"
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+              readyCount === 4 ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-amber-300 bg-amber-50 text-amber-800'
+            }`}
+          >
+            <span>📊</span>
+            <span>جاهزية {readyCount}/٤</span>
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border bg-card px-2 py-0.5 text-muted-foreground">
+            <span>🎯</span>
+            <span>{directionsCount} اتجاه</span>
+          </span>
+          {swotCounts > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full border bg-card px-2 py-0.5 text-muted-foreground">
+              <span>🧭</span>
+              <span>{swotCounts} بند SWOT</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onToggleFilters}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition ${
+              showFilters || hasActiveFilter ? 'border-primary bg-primary/10 text-primary' : 'bg-card hover:bg-muted'
+            }`}
+          >
+            <span>🎛️</span>
+            <span>{hasActiveFilter ? 'فلترة نشطة' : 'فلترة'}</span>
+          </button>
+          {hasActiveFilter && (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-muted-foreground hover:bg-card"
+            >
+              × مسح
+            </button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── لوحة فلترة قابلة للطي (مضغوطة، لا تظهر افتراضياً) ───────────
+function FilterPanel({
+  categoryCounts, quadCounts,
+  categoryFilter, quadFilter,
+  onCategoryToggle, onQuadToggle,
+}: {
+  categoryCounts: Partial<Record<Category, number>>
+  quadCounts: Partial<Record<string, number>>
+  categoryFilter: Category | null
+  quadFilter: Quad | null
+  onCategoryToggle: (c: Category) => void
+  onQuadToggle: (q: Quad) => void
+}) {
+  const catKeys = Object.keys(categoryCounts) as Category[]
+  const hasQuad = (['SO', 'ST', 'WO', 'WT'] as Quad[]).some((q) => (quadCounts[q] ?? 0) > 0)
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardContent className="space-y-2 p-3">
+        {catKeys.length > 1 && (
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">حسب النوع:</div>
+            <div className="flex flex-wrap gap-1.5">
+              {catKeys.map((cat) => {
+                const meta = CATEGORY_META[cat]
+                const active = categoryFilter === cat
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => onCategoryToggle(cat)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                      active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : `${meta.bgClass} ${meta.colorClass}`
+                    }`}
+                  >
+                    <span>{meta.icon}</span>
+                    <span>{meta.labelAr}</span>
+                    <span className="rounded-full bg-card/70 px-1 text-[10px] font-bold">{categoryCounts[cat]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {hasQuad && (
+          <div>
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">حسب ربع TOWS:</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['SO', 'ST', 'WO', 'WT'] as Quad[]).map((q) => {
+                const cnt = quadCounts[q] ?? 0
+                if (cnt === 0) return null
+                const active = quadFilter === q
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => onQuadToggle(q)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition ${
+                      active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : 'bg-card hover:bg-muted'
+                    }`}
+                  >
+                    <QuadBadgeInline q={q} />
+                    <span className="rounded-full bg-card/70 px-1 text-[9px] font-bold">{cnt}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── مراجعة + تثبيت — كل شيء في مكان واحد بعد الاختيار ─────────
+function ReviewAndCommit({
+  picked, allDirections, swot,
+  rationale, onChangeRationale, onRegenerate,
+  onPickAnother, onUnpick,
+  onCommit, saving,
+}: {
+  picked: DirectionLite
+  allDirections: DirectionLite[]
+  swot: SWOT | null
+  rationale: string
+  onChangeRationale: (v: string) => void
+  onRegenerate: () => void
+  onPickAnother: (id: string) => void
+  onUnpick: () => void
+  onCommit: () => void
+  saving: boolean
+}) {
+  const cat = categorize(picked.title + ' ' + picked.description)
+  const catMeta = CATEGORY_META[cat]
+  const rm = buildRoadmap(picked, swot)
+  const ev = evidence(picked, swot)
+  return (
+    <>
+      {/* شريط تبديل — الاتجاه المختار + بقية الاتجاهات مضغوطة للتبديل السريع */}
+      <div id="choice-review" className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-primary bg-primary/5 p-3">
+        <span className="text-xs font-medium text-muted-foreground">اخترت:</span>
+        <span className="text-2xl">{catMeta.icon}</span>
+        <span className="flex-1 text-base font-bold">{picked.title}</span>
+        <span className="rounded-md border bg-background px-2 py-0.5 text-xs font-bold tabular-nums">
+          {picked.feasibility * picked.impact}
+        </span>
+        {ev.support > 0 && (
+          <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-800">
+            ✓ {ev.support} داعم
+          </span>
+        )}
+        <Button variant="ghost" size="sm" onClick={onUnpick}>
+          ← غيّر اختياري
+        </Button>
+      </div>
+
+      {/* تبديل سريع بين الاتجاهات — أزرار صغيرة */}
+      {allDirections.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card/40 p-2 text-[10px]">
+          <span className="text-muted-foreground">تبديل سريع:</span>
+          {allDirections.filter((d) => d.id !== picked.id).slice(0, 5).map((d) => {
+            const c = CATEGORY_META[categorize(d.title + ' ' + d.description)]
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => onPickAnother(d.id)}
+                className="inline-flex items-center gap-1 rounded-full border bg-card px-2 py-0.5 hover:bg-primary hover:text-primary-foreground"
+                title={d.title}
+              >
+                <span>{c.icon}</span>
+                <span className="max-w-[10rem] truncate">{d.title}</span>
+                <span className="rounded bg-muted px-1 tabular-nums">{d.feasibility * d.impact}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* المبرّر — مولّد تلقائياً، قابل للتعديل */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <CardTitle>المبررات</CardTitle>
-              <CardDescription>لماذا اخترت هذا الاتجاه دون غيره؟</CardDescription>
+              <CardTitle className="text-sm">📝 المبرّر (مولّد تلقائياً — عدّله إن شئت)</CardTitle>
+              <CardDescription className="text-xs">لماذا اخترت هذا الاتجاه دون غيره؟</CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={generateRationale}
-              disabled={!choice.selectedDirectionId}
-              title={!choice.selectedDirectionId ? 'اختر اتجاهاً أولاً' : 'توليد مبرّر تلقائي'}
-            >
-              🧠 ولّد مبرّراً من التحليل
-            </Button>
+            <Button variant="outline" size="sm" onClick={onRegenerate}>🧠 أعد التوليد</Button>
           </div>
         </CardHeader>
         <CardContent>
           <Textarea
-            rows={5}
-            value={choice.rationale}
-            onChange={(e) => setChoice((p) => ({ ...p, rationale: e.target.value }))}
+            rows={4}
+            value={rationale}
+            onChange={(e) => onChangeRationale(e.target.value)}
             placeholder="مثال: هذا الاتجاه يستفيد من قوة الفريق ويعالج فجوة سوقية واضحة…"
           />
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={commit} disabled={saving}>{saving ? 'جاري الحفظ…' : '🔒 تثبيت القرار'}</Button>
+      {/* خارطة تنفيذ مضغوطة (٣ أعمدة) */}
+      <RoadmapCard roadmap={rm} preview />
+
+      {/* زر التثبيت — كبير وواضح */}
+      <div className="sticky bottom-4 z-10 flex justify-end">
+        <Button onClick={onCommit} disabled={saving} size="lg" className="shadow-lg">
+          {saving ? 'جاري الحفظ…' : '🔒 ثبّت القرار'}
+        </Button>
       </div>
     </>
   )
 }
 
 // ─── مكوّنات مساعدة ──────────────────────────────────────────────
-
-function ReadinessBar({ readiness }: { readiness: { pestel: boolean; swot: boolean; tows: boolean; directions: boolean } }) {
-  const items = [
-    { key: 'pestel', label: 'PESTEL', to: '/pestel' },
-    { key: 'swot', label: 'SWOT', to: '/swot' },
-    { key: 'tows', label: 'TOWS', to: '/tows' },
-    { key: 'directions', label: 'الاتجاهات', to: '/directions' },
-  ] as const
-  const doneCount = items.filter((i) => readiness[i.key]).length
-  const pct = Math.round((doneCount / items.length) * 100)
-  const tone = pct === 100 ? 'border-emerald-300 bg-emerald-50/60' : pct >= 50 ? 'border-sky-300 bg-sky-50/60' : 'border-amber-300 bg-amber-50/60'
-  return (
-    <Card className={tone}>
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-bold">جاهزية القرار: {doneCount}/{items.length}</span>
-          {items.map((i) => (
-            <Link
-              key={i.key}
-              to={i.to}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition ${
-                readiness[i.key]
-                  ? 'border-emerald-300 bg-card text-emerald-700'
-                  : 'border-dashed text-muted-foreground hover:bg-card'
-              }`}
-            >
-              <span>{readiness[i.key] ? '✓' : '○'}</span>
-              <span>{i.label}</span>
-            </Link>
-          ))}
-        </div>
-        <span className="text-muted-foreground">
-          {pct === 100 ? '🎯 كل الأدوات جاهزة — قرارك سيكون مبنياً على أدلّة.' : 'كلّما زادت التحليلات، زادت جودة الأدلّة المرافقة.'}
-        </span>
-      </CardContent>
-    </Card>
-  )
-}
 
 function QuadBadge({ q }: { q: Quad }) {
   const meta: Record<Quad, { label: string; cls: string }> = {
@@ -490,86 +670,6 @@ function QuadBadge({ q }: { q: Quad }) {
 function QuadBadgeInline({ q }: { q: Quad }) {
   const label: Record<Quad, string> = { SO: 'هجومي', ST: 'دفاعي', WO: 'تحويلي', WT: 'تقليصي' }
   return <span>{q} • {label[q]}</span>
-}
-
-// ملخّص أدلّة SWOT — يعرض العدّ لكل جانب لمساعدة المدير على قراءة الوضع.
-function EvidenceSummary({ swot, directionsCount }: { swot: SWOT; directionsCount: number }) {
-  const items = [
-    { icon: '💪', labelAr: 'قوّة', count: swot.strengths?.length ?? 0, cls: 'border-emerald-300 bg-emerald-50 text-emerald-800' },
-    { icon: '🎯', labelAr: 'فرص', count: swot.opportunities?.length ?? 0, cls: 'border-sky-300 bg-sky-50 text-sky-800' },
-    { icon: '⚠️', labelAr: 'ضعف', count: swot.weaknesses?.length ?? 0, cls: 'border-amber-300 bg-amber-50 text-amber-800' },
-    { icon: '🛑', labelAr: 'تهديد', count: swot.threats?.length ?? 0, cls: 'border-rose-300 bg-rose-50 text-rose-800' },
-  ]
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">📊 صورة الوضع الحالي</CardTitle>
-        <CardDescription className="text-xs">
-          {directionsCount} اتجاه محفوظ · {items.reduce((s, i) => s + i.count, 0)} بند SWOT · اقرأ الأدلّة أولاً ثم اختر بثقة.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {items.map((i) => (
-            <div key={i.labelAr} className={`rounded-lg border p-2 text-center ${i.cls}`}>
-              <div className="text-xl">{i.icon}</div>
-              <div className="mt-0.5 text-xl font-bold tabular-nums">{i.count}</div>
-              <div className="text-[10px]">{i.labelAr}</div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// أزرار عمل سريعة للاتجاه المختار — الأدوات ذات الصلة بالفئة.
-function QuickActionsCard({ direction, category }: { direction: DirectionLite; category: Category }) {
-  const catMeta = CATEGORY_META[category]
-  // مسارات مناسبة لكل فئة — تفتح الأداة المناسبة بلا فقدان سياق.
-  const actions: { icon: string; label: string; to: string; hint: string }[] = []
-  actions.push({ icon: '🔭', label: 'اعرضه على الآفاق الثلاثة', to: '/three-horizons', hint: 'حدد أين يقع: قصير/متوسط/بعيد' })
-  actions.push({ icon: '💡', label: 'حوّله لمبادرات', to: '/initiatives', hint: 'إجراءات قابلة للتنفيذ' })
-  if (category === 'growth' || category === 'innovation') {
-    actions.push({ icon: '📈', label: 'قارِن بمصفوفة أنسوف', to: '/ansoff', hint: 'اختراق/تطوير/تنويع' })
-  }
-  if (category === 'efficiency' || category === 'digital') {
-    actions.push({ icon: '⚡', label: 'رتّبه في مصفوفة الأولوية', to: '/priority-matrix', hint: 'جدول التنفيذ' })
-  }
-  if (category === 'defense' || category === 'exit') {
-    actions.push({ icon: '⚠️', label: 'ادرِج المخاطر', to: '/risk-map', hint: 'حدد المخاطر التنفيذية' })
-  }
-  return (
-    <Card className={`border-2 ${catMeta.bgClass}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <span className="text-2xl">{catMeta.icon}</span>
-          <span>خطوات مقترحة — {catMeta.labelAr}</span>
-        </CardTitle>
-        <CardDescription className="text-xs">
-          {catMeta.descAr} · «{direction.title}»
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {actions.map((a) => (
-            <Link
-              key={a.label}
-              to={a.to}
-              className="flex items-start gap-2 rounded-lg border bg-card p-2.5 text-right transition hover:-translate-y-0.5 hover:shadow-sm"
-            >
-              <span className="text-lg leading-none">{a.icon}</span>
-              <div className="flex-1">
-                <div className="text-xs font-semibold">{a.label}</div>
-                <div className="text-[10px] text-muted-foreground">{a.hint}</div>
-              </div>
-              <span className="text-xs text-primary">←</span>
-            </Link>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
 }
 
 // عدّ عام: يُرجع Record<K, number>.
