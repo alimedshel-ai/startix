@@ -13,6 +13,7 @@ type DeptScopedArtifactType =
   | `BENCHMARK_${DeptCode}`
   | `ORG_DNA_${DeptCode}`
   | `STAKEHOLDERS_${DeptCode}`
+  | `BMC_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
