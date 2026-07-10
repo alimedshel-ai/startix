@@ -59,6 +59,7 @@ const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
   `GAP_ANALYSIS_${d}` as const,
   `VALUE_CHAIN_${d}` as const,
   `INTERNAL_ENV_${d}` as const,
+  `PORTER_${d}` as const,
 ]);
 
 const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;

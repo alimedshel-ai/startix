@@ -9,6 +9,7 @@ type DeptScopedArtifactType =
   | `GAP_ANALYSIS_${DeptCode}`
   | `VALUE_CHAIN_${DeptCode}`
   | `INTERNAL_ENV_${DeptCode}`
+  | `PORTER_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
