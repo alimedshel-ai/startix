@@ -64,6 +64,7 @@ const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
   `ORG_DNA_${d}` as const,
   `STAKEHOLDERS_${d}` as const,
   `BMC_${d}` as const,
+  `THREE_HORIZONS_${d}` as const,
 ]);
 
 const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;
