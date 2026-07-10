@@ -111,16 +111,31 @@ function Editor({ companyId }: { companyId: string }) {
   }
 
   // ─── ترابط: PESTEL → SWOT (Opportunities + Threats) ────────────────
-  // يقرأ عوامل PESTEL (dept-scoped أو company) ويوزّعها:
-  //   • Factor بأثر ≤ 2  → opportunity (تأثير سلبي منخفض = فرصة اِستغلال)
-  //   • Factor بأثر ≥ 4  → threat      (تأثير سلبي عالي)
-  //   • Factor أثره 3    → opportunity افتراضاً (يمكن للمستخدم نقلها)
-  //   • نصوص خام (dept-pestel) → opportunities افتراضاً — للمراجعة اليدوية.
-  // الهدف: كسر عزلة الأدوات. المدير لا يعيد كتابة ما جمعه في PESTEL.
+  // نستخدم منطق تصنيف مبنيّ على نوع المحور + مؤشّرات نصّية:
+  //   • Political / Legal / Environmental → تُصنَّف تلقائياً كتهديدات
+  //     (قوانين، لوائح، اشتراطات = ضغوط خارجية).
+  //   • Economic / Social / Technological → تُصنَّف كفرص افتراضاً
+  //     (اتجاهات نمو، تحوّلات، تقنيات جديدة).
+  //   • إشارات نصّية تكسر القاعدة:
+  //     - كلمات "تراجع/ارتفاع تكاليف/تشدّد/شح/تضخم/انخفاض/غرامة" → تهديد
+  //     - كلمات "نمو/فرصة/رؤية 2030/دعم/تسهيل/توسّع/تحفيز" → فرصة
+  //   • للـcompany-wide PESTEL: نستخدم impact rating.
+  const AXIS_DEFAULT: Record<string, 'opportunity' | 'threat'> = {
+    political: 'threat', legal: 'threat', environmental: 'threat',
+    economic: 'opportunity', social: 'opportunity', technological: 'opportunity',
+  }
+  const THREAT_KEYWORDS = /تراجع|ارتفاع تكاليف|تشدّد|شحّ|تضخم|انخفاض|غرام|قيود|منع|حظر|صعوبة|أزمة|خطر|مخاطر|تحدّي/
+  const OPP_KEYWORDS = /نمو|فرصة|رؤية 2030|دعم|تسهيل|توسّع|تحفيز|تشجيع|إعفاء|تخفيض|زيادة الطلب|طفرة/
+
+  function classifyLine(axis: string, line: string): 'opportunity' | 'threat' {
+    if (THREAT_KEYWORDS.test(line)) return 'threat'
+    if (OPP_KEYWORDS.test(line)) return 'opportunity'
+    return AXIS_DEFAULT[axis] ?? 'opportunity'
+  }
+
   async function seedFromPESTEL() {
     setSeedingPestel(true)
     try {
-      // نُحاول أوّلاً dept-scoped (نصوص طويلة)، ثم company-wide (Factor arrays).
       const opps: string[] = []
       const thrs: string[] = []
       if (specialty) {
@@ -130,12 +145,15 @@ function Editor({ companyId }: { companyId: string }) {
             const raw = deptArt.data[axis]
             if (typeof raw !== 'string') continue
             for (const line of raw.split('\n').map((s) => s.replace(/^[•\-·]\s*/, '').trim()).filter(Boolean)) {
-              opps.push(`[${axis}] ${line}`)
+              const target = classifyLine(axis, line)
+              const tagged = `[${axis}] ${line}`
+              if (target === 'threat') thrs.push(tagged)
+              else opps.push(tagged)
             }
           }
         }
       }
-      if (opps.length === 0) {
+      if (opps.length === 0 && thrs.length === 0) {
         // fallback على PESTEL على مستوى الشركة (owner shape).
         interface F { text: string; impact: number }
         const coArt = await getArtifact<Record<string, F[]>>(companyId, 'PESTEL')
@@ -204,22 +222,50 @@ function Editor({ companyId }: { companyId: string }) {
       const strengths: string[] = []
       const weaknesses: string[] = []
 
+      // نُنظّف label السؤال من رموز البداية (📊/📋/إلخ) وعلامة الاستفهام.
+      const clean = (label: string) => label
+        .replace(/^[^\p{L}]*/u, '').trim()   // احذف emoji وعلامات
+        .replace(/؟$/, '').trim()             // احذف علامة استفهام نهائية
+      // إشارات نصّية تكشف الجواب السلبي حتى لو أول بالفهرس.
+      const isNegativeAnswer = (v: string) =>
+        /^لا\b|^لا يوجد|^غير|^بلا|^ضعيف|^منخفض|^سيّئ|^فوضوي|^عشوائي|^متدنّ|^أكثر من|^جامد|^غائب/i.test(v.trim())
+      const isPositiveAnswer = (v: string) =>
+        /^نعم\b|^ممتاز|^جيد جداً|^متكامل|^دقيق|^حديث|^رقمي|^كامل|^متطوّر|^عالي/i.test(v.trim())
+
       for (const q of bank.questions) {
         const a = answers[q.id]
         if (a == null) continue
+
         if (q.type === 'radio' && typeof a === 'string') {
           const idx = q.opts.indexOf(a)
           if (idx < 0) continue
-          if (idx === 0) strengths.push(a)
-          else if (idx === q.opts.length - 1) weaknesses.push(a)
+          const label = clean(q.label)
+          // إشارات نصّية أوّلاً (أدق من الاعتماد على الفهرس فقط).
+          if (isNegativeAnswer(a)) {
+            weaknesses.push(`${label} — ${a}`)
+          } else if (isPositiveAnswer(a)) {
+            strengths.push(`${label} — ${a}`)
+          } else if (idx === 0 && q.opts.length >= 3) {
+            // الافتراضي: أوّل خيار في بنك ٣+ خيارات = الأفضل عادةً.
+            strengths.push(`${label} — ${a}`)
+          } else if (idx === q.opts.length - 1 && q.opts.length >= 3) {
+            weaknesses.push(`${label} — ${a}`)
+          }
+          // الوسط (idx=1 من 3) يُتجاهل — غير حاسم.
         } else if (q.type === 'checkbox' && Array.isArray(a)) {
+          const label = clean(q.label)
           if (a.length === 0) {
-            weaknesses.push(`${q.label.replace(/^[^\p{L}]*/u, '')} — بلا إجابة`)
+            weaknesses.push(`${label} — بلا اختيار`)
             continue
           }
-          const hasNegative = a.some((x) => /^لا\b|^لا يوجد|^لا مزايا|^غير|^بلا/.test(x))
-          if (hasNegative) weaknesses.push(a.join(' · '))
-          else strengths.push(a.join(' · '))
+          const hasNegative = a.some(isNegativeAnswer)
+          const positives = a.filter((x) => !isNegativeAnswer(x))
+          if (hasNegative && positives.length === 0) {
+            weaknesses.push(`${label} — ${a.join(' · ')}`)
+          } else if (positives.length >= 3) {
+            strengths.push(`${label} — ${positives.slice(0, 3).join(' · ')}${positives.length > 3 ? '…' : ''}`)
+          }
+          // 1-2 إجابات positive: غير حاسم، نُتجاهل لتقليل الضجيج.
         }
       }
 

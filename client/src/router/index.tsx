@@ -152,15 +152,9 @@ export const router = createBrowserRouter([
               // (المدير المستقل يحتاجها لتحليل بيئة إدارة العميل).
               // /pestel, /porter, /benchmarking, /stakeholders, /org-dna,
               // /value-chain, /core-capabilities → shared.
-              // M1 tools moved to shared area below (accessible to MANAGER too).
-              { path: '/ambition-gap', element: <AmbitionGapPage /> },
-              { path: '/strategic-tensions', element: <StrategicTensionsPage /> },
-              { path: '/scenarios', element: <ScenariosPage /> },
-              { path: '/space', element: <SPACEMatrixPage /> },
-              { path: '/qspm', element: <QSPMPage /> },
-              { path: '/three-horizons', element: <ThreeHorizonsPage /> },
-              // /directions, /choices, /ansoff, /bcg moved to shared area below
-              // (المدير المستقل يحتاجها لبناء استراتيجية العميل).
+              // Stage-③ direction tools moved to shared area (المدير يحتاجها).
+              // /three-horizons, /scenarios, /space, /qspm, /ambition-gap,
+              // /strategic-tensions → shared.
               // M2 execution tools moved to shared area below.
               // /priority-matrix moved to shared area below.
               // M2 execution tools (initiatives, projects, gantt, tasks, kpi-entries) moved to shared area below.
@@ -254,6 +248,12 @@ export const router = createBrowserRouter([
               { path: '/choices', element: <ChoicesPage /> },
               { path: '/ansoff', element: <AnsoffMatrixPage /> },
               { path: '/bcg', element: <BCGMatrixPage /> },
+              { path: '/three-horizons', element: <ThreeHorizonsPage /> },
+              { path: '/scenarios', element: <ScenariosPage /> },
+              { path: '/space', element: <SPACEMatrixPage /> },
+              { path: '/qspm', element: <QSPMPage /> },
+              { path: '/ambition-gap', element: <AmbitionGapPage /> },
+              { path: '/strategic-tensions', element: <StrategicTensionsPage /> },
               // M2 — أدوات التنفيذ.
               { path: '/objectives', element: <ObjectivesPage /> },
               { path: '/ogsm', element: <OGSMPage /> },

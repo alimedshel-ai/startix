@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { PageHeader } from '@/components/PageHeader'
+import { NextStepCard } from '@/components/strategic/NextStepCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { DeptAuditWizard } from '@/components/dept/DeptAuditWizard'
@@ -134,6 +136,9 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
         }
       />
 
+      {/* لماذا التدقيق؟ — بطاقة قيمة (تظهر دائماً قبل النتيجة أو الأسئلة) */}
+      <AuditValueCard deptCode={deptCode} />
+
       {mode === 'loading' && (
         <Card>
           <CardHeader>
@@ -164,7 +169,10 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
             savedAt={savedAt}
             onRetake={() => setMode('wizard')}
           />
+          {/* بعد اكتمال التدقيق: بطاقة "الأدوات التي فُتِحت الآن" */}
+          <UnlockedToolsCard deptCode={deptCode} clientQuery={company ? `?client=${company.id}` : ''} />
           {afterResult ? afterResult(deptId) : null}
+          <NextStepCard clientQuery={company ? `?client=${company.id}` : ''} />
         </>
       )}
 
@@ -243,6 +251,97 @@ function SavedAuditCard({
             )
           })}
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── لماذا هذا التدقيق؟ — بطاقة قيمة ─────────────────────────────
+// المدير المستقل يفتح صفحة التدقيق، فيحتاج فهم لماذا يقضي ١٠ دقائق فيها.
+// هذه البطاقة تُوضّح:
+//   1) ماذا يقيس التدقيق (٤ محاور).
+//   2) كم من الوقت يستغرق.
+//   3) ما الأدوات التي تُفتح تلقائياً بعده.
+
+function AuditValueCard({ deptCode }: { deptCode: DeptCode }) {
+  return (
+    <Card className="overflow-hidden border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5">
+      <div className="h-1 bg-gradient-to-l from-primary to-violet-500" />
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span aria-hidden>🎯</span>
+          لماذا هذا التدقيق؟
+        </CardTitle>
+        <CardDescription>
+          تقييم نضج إدارة {DEPT_LABEL[deptCode]} على ٤ محاور — يستغرق ٥-١٠ دقائق.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border bg-card p-3">
+          <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            ما تحصل عليه:
+          </div>
+          <ul className="space-y-1 text-sm">
+            <li>✓ درجة صحّة إجمالية (٠-١٠٠٪)</li>
+            <li>✓ درجة كل محور: حوكمة / مالي / فريق / رقمي</li>
+            <li>✓ منطقة الخطر (آمن / تحذير / خطر / حرج)</li>
+            <li>✓ مقارنة مع تدقيقات سابقة</li>
+          </ul>
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            ما يفتح تلقائياً بعده:
+          </div>
+          <ul className="space-y-1 text-sm">
+            <li>🎯 البيئة الداخلية (7S)</li>
+            <li>🧠 ذكاء KPIs (مؤشرات مخصّصة)</li>
+            <li>📐 تحليل الفجوة (تلقائي)</li>
+            <li>🗺️ الخطة الاستراتيجية</li>
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── بعد التدقيق: ما الذي فُتِح؟ ───────────────────────────────────
+function UnlockedToolsCard({ deptCode, clientQuery }: { deptCode: DeptCode; clientQuery: string }) {
+  const _ = deptCode // للاستخدام المستقبلي — عرض روابط مخصّصة لكل تخصّص
+  void _
+  const tools = [
+    { icon: '🎯', label: 'البيئة الداخلية (7S)', to: `/internal-environment${clientQuery}`, desc: 'يُوَلَّد تلقائياً من درجات المحاور' },
+    { icon: '🧠', label: 'ذكاء KPIs',             to: `/manager/dept-smart${clientQuery}`,   desc: 'مقاييس مخصّصة تُنشأ في القاعدة' },
+    { icon: '📐', label: 'تحليل الفجوة',           to: `/manager/dept-gap${clientQuery}`,    desc: 'محاور من التدقيق مع خطة معالجة' },
+    { icon: '🌐', label: 'PESTEL للإدارة',         to: `/manager/dept-pestel${clientQuery}`, desc: 'العوامل الخارجية بمقترحات جاهزة' },
+    { icon: '⚔️', label: 'قوى بورتر الخمس',        to: `/porter${clientQuery}`,               desc: 'مُعاد تفسير القوى لتخصّصك' },
+    { icon: '🗺️', label: 'الخطة الاستراتيجية',    to: `/manager/strategic-plan${clientQuery}`, desc: 'مسار موصى به حسب صحّتك' },
+  ]
+  return (
+    <Card className="border-emerald-200 bg-emerald-50/40">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span aria-hidden>🎉</span>
+          الأدوات التي فُتِحت لك الآن
+        </CardTitle>
+        <CardDescription>
+          نتيجة التدقيق تُغذّي كل هذه الأدوات — كل واحدة بضغطة واحدة.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map((t) => (
+          <Link
+            key={t.to}
+            to={t.to}
+            className="group flex items-start gap-2 rounded-lg border bg-card p-2.5 transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <span className="text-xl" aria-hidden>{t.icon}</span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">{t.label}</div>
+              <div className="text-[11px] text-muted-foreground">{t.desc}</div>
+            </div>
+            <span className="text-xs opacity-0 transition group-hover:opacity-100">←</span>
+          </Link>
+        ))}
       </CardContent>
     </Card>
   )

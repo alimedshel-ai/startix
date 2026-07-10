@@ -139,9 +139,11 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     accent: 'violet',
     toolPaths: [
       '/initiatives', '/priority-matrix', '/risk-map',
-      '/ai/simulation', '/projects',
       // R6 — أيزنهاور و RACI ينتميان للمرحلة ٥ (المبادرات والمسؤوليات).
-      '/eisenhower', '/raci',
+      '/eisenhower', '/raci', '/projects',
+      // مختبر المحاكاة يحتاج Claude API (PROFESSIONAL) — نُبقيه في نهاية
+      // المرحلة كأداة اختيارية بدل عرقلة المسار بأداة قد لا تعمل بالحدّ الأدنى.
+      '/ai/simulation',
     ],
     starredPaths: ['/initiatives', '/raci', '/eisenhower'],
     completionArtifacts: ['PRIORITY_MATRIX', 'RISK_REGISTER', 'EISENHOWER', 'RACI'],
