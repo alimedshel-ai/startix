@@ -110,12 +110,34 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
   const [data, setData] = useState<PorterData>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  // جاهزية البيانات: هل التدقيق والبيئة الداخلية مكتَملَان؟ يُحدّد
+  // شكل CTA (نُظهر فقط ما ينقص، ولا نُظهر أي CTA لو الاثنان مكتَملَان).
+  const [readiness, setReadiness] = useState({ audit: false, internalEnv: false, loaded: false })
 
   useEffect(() => {
     getArtifact<PorterData>(companyId, artifactType).then((row) => {
       if (row?.data) setData({ ...EMPTY, ...row.data })
     }).catch(() => undefined)
-  }, [companyId, artifactType])
+    // فحص الجاهزية بالتوازي مع تحميل بيانات Porter.
+    ;(async () => {
+      let hasAudit = false
+      let hasInternal = false
+      if (specialty) {
+        try {
+          const deps = await listDepartments(companyId)
+          const d = deps.find((x) => x.type === specialty)
+          hasAudit = !!d?.auditData
+        } catch { /* ignore */ }
+      }
+      try {
+        const art = await getArtifact(
+          companyId, specialty ? `INTERNAL_ENV_${specialty}` : 'INTERNAL_ENV',
+        )
+        hasInternal = !!art
+      } catch { /* ignore */ }
+      setReadiness({ audit: hasAudit, internalEnv: hasInternal, loaded: true })
+    })()
+  }, [companyId, artifactType, specialty])
 
   async function save() {
     setSaving(true)
@@ -163,7 +185,12 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
       }
 
       if (!auditScores && internalAvg == null) {
-        toast.error('لا بيانات كافية — أَجرِ تدقيقاً أو أكمل البيئة الداخلية أوّلاً.')
+        // رسالة مُحدَّدة: نقول للمدير الأداتَين اللتين ينقصهما بالاسم.
+        const missing = [
+          !auditScores && (specialty ? `تدقيق ${DEPT_LABEL[specialty]}` : 'التدقيق الأساسي'),
+          internalAvg == null && 'تحليل البيئة الداخلية (7S)',
+        ].filter(Boolean).join(' و ')
+        toast.error(`لا يمكن التوليد — ينقصك: ${missing}. أكمل واحدة منهما ثم عد.`)
         return
       }
 
@@ -288,20 +315,23 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
         </CardContent>
       </Card>
 
-      {/* CTA لبدء التحليل السابق لو ما فيه بيانات */}
-      {specialty && (
-        <Card className="border-amber-200 bg-amber-50/40">
-          <CardContent className="flex items-center gap-3 p-3 text-xs">
-            <span>💡</span>
-            <span className="flex-1">
-              نتائج التوليد التلقائي أدق كلما زادت بياناتك — أَجرِ التدقيق الأساسي أو أكمل البيئة الداخلية أوّلاً.
+      {/* CTA جاهزية البيانات — يُظهر بالتحديد ما ينقص + رابط لكل ناقص.
+         لا يظهر إلا عند تحميل الجاهزية، ويختفي حين تكتمل الاثنتان. */}
+      {readiness.loaded && !(readiness.audit && readiness.internalEnv) && (
+        <ReadinessCTA
+          audit={readiness.audit}
+          internalEnv={readiness.internalEnv}
+          companyId={companyId}
+          specialty={specialty}
+        />
+      )}
+      {readiness.loaded && readiness.audit && readiness.internalEnv && (
+        <Card className="border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex items-center gap-2 p-3 text-xs text-emerald-800">
+            <span>✅</span>
+            <span>
+              بياناتك جاهزة — التدقيق والبيئة الداخلية مكتَملَان. توليد Porter التلقائي سيكون بجودة عالية.
             </span>
-            <Link
-              to={`/internal-environment?client=${companyId}`}
-              className="rounded-md border bg-card px-3 py-1.5 hover:bg-accent"
-            >
-              البيئة الداخلية ←
-            </Link>
           </CardContent>
         </Card>
       )}
@@ -383,5 +413,103 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
         </Card>
       </div>
     </>
+  )
+}
+
+// خريطة مسارات تدقيق الإدارات — مطابقة nav.ts/router.
+const DEPT_AUDIT_PATH: Record<DeptCode, string> = {
+  HR: '/manager/hr/audit',
+  FINANCE: '/manager/finance/audit',
+  SALES: '/manager/sales/audit',
+  MARKETING: '/manager/marketing/audit',
+  OPERATIONS: '/manager/operations/audit',
+  IT: '/manager/it/audit',
+  CUSTOMER_SERVICE: '/manager/cs/audit',
+  SUPPORT: '/manager/cs/audit',
+  LOGISTICS: '/manager/logistics/audit',
+  QUALITY: '/manager/quality/audit',
+  PROJECTS: '/manager/projects/audit',
+  COMPLIANCE: '/manager/compliance/audit',
+  GOVERNANCE: '/manager/governance/audit',
+}
+
+// ─── CTA جاهزية البيانات — يقول للمدير بالتحديد ما ينقص ─────────
+// يعرض حالة كل مصدر (✓ مكتمل / ✗ ناقص) + زر انتقال مباشر لإكمال
+// الناقص فقط. أوضح بكثير من رسالة عامّة «أكمل شيئاً».
+function ReadinessCTA({
+  audit, internalEnv, companyId, specialty,
+}: {
+  audit: boolean
+  internalEnv: boolean
+  companyId: string
+  specialty: DeptCode | null
+}) {
+  const clientQ = `?client=${companyId}`
+  const auditPath = specialty ? DEPT_AUDIT_PATH[specialty] : null
+  const internalPath = `/internal-environment${clientQ}`
+  const items = [
+    {
+      done: audit,
+      icon: '📋',
+      label: specialty ? `تدقيق ${DEPT_LABEL[specialty]}` : 'التدقيق الأساسي',
+      hint: 'يزوّد Porter بدرجات الحوكمة والمالية والفريق والرقمنة.',
+      to: auditPath ? `${auditPath}${clientQ}` : null,
+      cta: 'ابدأ التدقيق ←',
+    },
+    {
+      done: internalEnv,
+      icon: '🏛️',
+      label: 'البيئة الداخلية (7S)',
+      hint: 'يزوّد Porter بمتوسط قدرات المنظمة الداخلية.',
+      to: internalPath,
+      cta: 'ابدأ البيئة الداخلية ←',
+    },
+  ]
+  const missingCount = items.filter((i) => !i.done).length
+  return (
+    <Card className="border-amber-300 bg-amber-50/60">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <span className="text-xl">⚠️</span>
+          <span>ينقصك {missingCount} تحليل قبل التوليد التلقائي الدقيق</span>
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {missingCount === 2
+            ? 'لن يعمل زر «✨ ولّد الآن» بدون بيانات — أكمل تحليلاً واحداً على الأقل، أفضل الاثنَين.'
+            : 'زر «✨ ولّد الآن» يعمل لكن سيكون أدقّ عند اكتمال المصدر الناقص.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2 sm:grid-cols-2">
+        {items.map((i) => (
+          <div
+            key={i.label}
+            className={`rounded-lg border p-3 ${
+              i.done ? 'border-emerald-300 bg-emerald-50/70' : 'border-amber-300 bg-card'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{i.icon}</span>
+              <span className="flex-1 text-sm font-semibold">{i.label}</span>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                  i.done ? 'border-emerald-400 bg-emerald-100 text-emerald-800' : 'border-rose-300 bg-rose-50 text-rose-700'
+                }`}
+              >
+                {i.done ? '✓ مكتمل' : '✗ ناقص'}
+              </span>
+            </div>
+            <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{i.hint}</div>
+            {!i.done && i.to && (
+              <Link
+                to={i.to}
+                className="mt-2 inline-flex rounded-md border bg-card px-2 py-1 text-[11px] font-medium hover:bg-primary hover:text-primary-foreground"
+              >
+                {i.cta}
+              </Link>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
