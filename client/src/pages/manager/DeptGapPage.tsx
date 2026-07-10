@@ -196,10 +196,23 @@ export function DeptGapPage() {
   }
   if (scope.loading || loading) return <LoadingSpinner fullPage label="جاري التحميل…" />
   if (!scope.company) {
+    // scope.error يوضح السبب: عميل غير موجود في القائمة أو لا شركة مرتبطة.
+    // نُقدّم CTA للعودة إلى «عملائي» بدل ترك المستخدم في طريق مسدود.
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="تحليل الفجوة الذكي" />
-        <EmptyState title={scope.error ?? 'لا شركة نشطة'} />
+        <EmptyState
+          title={scope.error ?? 'لا شركة نشطة'}
+          description="عُد إلى قائمة عملائك واختر عميلاً من هناك — سنفتح الأداة على شركته مباشرة."
+          action={
+            <Link
+              to="/manager/clients"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              افتح قائمة عملائي ←
+            </Link>
+          }
+        />
       </div>
     )
   }

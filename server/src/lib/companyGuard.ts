@@ -10,7 +10,7 @@ export async function assertCompanyAccess(userId: string, companyId: string): Pr
   const link = await prisma.companyUser.findUnique({
     where: { userId_companyId: { userId, companyId } },
   });
-  if (!link) throw new HttpError(403, 'You do not have access to this company');
+  if (!link) throw new HttpError(403, 'لا تملك صلاحية الوصول إلى هذه الشركة — تأكّد من اختيار العميل الصحيح.');
 }
 
 export function paramOf(req: Parameters<RequestHandler>[0], key: string): string {
