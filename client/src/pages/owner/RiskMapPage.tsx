@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { getArtifact, getSWOT, upsertArtifact } from '@/lib/strategicApi'
 
 interface Risk {
   id: string
@@ -44,6 +44,7 @@ export function RiskMapPage() {
 function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<RiskData>(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     getArtifact<RiskData>(companyId, 'RISK_REGISTER').then((row) => {
@@ -75,6 +76,49 @@ function Editor({ companyId }: { companyId: string }) {
       toast.error(apiErrorMessage(err, 'فشل الحفظ'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ─── ترابط: SWOT (Weaknesses + Threats) → Risk Register ────────
+  // نقاط الضعف الداخلية والتهديدات الخارجية كلاهما مخاطر واجبة الرصد.
+  // الافتراض: threats بأثر 4 (خارجية = فوق مسيطرتنا)، weaknesses بأثر 3
+  // (داخلية = يمكن التحكم بها). كلاهما probability=3 (متوسط) للمراجعة.
+  async function importFromSWOT() {
+    setImporting(true)
+    try {
+      const swot = await getSWOT(companyId)
+      const threats = swot.threats ?? []
+      const weaknesses = swot.weaknesses ?? []
+      if (threats.length === 0 && weaknesses.length === 0) {
+        toast.error('لا تهديدات/ضعف مسجّلة في SWOT — افتح /swot أوّلاً.')
+        return
+      }
+      const existing = new Set(data.risks.map((r) => r.name))
+      const newRisks: Risk[] = []
+      for (const t of threats) {
+        const clean = t.trim()
+        if (!clean) continue
+        const name = `[تهديد] ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
+        if (existing.has(name)) continue
+        newRisks.push({ id: crypto.randomUUID(), name, probability: 3, impact: 4, mitigation: '' })
+      }
+      for (const w of weaknesses) {
+        const clean = w.trim()
+        if (!clean) continue
+        const name = `[ضعف] ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
+        if (existing.has(name)) continue
+        newRisks.push({ id: crypto.randomUUID(), name, probability: 3, impact: 3, mitigation: '' })
+      }
+      if (newRisks.length === 0) {
+        toast.error('كل التهديدات/الضعف مُستوردَة مسبقاً.')
+        return
+      }
+      setData((p) => ({ risks: [...p.risks, ...newRisks] }))
+      toast.success(`أُضيف ${newRisks.length} خطر من SWOT — راجع الاحتمالية والأثر ثم احفظ.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من SWOT'))
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -201,7 +245,10 @@ function Editor({ companyId }: { companyId: string }) {
           )}
           <div className="flex justify-between pt-1">
             <Button variant="outline" size="sm" onClick={add}>+ خطر جديد</Button>
-            <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ السجل'}</Button>
+            <Button variant="outline" size="sm" onClick={importFromSWOT} disabled={importing || saving}>
+              {importing ? 'جاري…' : '🧭 استورد من SWOT'}
+            </Button>
+            <Button onClick={save} disabled={saving || importing}>{saving ? 'جاري الحفظ…' : 'حفظ السجل'}</Button>
           </div>
         </CardContent>
       </Card>

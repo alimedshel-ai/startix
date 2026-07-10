@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { createInitiative, deleteInitiative, listInitiatives, updateInitiative, type Initiative } from '@/lib/strategicApi'
+import { createInitiative, deleteInitiative, getArtifact, getSWOT, listInitiatives, updateInitiative, type Initiative } from '@/lib/strategicApi'
 
 const PRIORITIES = [
   ['critical', 'حرجة',   'border-rose-300 bg-rose-50/60'],
@@ -49,6 +49,7 @@ function Editor({ companyId }: { companyId: string }) {
   const [items, setItems] = useState<Initiative[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [importingSyn, setImportingSyn] = useState<'tows' | 'directions' | null>(null)
   const [form, setForm] = useState({ title: '', description: '', priority: 'high' })
 
   useEffect(() => {
@@ -91,13 +92,106 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // ─── ترابط: TOWS → Initiatives ─────────────────────────────────
+  // كل استراتيجية TOWS تُصبح مبادرة. الأولوية:
+  //   SO/WO → high  (فرص — يجب اقتناصها)
+  //   ST/WT → critical (تهديدات — تحتاج تحرّكاً عاجلاً)
+  async function importFromTOWS() {
+    setImportingSyn('tows')
+    try {
+      const swot = await getSWOT(companyId)
+      const tows = swot.tows
+      if (!tows || (
+        (tows.so?.length ?? 0) + (tows.st?.length ?? 0) +
+        (tows.wo?.length ?? 0) + (tows.wt?.length ?? 0) === 0
+      )) {
+        toast.error('لا استراتيجيات TOWS محفوظة — افتح /tows أوّلاً.')
+        return
+      }
+      const existingTitles = new Set(items.map((x) => x.title))
+      const pairs: [string, string[], 'critical' | 'high'][] = [
+        ['SO', tows.so ?? [], 'high'],
+        ['WO', tows.wo ?? [], 'high'],
+        ['ST', tows.st ?? [], 'critical'],
+        ['WT', tows.wt ?? [], 'critical'],
+      ]
+      let added = 0
+      for (const [quad, list, priority] of pairs) {
+        for (const strat of list) {
+          const clean = strat.trim()
+          if (!clean) continue
+          const title = `[${quad}] ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
+          if (existingTitles.has(title)) continue
+          try {
+            const i = await createInitiative({ companyId, title, description: clean, priority })
+            setItems((p) => [...p, i])
+            added++
+          } catch { /* تجاهل الفشل الفردي وأكمل الباقي */ }
+        }
+      }
+      if (added === 0) toast.error('كل الاستراتيجيات مُستوردَة سابقاً.')
+      else toast.success(`أُضيف ${added} مبادرة من TOWS`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من TOWS'))
+    } finally {
+      setImportingSyn(null)
+    }
+  }
+
+  // ─── ترابط: Directions → Initiatives ───────────────────────────
+  // كل اتجاه في DIRECTIONS يُصبح مبادرة. الأولوية تعتمد على score:
+  //   feasibility × impact ≥ 16 → high
+  //   10..15 → medium
+  //   ≤ 9    → low
+  async function importFromDirections() {
+    setImportingSyn('directions')
+    try {
+      interface D { title: string; description: string; feasibility: number; impact: number }
+      const art = await getArtifact<{ directions: D[] }>(companyId, 'DIRECTIONS')
+      const dirs = art?.data?.directions ?? []
+      if (dirs.length === 0) {
+        toast.error('لا اتجاهات محفوظة — افتح /directions أوّلاً.')
+        return
+      }
+      const existingTitles = new Set(items.map((x) => x.title))
+      let added = 0
+      for (const d of dirs) {
+        if (!d.title?.trim()) continue
+        if (existingTitles.has(d.title)) continue
+        const s = d.feasibility * d.impact
+        const priority = s >= 16 ? 'high' : s >= 10 ? 'medium' : 'low'
+        try {
+          const i = await createInitiative({ companyId, title: d.title, description: d.description, priority })
+          setItems((p) => [...p, i])
+          added++
+        } catch { /* تجاهل الفشل الفردي */ }
+      }
+      if (added === 0) toast.error('كل الاتجاهات مُستوردَة سابقاً.')
+      else toast.success(`أُضيف ${added} مبادرة من الاتجاهات`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من الاتجاهات'))
+    } finally {
+      setImportingSyn(null)
+    }
+  }
+
   return (
     <>
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
-        <CardHeader>
-          <CardTitle>مبادرة جديدة</CardTitle>
-          <CardDescription>اربط مبادراتك بالاتجاه الاستراتيجي والأهداف.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>مبادرة جديدة</CardTitle>
+            <CardDescription>اربط مبادراتك بالاتجاه الاستراتيجي والأهداف.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={importFromTOWS} disabled={importingSyn !== null}>
+              {importingSyn === 'tows' ? 'جاري…' : '🔄 من TOWS'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={importFromDirections} disabled={importingSyn !== null}>
+              {importingSyn === 'directions' ? 'جاري…' : '🎯 من الاتجاهات'}
+            </Button>
+          </div>
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-3">

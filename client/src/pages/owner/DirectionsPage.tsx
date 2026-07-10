@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { getArtifact, getSWOT, upsertArtifact } from '@/lib/strategicApi'
 
 export interface Direction {
   id: string
@@ -56,6 +56,7 @@ export function DirectionsPage() {
 function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<DirectionsData>(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     getArtifact<DirectionsData>(companyId, 'DIRECTIONS').then((row) => {
@@ -94,6 +95,57 @@ function Editor({ companyId }: { companyId: string }) {
       toast.error(apiErrorMessage(err, 'فشل الحفظ'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ─── ترابط: TOWS → Directions ─────────────────────────────────
+  // كل استراتيجية TOWS تُصبح اتجاهاً افتراضياً بـfeasibility/impact=3.
+  // العنوان يُشتق من أول ٦٠ حرفاً من الاستراتيجية مع بادئة الربع
+  // (SO/ST/WO/WT) — يبقى الوصف كاملاً في description.
+  async function importFromTOWS() {
+    setImporting(true)
+    try {
+      const swot = await getSWOT(companyId)
+      const tows = swot.tows
+      if (!tows || (
+        (tows.so?.length ?? 0) + (tows.st?.length ?? 0) +
+        (tows.wo?.length ?? 0) + (tows.wt?.length ?? 0) === 0
+      )) {
+        toast.error('لا استراتيجيات TOWS محفوظة — افتح /tows أوّلاً.')
+        return
+      }
+      const pairs: [string, string[]][] = [
+        ['SO', tows.so ?? []],
+        ['ST', tows.st ?? []],
+        ['WO', tows.wo ?? []],
+        ['WT', tows.wt ?? []],
+      ]
+      const newDirections: Direction[] = []
+      const existingTitles = new Set(data.directions.map((d) => d.description))
+      for (const [quad, list] of pairs) {
+        for (const strat of list) {
+          const clean = strat.trim()
+          if (!clean || existingTitles.has(clean)) continue
+          const title = `[${quad}] ${clean.slice(0, 60)}${clean.length > 60 ? '…' : ''}`
+          newDirections.push({
+            id: crypto.randomUUID(),
+            title,
+            description: clean,
+            pros: [], cons: [],
+            feasibility: 3, impact: 3,
+          })
+        }
+      }
+      if (newDirections.length === 0) {
+        toast.error('كل الاستراتيجيات مُستوردَة مسبقاً.')
+        return
+      }
+      setData((p) => ({ directions: [...p.directions, ...newDirections] }))
+      toast.success(`أُضيف ${newDirections.length} اتجاهاً من TOWS — راجع الجدوى والأثر ثم احفظ.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من TOWS'))
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -157,8 +209,13 @@ function Editor({ companyId }: { companyId: string }) {
       </div>
 
       <div className="flex flex-wrap justify-between gap-2">
-        <Button variant="outline" onClick={add}>+ اتجاه جديد</Button>
-        <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ الاتجاهات'}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={add}>+ اتجاه جديد</Button>
+          <Button variant="outline" onClick={importFromTOWS} disabled={importing || saving}>
+            {importing ? 'جاري الاستيراد…' : '🔄 استورد من TOWS'}
+          </Button>
+        </div>
+        <Button onClick={save} disabled={saving || importing}>{saving ? 'جاري الحفظ…' : 'حفظ الاتجاهات'}</Button>
       </div>
 
       {ranked.length > 0 && (
