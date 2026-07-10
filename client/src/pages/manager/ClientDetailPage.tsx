@@ -139,6 +139,18 @@ export function ClientDetailPage() {
         ]}
       />
 
+      {/* شارة مسار المدير الاستراتيجي — يذكّر بالطموح المُختار */}
+      {user?.strategyPath && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed bg-card/40 px-3 py-1.5 text-xs">
+          <span className="text-muted-foreground">مسارك:</span>
+          {user.strategyPath === 'QUICK'  && <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-800">⚡ سريع (٠–٣ شهر)</span>}
+          {user.strategyPath === 'MEDIUM' && <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 font-medium text-sky-800">🎯 متوسط (٣–١٢ شهر)</span>}
+          {user.strategyPath === 'LONG'   && <span className="rounded-full border border-purple-300 bg-purple-50 px-2 py-0.5 font-medium text-purple-800">🔭 طويل (١٢–٣٦+ شهر)</span>}
+          <span className="text-muted-foreground">·</span>
+          <Link to="/settings/path" className="text-muted-foreground underline-offset-4 hover:underline">تغيير</Link>
+        </div>
+      )}
+
       <HealthCard
         specialty={specialty}
         healthPct={healthPct}

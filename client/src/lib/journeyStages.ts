@@ -13,6 +13,8 @@
 // الاكتمال: نُعتبر المرحلة "مكتَملة" إذا وُجد artifact واحد على الأقل
 // من قائمة `completionArtifacts`. R5.3 يقرأ artifacts ويحسب.
 
+import type { StrategyPath } from '@/types/user'
+
 import type { ArtifactType } from './strategicApi'
 
 export type StageId = 'environment' | 'synthesis' | 'directions' | 'indicators' | 'initiatives' | 'execution'
@@ -230,4 +232,31 @@ export function filterToolsForUser(paths: string[], isDeptScoped: boolean): stri
     if (!isDeptScoped && deptEquivalents.has(p)) return false   // مالك/داخلي → احذف نسخة الإدارة
     return true
   })
+}
+
+// ─── فلترة المراحل بحسب المسار الاستراتيجي (QUICK/MEDIUM/LONG) ───
+// نُطبَّق على السايدبار: المراحل داخل المسار تُعرض منشورة، والمراحل خارج
+// المسار تظهر مطويّة مع hint «خارج مسارك — اضغط لعرضها» (لا حذف).
+//
+// QUICK  → ① التشخيص، ② التوليف، ⑤ المبادرات، ⑥ التنفيذ. (نسدّ ③④.)
+// MEDIUM → يُضاف ③ (التوجّه).
+// LONG   → كل المراحل.
+// null   → LONG افتراضياً (المستخدمون قدماء بلا اختيار).
+
+const PATH_STAGES: Record<StrategyPath, StageId[]> = {
+  QUICK:  ['environment', 'synthesis', 'initiatives', 'execution'],
+  MEDIUM: ['environment', 'synthesis', 'directions', 'initiatives', 'execution'],
+  LONG:   ['environment', 'synthesis', 'directions', 'indicators', 'initiatives', 'execution'],
+}
+
+/** هل هذه المرحلة داخل مسار المستخدم؟ (null → كل المراحل داخل). */
+export function isStageInPath(stageId: StageId, path: StrategyPath | null | undefined): boolean {
+  if (!path) return true
+  return PATH_STAGES[path].includes(stageId)
+}
+
+/** كل المراحل داخل مسار المستخدم (بالترتيب). */
+export function stagesForPath(path: StrategyPath | null | undefined): StageId[] {
+  if (!path) return JOURNEY_STAGES.map((s) => s.id)
+  return PATH_STAGES[path]
 }

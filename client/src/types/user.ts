@@ -2,6 +2,13 @@ export type UserType = 'OWNER' | 'MANAGER' | 'INVESTOR'
 export type ManagerType = 'INTERNAL' | 'INDEPENDENT_PRO'
 export type PlanTier = 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE'
 
+// المسار الاستراتيجي المُختار في onboarding (شريحة ٤) — يقود:
+//   • فلترة السايدبار (المراحل الخارجة عن المسار تُطوى مع hint).
+//   • إبراز الأفق المطابق في /three-horizons و /choices.
+//   • ترتيب "التالي لك الآن" في السايدبار.
+// null → قدماء بلا اختيار → يُعامَلون كـ LONG (كل شيء ظاهر).
+export type StrategyPath = 'QUICK' | 'MEDIUM' | 'LONG'
+
 // تخصّص الإدارة للمدير المستقل — يطابق DeptType في Prisma / DeptCode في deptApi.
 export type SpecialtyDeptType =
   | 'HR' | 'FINANCE' | 'SALES' | 'MARKETING' | 'OPERATIONS' | 'IT'
@@ -36,5 +43,7 @@ export interface User {
   isAdmin: boolean
   pains: string[]
   goals: string[]
+  strategyPath: StrategyPath | null
+  pathChosenAt: string | null
   createdAt: string
 }

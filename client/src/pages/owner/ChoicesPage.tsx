@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, getSWOT, upsertArtifact, type SWOT } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
+import type { StrategyPath } from '@/types/user'
 
 interface DirectionLite {
   id: string
@@ -373,6 +375,7 @@ function QuadBadge({ q }: { q: Quad }) {
 }
 
 function RoadmapCard({ roadmap, preview = false }: { roadmap: Roadmap; preview?: boolean }) {
+  const strategyPath = useAuthStore((s) => s.user?.strategyPath ?? null)
   const cols = [
     { key: 'short' as const, icon: '🎯', title: 'قريب المدى', span: '٠–١٢ شهر', tone: 'border-emerald-300 bg-emerald-50/40' },
     { key: 'mid' as const, icon: '🌱', title: 'متوسط المدى', span: '١٢–٣٦ شهر', tone: 'border-sky-300 bg-sky-50/40' },
@@ -388,12 +391,20 @@ function RoadmapCard({ roadmap, preview = false }: { roadmap: Roadmap; preview?:
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 lg:grid-cols-3">
-          {cols.map((c) => (
-            <div key={c.key} className={`rounded-xl border p-3 ${c.tone}`}>
+          {cols.map((c) => {
+            const emphasized = isRoadmapColInPath(c.key, strategyPath)
+            return (
+            <div
+              key={c.key}
+              className={`rounded-xl border p-3 ${c.tone} ${emphasized ? 'ring-2 ring-primary/40' : 'opacity-70'}`}
+            >
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <span className="text-lg">{c.icon}</span>
                   <span>{c.title}</span>
+                  {emphasized && strategyPath && (
+                    <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">مطابق لمسارك</span>
+                  )}
                 </div>
                 <span className="rounded-md bg-card px-1.5 py-0.5 text-[10px] font-medium">{c.span}</span>
               </div>
@@ -406,11 +417,20 @@ function RoadmapCard({ roadmap, preview = false }: { roadmap: Roadmap; preview?:
                 )}
               </ul>
             </div>
-          ))}
+            )
+          })}
         </div>
       </CardContent>
     </Card>
   )
+}
+
+// عمود الخارطة داخل مسار المدير؟ QUICK→short، MEDIUM→short+mid، LONG→الكل.
+function isRoadmapColInPath(col: 'short' | 'mid' | 'long', path: StrategyPath | null): boolean {
+  if (!path || path === 'LONG') return true
+  if (path === 'QUICK') return col === 'short'
+  if (path === 'MEDIUM') return col === 'short' || col === 'mid'
+  return true
 }
 
 // ─── منطق مساعد ────────────────────────────────────────────────

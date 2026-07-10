@@ -57,6 +57,8 @@ function publicUser(u: {
   isAdmin: boolean;
   pains: string[];
   goals: string[];
+  strategyPath: 'QUICK' | 'MEDIUM' | 'LONG' | null;
+  pathChosenAt: Date | null;
   createdAt: Date;
 }) {
   return {
@@ -73,6 +75,8 @@ function publicUser(u: {
     isAdmin: u.isAdmin,
     pains: u.pains,
     goals: u.goals,
+    strategyPath: u.strategyPath,
+    pathChosenAt: u.pathChosenAt,
     createdAt: u.createdAt,
   };
 }
@@ -404,15 +408,22 @@ const updateMeSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   phone: z.string().max(40).nullable().optional(),
   avatarUrl: z.string().url().nullable().optional(),
+  // Path — يمكن تغييره لاحقاً من /settings/path. null = العودة للافتراضي (LONG).
+  strategyPath: z.enum(['QUICK', 'MEDIUM', 'LONG']).nullable().optional(),
 });
 
 export const updateMe: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const data = updateMeSchema.parse(req.body);
+    // عند تعديل المسار، ندوّن زمن الاختيار حتى نستعمله في التحليلات.
+    const patch: Record<string, unknown> = { ...data };
+    if (data.strategyPath !== undefined) {
+      patch.pathChosenAt = data.strategyPath === null ? null : new Date();
+    }
     const user = await prisma.user.update({
       where: { id: req.auth.sub },
-      data,
+      data: patch,
     });
     res.json({ user: publicUser(user) });
   } catch (err) {
@@ -428,6 +439,8 @@ export const updateMe: RequestHandler = async (req, res, next) => {
 const onboardingSchema = z.object({
   pains: painsGoalsSchema,
   goals: painsGoalsSchema,
+  // Path — اختيار المسار الاستراتيجي في الشريحة ٤ (اختياري: زر «تخطّي»).
+  strategyPath: z.enum(['QUICK', 'MEDIUM', 'LONG']).optional(),
   firstCompany: z.object({
     sector: z.string().min(1).max(80).optional(),
     subsector: z.string().min(1).max(80).optional(),
@@ -449,9 +462,18 @@ export const onboardingEnrich: RequestHandler = async (req, res, next) => {
     const userId = req.auth.sub;
 
     const user = await prisma.$transaction(async (tx) => {
-      const patch: { pains?: string[]; goals?: string[] } = {};
+      const patch: {
+        pains?: string[];
+        goals?: string[];
+        strategyPath?: 'QUICK' | 'MEDIUM' | 'LONG';
+        pathChosenAt?: Date;
+      } = {};
       if (data.pains !== undefined) patch.pains = data.pains;
       if (data.goals !== undefined) patch.goals = data.goals;
+      if (data.strategyPath !== undefined) {
+        patch.strategyPath = data.strategyPath;
+        patch.pathChosenAt = new Date();
+      }
       const updatedUser = Object.keys(patch).length
         ? await tx.user.update({ where: { id: userId }, data: patch })
         : await tx.user.findUniqueOrThrow({ where: { id: userId } });

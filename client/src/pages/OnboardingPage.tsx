@@ -10,19 +10,19 @@ import { homeFor } from '@/components/layouts/nav'
 import { api, apiErrorMessage } from '@/lib/api'
 import { ENTITY_TYPES, ONBOARDING_GOALS, ONBOARDING_PAINS, SECTORS } from '@/lib/onboardingOptions'
 import { useAuthStore } from '@/store/authStore'
-import type { OpexData, User } from '@/types/user'
+import type { OpexData, StrategyPath, User } from '@/types/user'
 
-// ─── R1.3 — /onboarding: 3 شرائح بعد التسجيل ────────────────────────
-// الشرائح: الهوية+OPEX → الآلام → الأهداف. كل شريحة اختيارية
-// (يمكن التخطّي). يحفظ عبر POST /api/auth/onboarding في طلب واحد.
+// ─── R1.3 — /onboarding: 4 شرائح بعد التسجيل ────────────────────────
+// الشرائح: الهوية+OPEX → الآلام → الأهداف → المسار الاستراتيجي.
+// كل شريحة اختيارية (يمكن التخطّي). يحفظ عبر POST /api/auth/onboarding.
 //
 // المنطق:
-//   • Owner: يظهر فقط شريحة الآلام والأهداف (لا عميل خارجي).
+//   • Owner: الآلام → الأهداف → المسار (بلا شريحة الهوية).
 //   • Manager INTERNAL: نفس Owner.
-//   • Manager INDEPENDENT_PRO: كل الشرائح الثلاث.
+//   • Manager INDEPENDENT_PRO: الأربع كاملة.
 //   • Investor: نفس Owner (بلا OPEX).
 
-type SlideId = 'identity' | 'pains' | 'goals'
+type SlideId = 'identity' | 'pains' | 'goals' | 'path'
 
 interface FormState {
   sector?: string
@@ -32,9 +32,53 @@ interface FormState {
   opex: OpexData
   pains: string[]
   goals: string[]
+  strategyPath?: StrategyPath
 }
 
 const EMPTY: FormState = { opex: {}, pains: [], goals: [] }
+
+// شريحة ٤: خيارات المسار الاستراتيجي.
+const PATH_OPTIONS: {
+  code: StrategyPath
+  icon: string
+  labelAr: string
+  timeAr: string
+  focusAr: string
+  stagesAr: string
+  toolsAr: string
+  colorClass: string
+}[] = [
+  {
+    code: 'QUICK',
+    icon: '⚡',
+    labelAr: 'سريع',
+    timeAr: '٠–٣ شهور',
+    focusAr: 'تشخيص + مبادرات فورية',
+    stagesAr: 'المراحل: ① ② ⑤ ⑥',
+    toolsAr: '~٣ أدوات أساسية',
+    colorClass: 'border-amber-400 hover:border-amber-500 bg-amber-50/40',
+  },
+  {
+    code: 'MEDIUM',
+    icon: '🎯',
+    labelAr: 'متوسط',
+    timeAr: '٣–١٢ شهر',
+    focusAr: 'تشخيص + توليف + توجّه + مبادرات',
+    stagesAr: 'المراحل: ① ② ③ ⑤ ⑥',
+    toolsAr: '~٦ أدوات أساسية',
+    colorClass: 'border-sky-400 hover:border-sky-500 bg-sky-50/40',
+  },
+  {
+    code: 'LONG',
+    icon: '🔭',
+    labelAr: 'طويل',
+    timeAr: '١٢–٣٦+ شهر',
+    focusAr: 'الرحلة الاستراتيجية الكاملة',
+    stagesAr: 'المراحل: كلها ①→⑥',
+    toolsAr: 'كل الأدوات',
+    colorClass: 'border-purple-400 hover:border-purple-500 bg-purple-50/40',
+  },
+]
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -53,8 +97,9 @@ export function OnboardingPage() {
   const [saving, setSaving] = useState(false)
 
   const showIdentity = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+  // شريحة «path» تظهر لكل الأدوار — كلٌّ منهم يختار طموحه الاستراتيجي.
   const slides = useMemo<SlideId[]>(
-    () => (showIdentity ? ['identity', 'pains', 'goals'] : ['pains', 'goals']),
+    () => (showIdentity ? ['identity', 'pains', 'goals', 'path'] : ['pains', 'goals', 'path']),
     [showIdentity],
   )
   const [step, setStep] = useState(0)
@@ -97,6 +142,7 @@ export function OnboardingPage() {
       const payload = {
         pains: state.pains,
         goals: state.goals,
+        strategyPath: state.strategyPath,
         firstCompany: showIdentity
           ? {
               sector: state.sector || undefined,
@@ -140,11 +186,13 @@ export function OnboardingPage() {
             {currentSlide === 'identity' && 'بيانات أوّل عميل — الهوية والميزانية'}
             {currentSlide === 'pains'    && 'ما التحديات الأكبر حالياً؟'}
             {currentSlide === 'goals'    && 'ما الأهداف الأولى بالنسبة لك؟'}
+            {currentSlide === 'path'     && '🎯 اختر مسارك الاستراتيجي'}
           </CardTitle>
           <CardDescription>
             {currentSlide === 'identity' && 'تُستخدم في KPIs / تحليل الفجوة / أنسوف / RACI بلا سؤالك مرّة أخرى.'}
             {currentSlide === 'pains'    && 'اختيار متعدّد — يُحدّد ترتيب أدواتك (مصفوفة الأولوية / أيزنهاور).'}
             {currentSlide === 'goals'    && 'اختيار متعدّد — يُشغّل الأدوات المرتبطة بأهدافك تلقائياً.'}
+            {currentSlide === 'path'     && 'اختر عمق الرحلة الاستراتيجية — يمكن تغييره لاحقاً من /settings/path.'}
           </CardDescription>
         </CardHeader>
 
@@ -296,6 +344,38 @@ export function OnboardingPage() {
                       {g.desc && <span className="mt-0.5 block text-xs text-muted-foreground">{g.desc}</span>}
                     </span>
                     {selected && <span className="text-emerald-600" aria-hidden>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {currentSlide === 'path' && (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {PATH_OPTIONS.map((opt) => {
+                const selected = state.strategyPath === opt.code
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setState((p) => ({ ...p, strategyPath: opt.code }))}
+                    className={`flex flex-col gap-2 rounded-xl border-2 p-4 text-right transition ${
+                      selected
+                        ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/40'
+                        : opt.colorClass
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-3xl" aria-hidden>{opt.icon}</span>
+                      <span className="rounded-md bg-card px-2 py-0.5 text-[10px] font-medium">{opt.timeAr}</span>
+                    </div>
+                    <div className="text-lg font-bold">{opt.labelAr}</div>
+                    <div className="text-xs leading-relaxed text-muted-foreground">
+                      <div><strong className="text-foreground">التركيز:</strong> {opt.focusAr}</div>
+                      <div className="mt-1">{opt.stagesAr}</div>
+                      <div className="mt-1 text-muted-foreground/80">{opt.toolsAr}</div>
+                    </div>
+                    {selected && <div className="mt-1 text-xs font-medium text-primary">✓ مختار</div>}
                   </button>
                 )
               })}

@@ -19,6 +19,9 @@ export interface NavItem {
   // Sidebar (Commit ٣) — العناصر الأساسية (⭐) للأقسام القابلة للطي.
   // القسم ① يعرض هذه دائماً، والبقية خلف زر «أظهر المزيد».
   essential?: boolean
+  // Fix #4 — أدوات مساندة داخل مرحلة لكنها لا تُحسب في اكتمال المرحلة.
+  // Sidebar يعرضها بلمعان أخفت وتلميح "مساندة".
+  optional?: boolean
 }
 
 /** Accent color used by the sidebar for the section header / left-bar marker. */
@@ -185,11 +188,13 @@ const ownerNav: NavSection[] = [
 // في `navFor()` فيرى فقط تدقيقات/إصلاحات تخصّصه.
 const managerNav: NavSection[] = [
   // ─── ٠) البداية ─────────────────────────────────────────────
+  // Fix #1 — لوحة الإدارة تُعرض للمدير الداخلي فقط. المستقل يمشي
+  // عبر «العملاء» أعلاه (يُدرج من navFor)، فلا معنى للوحة إدارة وحيدة.
   {
     title: '🏠 البداية',
     accent: 'teal',
     items: [
-      { to: '/manager/dept-dashboard', label: 'لوحة الإدارة',  icon: '📊' },
+      { to: '/manager/dept-dashboard', label: 'لوحة الإدارة',  icon: '📊' /* INTERNAL only — يُفلتَر في navFor */ },
       { to: '/manager/diagnostic',      label: 'تشخيص المدير', icon: '🎯' },
     ],
   },
@@ -228,6 +233,8 @@ const managerNav: NavSection[] = [
       { to: '/benchmarking',          label: 'المقارنة المرجعية',      icon: '🔍', proOnly: true },
       { to: '/org-dna',               label: 'DNA المنظمة',            icon: '🧬', proOnly: true },
       { to: '/stakeholders',          label: 'أصحاب المصلحة',          icon: '👥', proOnly: true },
+      // Fix #6 — التحليل المبسّط ٤ أسئلة هو مصدر بيانات المرحلة ① (نُقل من «الخطة والذكاء»).
+      { to: '/manager/dept-deep',     label: 'التحليل المبسّط',        icon: '📝', proOnly: true, optional: true },
       // أدوات ثانوية لتخصّصات معيّنة
       { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '⚖️', dept: 'GOVERNANCE' },
       { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },
@@ -235,19 +242,23 @@ const managerNav: NavSection[] = [
   },
 
   // ─── ② التوليف ─────────────────────────────────────────────
+  // Fix #3 — /manager/contradictions حُذف: لا artifact لاكتماله + غير
+  // مذكور في journeyStages.toolPaths → يتيم.
   {
     title: '🧭 ② التوليف',
     accent: 'rose',
     stageId: 'synthesis',
     items: [
-      { to: '/swot',                   label: 'تحليل SWOT',     icon: '🧭', proOnly: true },
-      { to: '/tows',                   label: 'مصفوفة TOWS',     icon: '🔄', proOnly: true },
-      { to: '/manager/contradictions', label: 'تحليل التناقضات', icon: '⚡', proOnly: true },
+      { to: '/swot', label: 'تحليل SWOT',  icon: '🧭', proOnly: true },
+      { to: '/tows', label: 'مصفوفة TOWS', icon: '🔄', proOnly: true },
     ],
   },
 
   // ─── ③ التوجّه والخيارات ─────────────────────────────────
   // Gap (سواء العام أو dept-scoped) هنا حسب `journeyStages.ts`.
+  // Fix #8 — نعرض /gap-analysis (شركة) و /manager/dept-gap (إدارة)
+  // كِلاهما للمدير المستقل حتى يعرف أن هناك نسختين. سابقاً كان
+  // filterToolsForUser يُخفي واحدة بلا إشعار.
   {
     title: '🎯 ③ التوجّه والخيارات',
     accent: 'amber',
@@ -256,6 +267,7 @@ const managerNav: NavSection[] = [
       { to: '/directions',       label: 'التوجّه الاستراتيجي',   icon: '🎯', proOnly: true },
       { to: '/bmc',              label: 'نموذج الأعمال Canvas', icon: '🧩', proOnly: true },
       { to: '/manager/dept-gap', label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
+      { to: '/gap-analysis',     label: 'فجوات الشركة (عام)',   icon: '📐', proOnly: true, optional: true },
       { to: '/ansoff',           label: 'مصفوفة أنسوف',          icon: '📈', proOnly: true },
       { to: '/bcg',              label: 'مصفوفة BCG',            icon: '⭐', proOnly: true },
       { to: '/choices',          label: 'القرار الاستراتيجي',   icon: '✅', proOnly: true },
@@ -265,6 +277,8 @@ const managerNav: NavSection[] = [
   },
 
   // ─── ④ الأهداف والمؤشرات ─────────────────────────────────
+  // Fix #4 — dept-smart + kpi-entries `optional: true` لأنّ اكتمال المرحلة
+  // يعتمد على OGSM/ANNUAL_PLAN/BSC + Objectives/KPIs الأساسية، ليس عليهما.
   {
     title: '📊 ④ الأهداف والمؤشرات',
     accent: 'emerald',
@@ -275,13 +289,15 @@ const managerNav: NavSection[] = [
       { to: '/okrs',               label: 'OKRs',                 icon: '🏆', proOnly: true },
       { to: '/ogsm',               label: 'إطار OGSM',            icon: '🧩', proOnly: true },
       { to: '/kpis',               label: 'مؤشرات الأداء',       icon: '📊', proOnly: true },
-      { to: '/kpi-entries',        label: 'إدخالات المؤشرات',    icon: '✍️', proOnly: true },
-      { to: '/manager/dept-smart', label: 'ذكاء KPIs',            icon: '✨', proOnly: true },
       { to: '/annual-plan',        label: 'الخطة السنوية',       icon: '🗓️', proOnly: true },
+      { to: '/manager/dept-smart', label: 'ذكاء KPIs',            icon: '✨', proOnly: true, optional: true },
+      { to: '/kpi-entries',        label: 'إدخالات المؤشرات',    icon: '✍️', proOnly: true, optional: true },
     ],
   },
 
   // ─── ⑤ المبادرات والمخاطر ─────────────────────────────────
+  // Fix #2 — /projects نُقل هنا من ⑥ (المشاريع تُشتقّ من المبادرات).
+  // Fix #5 — /ai/simulation مضاف هنا (كان في journeyStages فقط).
   {
     title: '💡 ⑤ المبادرات والمخاطر',
     accent: 'violet',
@@ -292,18 +308,24 @@ const managerNav: NavSection[] = [
       { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',    icon: '📊', proOnly: true },
       { to: '/risk-map',        label: 'خريطة المخاطر',      icon: '⚠️', proOnly: true },
       { to: '/raci',            label: 'مصفوفة RACI',        icon: '👥', proOnly: true },
+      { to: '/projects',        label: 'المشاريع',           icon: '📁', proOnly: true },
+      { to: '/ai/simulation',   label: 'مختبر المحاكاة',     icon: '🧪', proOnly: true, optional: true },
     ],
   },
 
   // ─── ⑥ التنفيذ والمتابعة ─────────────────────────────────
+  // Fix #7 — /manager/strategic-plan + خطط الإصلاح انتقلت هنا من قسم
+  // «الخطة والذكاء» المحذوف — هي نتائج تنفيذية تُقرأ في المتابعة.
   {
     title: '🚀 ⑥ التنفيذ والمتابعة',
     accent: 'orange',
     stageId: 'execution',
     items: [
-      { to: '/projects',    label: 'المشاريع',   icon: '📁', proOnly: true },
-      { to: '/gantt-chart', label: 'مخطط جانت', icon: '📅', proOnly: true },
-      { to: '/tasks',       label: 'المهام',    icon: '✓', proOnly: true },
+      { to: '/gantt-chart',            label: 'مخطط جانت',           icon: '📅', proOnly: true },
+      { to: '/tasks',                  label: 'المهام',              icon: '✓',  proOnly: true },
+      { to: '/manager/strategic-plan', label: 'الخطة الاستراتيجية',  icon: '🗺️', proOnly: true, optional: true },
+      { to: '/manager/logistics/reform',  label: 'خطة إصلاح اللوجستيات', icon: '🔧', dept: 'LOGISTICS',  optional: true },
+      { to: '/manager/compliance/reform', label: 'خطة إصلاح الامتثال',   icon: '🔧', dept: 'COMPLIANCE', optional: true },
     ],
   },
 
@@ -317,18 +339,11 @@ const managerNav: NavSection[] = [
     ],
   },
 
-  // ─── الخطة والذكاء + خطط إصلاح تخصّصية ─────────────────────
-  {
-    title: '🗺️ الخطة والذكاء',
-    accent: 'violet',
-    items: [
-      { to: '/manager/strategic-plan', label: 'الخطة الاستراتيجية', icon: '🗺️', proOnly: true },
-      { to: '/manager/dept-deep',      label: 'التحليل المبسّط',    icon: '📝' },
-      // خطط إصلاح تخصّصية (فلتر `dept` يُظهرها فقط للتخصّصات المعنية).
-      { to: '/manager/logistics/reform',  label: 'خطة إصلاح اللوجستيات', icon: '🔧', dept: 'LOGISTICS' },
-      { to: '/manager/compliance/reform', label: 'خطة إصلاح الامتثال',   icon: '🔧', dept: 'COMPLIANCE' },
-    ],
-  },
+  // ملاحظة (Fix #7): قسم «الخطة والذكاء» حُذف — عناصره وُزّعت:
+  //  · /manager/dept-deep          → مرحلة ① (مصدر تشخيصي).
+  //  · /manager/strategic-plan     → مرحلة ⑥ (نتيجة تنفيذية).
+  //  · /manager/logistics/reform  → مرحلة ⑥ (خطة تنفيذية لوجستيّة).
+  //  · /manager/compliance/reform → مرحلة ⑥ (خطة تنفيذية للامتثال).
 ]
 
 const investorNav: NavSection[] = [
@@ -372,17 +387,26 @@ export function navFor(
     const base = managerType === 'INDEPENDENT_PRO'
       ? [proClientsSection, ...managerNav]
       : managerNav
+    // Fix #1 — لوحة الإدارة (`/manager/dept-dashboard`) للمدير الداخلي فقط.
+    // المستقل يعمل عبر «العملاء» → /manager/clients، فلا معنى لعرضها.
+    const roleFiltered = base.map((s) => ({
+      ...s,
+      items: s.items.filter((i) => {
+        if (managerType === 'INDEPENDENT_PRO' && i.to === '/manager/dept-dashboard') return false
+        return true
+      }),
+    }))
     // PRO-F — للمدير المستقل مع تخصّص محدّد: احذف كل بند مرتبط بإدارة
     // غير إدارته، ثم أسقط الأقسام اللي بقت فارغة.
     if (managerType === 'INDEPENDENT_PRO' && specialty) {
-      return base
+      return roleFiltered
         .map((s) => ({
           ...s,
           items: s.items.filter((i) => !i.dept || i.dept === specialty),
         }))
         .filter((s) => s.items.length > 0)
     }
-    return base
+    return roleFiltered.filter((s) => s.items.length > 0)
   }
   if (userType === 'INVESTOR') return investorNav
   return []

@@ -11,6 +11,15 @@ import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { DEPT_THREE_HORIZONS, HORIZON_META, type Horizon } from '@/lib/deptThreeHorizons'
 import { getArtifact, getSWOT, listInitiatives, upsertArtifact, type ArtifactType } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
+import type { StrategyPath } from '@/types/user'
+
+// أفق ما داخل مسار المدير؟ QUICK→H1، MEDIUM→H1+H2، LONG (أو null)→كلها.
+function isHorizonInPath(h: Horizon, path: StrategyPath | null): boolean {
+  if (!path || path === 'LONG') return true
+  if (path === 'QUICK') return h === 'h1'
+  if (path === 'MEDIUM') return h === 'h1' || h === 'h2'
+  return true
+}
 
 interface Initiative {
   id: string
@@ -55,6 +64,7 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
   // ⚠️ نستخدم artifact مختلف عندما dept-scoped حتى تنفصل بيانات الإدارة عن الشركة.
   const artifactType: ArtifactType = specialty ? `THREE_HORIZONS_${specialty}` : 'THREE_HORIZONS'
   const suggestions = specialty ? DEPT_THREE_HORIZONS[specialty] ?? [] : []
+  const strategyPath = useAuthStore((s) => s.user?.strategyPath ?? null)
   const [data, setData] = useState<ThreeHData>(EMPTY)
   const [title, setTitle] = useState('')
   const [horizon, setHorizon] = useState<Horizon>('h1')
@@ -249,8 +259,13 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
           const hSuggestions = specialty
             ? suggestions.filter((s) => s.horizon === h)
             : []
+          // إبراز الأفق المطابق لمسار المدير: QUICK→H1، MEDIUM→H1+H2، LONG→الكل.
+          const emphasized = isHorizonInPath(h, strategyPath)
           return (
-            <Card key={h} className={meta.colorClass}>
+            <Card
+              key={h}
+              className={`${meta.colorClass} ${emphasized ? 'ring-2 ring-primary/40' : 'opacity-70'}`}
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <span className="text-xl">{meta.icon}</span>

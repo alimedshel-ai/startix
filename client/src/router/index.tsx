@@ -6,6 +6,7 @@ import { SelectTypePage } from '@/pages/SelectTypePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { JoinPage } from '@/pages/JoinPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
+import { PathSettingsPage } from '@/pages/PathSettingsPage'
 import { PricingPage } from '@/pages/PricingPage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { RoleRoute } from '@/components/RoleRoute'
@@ -131,6 +132,7 @@ export const router = createBrowserRouter([
     children: [
       // R1.3 — إثراء ما‑بعد‑التسجيل (اختياري، يمكن التخطّي).
       { path: '/onboarding', element: <OnboardingPage /> },
+      { path: '/settings/path', element: <PathSettingsPage /> },
       // Owner area
       {
         element: <RoleRoute allow={['OWNER']} />,

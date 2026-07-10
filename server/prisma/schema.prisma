@@ -47,6 +47,12 @@ model User {
   pains  String[] @default([])
   goals  String[] @default([])
 
+  // Path — الطموح الاستراتيجي المُختار في onboarding (شريحة ٤).
+  // QUICK = ٠-٣ شهر (مراحل ①②⑤⑥)، MEDIUM = ٣-١٢ (يضيف ③)، LONG = ١٢-٣٦+ (الكل).
+  // null → يُعامَل كـ LONG افتراضياً (المستخدمون قبل هذه الميزة).
+  strategyPath   StrategyPath?
+  pathChosenAt   DateTime?
+
   companies      CompanyUser[]
   diagnostics    Diagnostic[]
   sessions       Session[]
@@ -70,6 +76,12 @@ enum PlanTier {
   BASIC
   PROFESSIONAL
   ENTERPRISE
+}
+
+enum StrategyPath {
+  QUICK
+  MEDIUM
+  LONG
 }
 
 model Session {
