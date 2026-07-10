@@ -62,7 +62,16 @@ export function DiagnosticInvestorPage() {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true)
     try {
-      await api.post('/api/diagnostic/investor', values)
+      // ─── تحويل الفورم إلى schema السيرفر ─────────────────────────
+      // السيرفر يتطلّب ٧ حقول (schema investorSchema)، الفورم يجمع ٤
+      // منها فقط. نستكمل الباقية بقيم افتراضية معتدلة يمكن للمستثمر
+      // تعديلها لاحقاً من إعدادات حسابه.
+      await api.post('/api/diagnostic/investor', {
+        ...values,
+        sectorFocus: 'diverse',       // معتدل — لا تركّز في قطاع واحد
+        involvementType: 'observer',  // معتدل — بين نشط وسلبي
+        ticketSize: '100k_1m',        // معتدل — نطاق شائع للمستثمر السعودي
+      })
       toast.success('تم حفظ التشخيص')
       navigate('/investor/dashboard')
     } catch (err: unknown) {
