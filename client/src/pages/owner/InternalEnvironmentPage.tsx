@@ -136,6 +136,7 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
   const artifactType: ArtifactType = specialty ? `INTERNAL_ENV_${specialty}` : 'INTERNAL_ENV'
   const [data, setData] = useState<Data>(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [deptScores, setDeptScores] = useState<{ gov: number; fin: number; team: number; digital: number } | null>(null)
 
@@ -184,6 +185,95 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
     }
   }
 
+  // ─── 🧠 توليد تلقائي من التحليل العميق + التدقيق ─────────────────
+  // المصدر: DeptAudit.scores (governance/financial/team/digital) —
+  // أرقام 0..100 محسوبة سلفاً. نُحوّلها إلى تقييم 7S بمعادلات ترجيح:
+  //   Strategy       ← financial (100%)
+  //   Structure      ← governance (100%)
+  //   Systems        ← (financial + digital)/2
+  //   Style          ← 0.7*governance + 0.3*team
+  //   Staff          ← team (100%)
+  //   Skills         ← 0.7*team + 0.3*digital
+  //   Shared Values  ← 0.6*governance + 0.4*team
+  // كل قيمة تُحوَّل إلى rating 1..5 ثم نختار القالب الأقرب.
+  async function generateFromContext() {
+    setGenerating(true)
+    try {
+      // مصدر ١: DeptAudit (الأولوية).
+      let scores = deptScores
+      if (!scores && specialty) {
+        const deps = await listDepartments(companyId)
+        const d = deps.find((x) => x.type === specialty)
+        if (d?.auditData) {
+          scores = {
+            gov: d.auditData.governance,
+            fin: d.auditData.financial,
+            team: d.auditData.team,
+            digital: d.auditData.digital,
+          }
+          setDeptScores(scores)
+        }
+      }
+
+      // مصدر ٢: DEPT_DEEP_FULL كوصف نصّي داعم (ليس تقييماً).
+      let deepAvailable = false
+      try {
+        const deep = await getArtifact<{ deptCode: string; answers: Record<string, string | string[]> }>(
+          companyId, 'DEPT_DEEP_FULL',
+        )
+        deepAvailable = Boolean(deep?.data?.answers && Object.keys(deep.data.answers).length > 0)
+      } catch { /* deep غير مطلوب — نتخطّى */ }
+
+      if (!scores) {
+        toast.error(
+          deepAvailable
+            ? 'التحليل العميق موجود لكن لا يوجد تدقيق برقم صحّة — أَجرِ تدقيقاً أساسياً أوّلاً.'
+            : 'لا بيانات كافية — ابدأ بالتحليل العميق أو التدقيق الأساسي أوّلاً.',
+        )
+        return
+      }
+
+      // معادلات المزج → 0..100 → rating 1..5.
+      const toRating = (v: number): 1 | 2 | 3 | 4 | 5 => {
+        if (v >= 80) return 5
+        if (v >= 60) return 4
+        if (v >= 40) return 3
+        if (v >= 20) return 2
+        return 1
+      }
+      const RATINGS: Record<string, 1 | 2 | 3 | 4 | 5> = {
+        strategy:      toRating(scores.fin),
+        structure:     toRating(scores.gov),
+        systems:       toRating((scores.fin + scores.digital) / 2),
+        style:         toRating(scores.gov * 0.7 + scores.team * 0.3),
+        staff:         toRating(scores.team),
+        skills:        toRating(scores.team * 0.7 + scores.digital * 0.3),
+        shared_values: toRating(scores.gov * 0.6 + scores.team * 0.4),
+      }
+
+      // اختر القالب الأقرب من الثلاثة (1/3/5) — يضبط النص والدرجة.
+      const nextAspects: Data['aspects'] = { ...data.aspects }
+      for (const asp of ASPECTS) {
+        const target = RATINGS[asp.key]
+        const template = asp.templates.reduce((best, t) =>
+          Math.abs(t.rating - target) < Math.abs(best.rating - target) ? t : best,
+        asp.templates[0])
+        nextAspects[asp.key] = { text: template.text, rating: template.rating }
+      }
+      setData({ aspects: nextAspects })
+
+      toast.success(
+        deepAvailable
+          ? '🧠 تم التوليد من التدقيق + التحليل العميق — راجع النصوص وعدّلها.'
+          : '🧠 تم التوليد من التدقيق — يمكن تحسين النتائج بإكمال التحليل العميق.',
+      )
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const avg = useMemo(() => {
     const list = ASPECTS.map((a) => data.aspects[a.key]?.rating ?? 3)
     return Math.round((list.reduce((s, v) => s + v, 0) / list.length) * 20)
@@ -208,12 +298,30 @@ function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCo
         </CardContent>
       </Card>
 
+      {/* 🧠 توليد ذاتي من التحليل العميق + التدقيق — الزر الأهم */}
+      <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl" aria-hidden>🧠</div>
+            <div>
+              <div className="text-sm font-bold">توليد تلقائي من بياناتك</div>
+              <div className="text-xs text-muted-foreground">
+                نقرأ التحليل العميق + التدقيق ونملأ الأبعاد السبعة تلقائياً بدرجات ونصوص مبنيّة على أرقامك.
+              </div>
+            </div>
+          </div>
+          <Button onClick={generateFromContext} disabled={generating || saving} size="lg">
+            {generating ? 'جاري التوليد…' : '✨ ولّد الآن'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* بطاقة مرجعية من آخر تدقيق (لو دخلنا من مسار المدير) */}
       {deptScores && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">📊 مرجع من آخر تدقيق</CardTitle>
-            <CardDescription>درجات ٤ محاور — استخدمها كإشارة سياق للتقييم أدناه.</CardDescription>
+            <CardDescription>درجات ٤ محاور — تُستخدم لتوليد التقييم السباعي أعلاه.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-4">
             <RefScore label="حوكمة" value={deptScores.gov} />

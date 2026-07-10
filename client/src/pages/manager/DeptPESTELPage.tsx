@@ -77,6 +77,36 @@ export function DeptPESTELPage() {
     })
   }
 
+  // ─── 🧠 توليد تلقائي — يُضيف كل المقترحات مرّة واحدة ─────────────
+  // مُخصّصة لتخصّص المدير (DEPT_PESTEL_SUGGESTIONS). ٣ اقتراحات لكل محور
+  // من الست = ١٨ عنصر. يمكن للمستخدم لاحقاً حذف ما لا يناسبه.
+  function generateAll() {
+    if (!specialty) return
+    const suggestions = DEPT_PESTEL_SUGGESTIONS[specialty]
+    setData((prev) => {
+      const next = { ...prev }
+      let added = 0
+      for (const axis of PESTEL_AXES) {
+        const bank = suggestions[axis.key]
+        const current = next[axis.key].trim()
+        const lines: string[] = []
+        for (const sug of bank) {
+          if (!current.includes(sug)) {
+            lines.push(sug)
+            added++
+          }
+        }
+        if (lines.length > 0) {
+          const separator = current ? '\n• ' : '• '
+          next[axis.key] = current + separator + lines.join('\n• ')
+        }
+      }
+      if (added === 0) toast.error('كل المقترحات موجودة سلفاً.')
+      else toast.success(`🧠 أُضيف ${added} عنصراً موزّعاً على ٦ محاور — راجعها وعدّل ما يلزم.`)
+      return next
+    })
+  }
+
   async function save() {
     if (!scope.company || !specialty) return
     const filled = PESTEL_AXES.filter((a) => data[a.key].trim().length > 0).length
@@ -129,6 +159,24 @@ export function DeptPESTELPage() {
             : `لعميل ${scope.company.name} · اضغط مقترحاً لإضافته إلى الحقل`
         }
       />
+
+      {/* 🧠 توليد تلقائي — يملأ كل المحاور بمقترحات مخصّصة لتخصّصك */}
+      <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl" aria-hidden>🧠</div>
+            <div>
+              <div className="text-sm font-bold">توليد تلقائي لتخصّصك</div>
+              <div className="text-xs text-muted-foreground">
+                نضيف ٣ مقترحات لكل محور من الست (١٨ عنصر) — مخصّصة لتخصّص {DEPT_LABEL[specialty]}. راجعها ثم عدّل.
+              </div>
+            </div>
+          </div>
+          <Button onClick={generateAll} size="lg">
+            ✨ ولّد الكل الآن
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {PESTEL_AXES.map((axis) => (
