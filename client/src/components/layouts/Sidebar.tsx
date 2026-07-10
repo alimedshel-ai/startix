@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
 
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
-import { canOpenStage, JOURNEY_STAGES, type StageId } from '@/lib/journeyStages'
+import { canOpenStage, type StageId } from '@/lib/journeyStages'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
-import { ACCENT_CLASSES, navFor } from './nav'
+import { ACCENT_CLASSES, navFor, type NavItem, type NavSection } from './nav'
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: 'صاحب أعمال',
@@ -41,13 +42,11 @@ export function Sidebar() {
   const userType = user?.userType ?? useAuthStore.getState().selectedType ?? null
   const isAdmin = user?.isAdmin === true
   const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
-  // العميل النشط من ?client=<id> — تُعتَبر شارات المراحل بحسب صحّة عميل واحد
-  // في وقت واحد. لو غير موجودة → لا نُظهر شارات (نتجنب استدعاءات مكلفة بلا داعٍ).
+  // العميل النشط من ?client=<id> — شارات المراحل بحسب صحّة عميل واحد.
   const [params] = useSearchParams()
   const activeClientId = isPro ? params.get('client') : null
   const { completions } = useJourneyCompletions(activeClientId)
-  // نستنسخ الأقسام ونحذف: adminOnly لغير المسؤولين + proOnly لغير المستقل،
-  // ثم نُسقط الأقسام التي فرغت (M1..M3 تختفي كلياً للمدير الداخلي).
+  // فلترة: adminOnly لغير المسؤولين + proOnly لغير المستقل + إسقاط الفارغ.
   const sections = navFor(userType, user?.managerType, user?.specialtyDeptType)
     .map((s) => ({
       ...s,
@@ -80,7 +79,6 @@ export function Sidebar() {
         <nav className="flex flex-1 flex-col gap-5 p-3">
           {sections.map((section) => {
             const accent = ACCENT_CLASSES[section.accent]
-            // شارة المرحلة (تظهر فقط عند: pro + client + section له stageId)
             const status: StageStatus | null =
               isPro && activeClientId && section.stageId
                 ? stageStatus(section.stageId, completions)
@@ -88,7 +86,6 @@ export function Sidebar() {
             const stageIcon = status ? STATUS_ICON[status] : ''
             const stageTitle = status ? STATUS_TITLE[status] : undefined
             const isLocked = status === 'locked'
-            // نُطبّق شفافية على الأقسام المقفلة للتلميح البصري.
             return (
               <div key={section.title} className={cn('flex flex-col gap-1', isLocked && 'opacity-50')}>
                 <div className="flex items-center gap-2 px-2 pb-1">
@@ -108,31 +105,11 @@ export function Sidebar() {
                     </span>
                   )}
                 </div>
-                <ul className="flex flex-col gap-0.5">
-                  {section.items.map((item) => (
-                    <li key={item.to}>
-                      <NavLink
-                        to={item.to}
-                        end
-                        className={({ isActive }) =>
-                          cn(
-                            'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors',
-                            isActive
-                              ? `${accent.bgSoft} ${accent.text} font-medium`
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                          )
-                        }
-                      >
-                        {item.icon && <span className="text-base leading-none">{item.icon}</span>}
-                        <span className="flex-1 truncate text-right">{item.label}</span>
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
+                <SectionItems section={section} accent={accent} />
               </div>
             )
           })}
-          {/* Legend at the bottom — يشرح الشارات لو الشخص لأول مرة يرى */}
+          {/* Legend at the bottom — يشرح الشارات */}
           {isPro && activeClientId && sections.some((s) => s.stageId) && (
             <div className="mt-2 rounded-md border border-dashed bg-card/40 p-2 text-[10px] text-muted-foreground">
               <div className="mb-1 font-semibold">دليل الشارات:</div>
@@ -155,5 +132,60 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+  )
+}
+
+// ─── قائمة عناصر القسم — تدعم الطيّ (essential vs extras) ────────
+// الأقسام بـcollapsible=true تعرض العناصر الأساسية (essential=true) دائماً،
+// والباقي خلف زر «أظهر ن عنصراً إضافياً». الأقسام غير القابلة للطي تعرض
+// كل العناصر بلا زر (السلوك الأصلي).
+function SectionItems({ section, accent }: { section: NavSection; accent: { bgSoft: string; text: string } }) {
+  const [expanded, setExpanded] = useState(false)
+  const essentials = section.items.filter((i) => i.essential)
+  const extras = section.items.filter((i) => !i.essential)
+  // لو القسم غير قابل للطي أو ما فيه عناصر essential، نعرض كل شيء.
+  const collapsibleActive = section.collapsible && essentials.length > 0 && extras.length > 0
+  const visible = collapsibleActive && !expanded ? essentials : section.items
+  return (
+    <>
+      <ul className="flex flex-col gap-0.5">
+        {visible.map((item) => (
+          <NavItemRow key={item.to} item={item} accent={accent} />
+        ))}
+      </ul>
+      {collapsibleActive && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mx-2 mt-0.5 rounded-md px-2 py-1 text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          {expanded
+            ? '▲ أخفِ الأدوات الإضافية'
+            : `▼ أظهر ${extras.length} أداة إضافية`}
+        </button>
+      )}
+    </>
+  )
+}
+
+function NavItemRow({ item, accent }: { item: NavItem; accent: { bgSoft: string; text: string } }) {
+  return (
+    <li>
+      <NavLink
+        to={item.to}
+        end
+        className={({ isActive }) =>
+          cn(
+            'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors',
+            isActive
+              ? `${accent.bgSoft} ${accent.text} font-medium`
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )
+        }
+      >
+        {item.icon && <span className="text-base leading-none">{item.icon}</span>}
+        <span className="flex-1 truncate text-right">{item.label}</span>
+      </NavLink>
+    </li>
   )
 }

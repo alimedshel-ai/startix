@@ -16,6 +16,9 @@ export interface NavItem {
   // للمالك والمستقل في السايدبار (المسار في الراوتر يفتح للـ OWNER أيضاً)،
   // لكن يُخفى عن المدير الداخلي (INTERNAL) لأنّه أُنشئ لسير عمل المستشار.
   proOnly?: boolean
+  // Sidebar (Commit ٣) — العناصر الأساسية (⭐) للأقسام القابلة للطي.
+  // القسم ① يعرض هذه دائماً، والبقية خلف زر «أظهر المزيد».
+  essential?: boolean
 }
 
 /** Accent color used by the sidebar for the section header / left-bar marker. */
@@ -30,6 +33,10 @@ export interface NavSection {
   // الأقسام غير المرتبطة بمرحلة (البداية، المالي، الخطة والذكاء) لا يوجد
   // لها stageId فتظهر بدون شارة.
   stageId?: StageId
+  // Sidebar (Commit ٣) — لو true: العناصر بلا `essential` تُطوى تحت زر
+  // «أظهر ن عنصراً إضافياً». يُستخدم للقسم ① (١٠ عناصر → ٣ ⭐ + ٧ موسّع)
+  // لتفادي إرهاق بصري.
+  collapsible?: boolean
 }
 
 const ownerNav: NavSection[] = [
@@ -194,32 +201,35 @@ const managerNav: NavSection[] = [
     title: '🌐 ① التشخيص وتحليل البيئة',
     accent: 'sky',
     stageId: 'environment',
+    collapsible: true,
     items: [
-      // ⭐ الأدوات النجمية (٣)
-      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',   icon: '🎯', proOnly: true },
-      { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة', icon: '🔬', proOnly: true },
-      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',         icon: '🌐', proOnly: true },
-      // بقية أدوات المرحلة
+      // ⭐ الأدوات النجمية الأساسية (تظهر دائماً)
+      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',   icon: '🎯', proOnly: true, essential: true },
+      { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة', icon: '🔬', proOnly: true, essential: true },
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',         icon: '🌐', proOnly: true, essential: true },
+      // ⭐ تدقيق التخصّص أيضاً أساسي (فلتر dept يُظهر واحداً فقط)
+      { to: '/manager/hr/audit',             label: 'تدقيق الموارد البشرية',  icon: '👤', dept: 'HR',                essential: true },
+      { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE',           essential: true },
+      { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES',             essential: true },
+      { to: '/manager/marketing/audit',      label: 'تدقيق التسويق',          icon: '📢', dept: 'MARKETING',         essential: true },
+      { to: '/manager/operations/audit',     label: 'تدقيق العمليات',         icon: '⚙️', dept: 'OPERATIONS',        essential: true },
+      { to: '/manager/it/audit',             label: 'تدقيق تقنية المعلومات',  icon: '💻', dept: 'IT',                essential: true },
+      { to: '/manager/cs/audit',             label: 'تدقيق خدمة العملاء',     icon: '📞', dept: 'CUSTOMER_SERVICE',  essential: true },
+      { to: '/manager/logistics/audit',      label: 'تدقيق اللوجستيات',       icon: '🚚', dept: 'LOGISTICS',         essential: true },
+      { to: '/manager/quality/audit',        label: 'تدقيق الجودة',           icon: '✅', dept: 'QUALITY',           essential: true },
+      { to: '/manager/projects/audit',       label: 'تدقيق المشاريع',         icon: '📋', dept: 'PROJECTS',          essential: true },
+      { to: '/manager/governance/audit',     label: 'تدقيق الحوكمة',          icon: '🏛️', dept: 'GOVERNANCE',        essential: true },
+      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال',         icon: '⚖️', dept: 'COMPLIANCE',        essential: true },
+
+      // بقية أدوات المرحلة (خلف زر "أظهر المزيد")
       { to: '/value-chain',           label: 'سلسلة القيمة',           icon: '🔗', proOnly: true },
       { to: '/porter',                label: 'قوى بورتر الخمس',        icon: '⚔️', proOnly: true },
       { to: '/core-capabilities',     label: 'القدرات الجوهرية',       icon: '💎', proOnly: true },
       { to: '/benchmarking',          label: 'المقارنة المرجعية',      icon: '🔍', proOnly: true },
       { to: '/org-dna',               label: 'DNA المنظمة',            icon: '🧬', proOnly: true },
       { to: '/stakeholders',          label: 'أصحاب المصلحة',          icon: '👥', proOnly: true },
-      // تدقيق التخصّص (فلتر `dept` يُظهر واحداً فقط للمدير المستقل).
-      { to: '/manager/hr/audit',             label: 'تدقيق الموارد البشرية',  icon: '👤', dept: 'HR' },
-      { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE' },
-      { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES' },
-      { to: '/manager/marketing/audit',      label: 'تدقيق التسويق',          icon: '📢', dept: 'MARKETING' },
-      { to: '/manager/operations/audit',     label: 'تدقيق العمليات',         icon: '⚙️', dept: 'OPERATIONS' },
-      { to: '/manager/it/audit',             label: 'تدقيق تقنية المعلومات',  icon: '💻', dept: 'IT' },
-      { to: '/manager/cs/audit',             label: 'تدقيق خدمة العملاء',     icon: '📞', dept: 'CUSTOMER_SERVICE' },
-      { to: '/manager/logistics/audit',      label: 'تدقيق اللوجستيات',       icon: '🚚', dept: 'LOGISTICS' },
-      { to: '/manager/quality/audit',        label: 'تدقيق الجودة',           icon: '✅', dept: 'QUALITY' },
-      { to: '/manager/projects/audit',       label: 'تدقيق المشاريع',         icon: '📋', dept: 'PROJECTS' },
-      { to: '/manager/governance/audit',     label: 'تدقيق الحوكمة',          icon: '🏛️', dept: 'GOVERNANCE' },
+      // أدوات ثانوية لتخصّصات معيّنة
       { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '⚖️', dept: 'GOVERNANCE' },
-      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال',         icon: '⚖️', dept: 'COMPLIANCE' },
       { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },
     ],
   },
