@@ -7,6 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { CATEGORY_META, categorize, type Category } from '@/lib/directionCategory'
 import { getArtifact, getSWOT, upsertArtifact, type SWOT } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 import type { StrategyPath } from '@/types/user'
@@ -62,6 +63,10 @@ function Editor({ companyId }: { companyId: string }) {
   const [readiness, setReadiness] = useState({ pestel: false, swot: false, tows: false, directions: false })
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  // فلترة الاتجاهات بحسب الفئة الاستراتيجية (نمو/كفاءة/رقمنة/…).
+  const [categoryFilter, setCategoryFilter] = useState<Category | null>(null)
+  // فلترة بحسب ربع TOWS (SO/ST/WO/WT).
+  const [quadFilter, setQuadFilter] = useState<Quad | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -217,22 +222,110 @@ function Editor({ companyId }: { companyId: string }) {
     )
   }
 
+  // إحصاءات الفئات + الأرباع لعرض رقائق الفلترة.
+  const categoryCounts = countBy(directions, (d) => categorize(d.title + ' ' + d.description))
+  const quadCounts = countBy(directions, (d) => extractQuadrant(d.title) ?? 'none')
+  const filteredDirections = directions.filter((d) => {
+    const cat = categorize(d.title + ' ' + d.description)
+    const q = extractQuadrant(d.title)
+    if (categoryFilter && cat !== categoryFilter) return false
+    if (quadFilter && q !== quadFilter) return false
+    return true
+  })
+
   return (
     <>
       {/* لوحة جاهزية البيانات — يحث المدير على تجهيز التحليلات قبل القرار */}
       <ReadinessBar readiness={readiness} />
 
+      {/* بطاقة أدلّة موجزة من SWOT — تُعطي المدير صورة سريعة */}
+      {swot && (
+        <EvidenceSummary swot={swot} directionsCount={directions.length} />
+      )}
+
+      {/* رقائق فلترة الفئات (نمو/كفاءة/رقمنة/…) — تُظهر فقط الأنواع الموجودة */}
+      {Object.keys(categoryCounts).length > 1 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">🏷️ فلترة الاتجاهات حسب النوع</CardTitle>
+            <CardDescription className="text-xs">
+              اضغط أيقونة لعرض اتجاهات نوعها فقط، أو اضغط ثانياً للإلغاء.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-1.5">
+            {(Object.keys(categoryCounts) as Category[]).map((cat) => {
+              const meta = CATEGORY_META[cat]
+              const active = categoryFilter === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(active ? null : cat)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                    active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : `${meta.bgClass} ${meta.colorClass}`
+                  }`}
+                >
+                  <span>{meta.icon}</span>
+                  <span>{meta.labelAr}</span>
+                  <span className="rounded-full bg-card/70 px-1.5 text-[10px] font-bold">{categoryCounts[cat]}</span>
+                </button>
+              )
+            })}
+            {(quadFilter || categoryFilter) && (
+              <button
+                type="button"
+                onClick={() => { setCategoryFilter(null); setQuadFilter(null) }}
+                className="ml-2 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-card"
+              >
+                × إزالة الفلترات
+              </button>
+            )}
+          </CardContent>
+          {/* رقائق الأرباع (SO/ST/WO/WT) — للاتجاهات المُستوردة من TOWS */}
+          {(quadCounts.SO ?? 0) + (quadCounts.ST ?? 0) + (quadCounts.WO ?? 0) + (quadCounts.WT ?? 0) > 0 && (
+            <CardContent className="pt-0">
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">فلترة حسب ربع TOWS:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {(['SO', 'ST', 'WO', 'WT'] as Quad[]).map((q) => {
+                  const cnt = quadCounts[q] ?? 0
+                  if (cnt === 0) return null
+                  const active = quadFilter === q
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setQuadFilter(active ? null : q)}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition ${
+                        active ? 'border-primary bg-primary/15 text-primary ring-2 ring-primary/30' : 'bg-card hover:bg-muted'
+                      }`}
+                    >
+                      <QuadBadgeInline q={q} />
+                      <span className="rounded-full bg-card/70 px-1 text-[9px] font-bold">{cnt}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>اختر اتجاهاً</CardTitle>
-          <CardDescription>{directions.length} اتجاه — كل بطاقة تعرض الأدلّة الداعمة من تحليلاتك السابقة.</CardDescription>
+          <CardDescription>
+            {filteredDirections.length}{filteredDirections.length !== directions.length ? ` من ${directions.length}` : ''} اتجاه —
+            كل بطاقة تعرض الأدلّة الداعمة من تحليلاتك السابقة.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
-            {directions.map((d) => {
+            {filteredDirections.map((d) => {
               const selected = choice.selectedDirectionId === d.id
               const ev = evidence(d, swot)
               const q = extractQuadrant(d.title)
+              const cat = categorize(d.title + ' ' + d.description)
+              const catMeta = CATEGORY_META[cat]
               return (
                 <button
                   key={d.id}
@@ -244,11 +337,17 @@ function Editor({ companyId }: { companyId: string }) {
                       : 'bg-card hover:-translate-y-0.5 hover:shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl" title={catMeta.labelAr}>{catMeta.icon}</span>
                     <span className="flex-1 font-semibold">{d.title || '—'}</span>
                     <span className="rounded-md border bg-background px-2 py-0.5 text-xs tabular-nums" title="قابلية × أثر">
                       {d.feasibility * d.impact}
                     </span>
+                  </div>
+                  {/* شارة تصنيف الفئة */}
+                  <div className="mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-medium bg-muted/40">
+                    <span>{catMeta.icon}</span>
+                    <span>{catMeta.labelAr}</span>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-3">
                     {d.description || '—'}
@@ -277,8 +376,21 @@ function Editor({ companyId }: { companyId: string }) {
               )
             })}
           </div>
+          {filteredDirections.length === 0 && directions.length > 0 && (
+            <p className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+              لا اتجاهات مطابقة للفلترة — امسح الفلترات أعلاه.
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      {/* أزرار عمل سريع للاتجاه المختار — قبل التثبيت */}
+      {choice.selectedDirectionId && (() => {
+        const picked = directions.find((d) => d.id === choice.selectedDirectionId)
+        if (!picked) return null
+        const cat = categorize(picked.title + ' ' + picked.description)
+        return <QuickActionsCard direction={picked} category={cat} />
+      })()}
 
       {/* معاينة خارطة التنفيذ قبل الحفظ (للاتجاه المختار) */}
       {choice.selectedDirectionId && (() => {
@@ -372,6 +484,102 @@ function QuadBadge({ q }: { q: Quad }) {
   }
   const m = meta[q]
   return <span className={`rounded-full border px-2 py-0.5 ${m.cls}`}>{m.label}</span>
+}
+
+// نسخة مصغّرة داخل رقيقة فلترة الأرباع.
+function QuadBadgeInline({ q }: { q: Quad }) {
+  const label: Record<Quad, string> = { SO: 'هجومي', ST: 'دفاعي', WO: 'تحويلي', WT: 'تقليصي' }
+  return <span>{q} • {label[q]}</span>
+}
+
+// ملخّص أدلّة SWOT — يعرض العدّ لكل جانب لمساعدة المدير على قراءة الوضع.
+function EvidenceSummary({ swot, directionsCount }: { swot: SWOT; directionsCount: number }) {
+  const items = [
+    { icon: '💪', labelAr: 'قوّة', count: swot.strengths?.length ?? 0, cls: 'border-emerald-300 bg-emerald-50 text-emerald-800' },
+    { icon: '🎯', labelAr: 'فرص', count: swot.opportunities?.length ?? 0, cls: 'border-sky-300 bg-sky-50 text-sky-800' },
+    { icon: '⚠️', labelAr: 'ضعف', count: swot.weaknesses?.length ?? 0, cls: 'border-amber-300 bg-amber-50 text-amber-800' },
+    { icon: '🛑', labelAr: 'تهديد', count: swot.threats?.length ?? 0, cls: 'border-rose-300 bg-rose-50 text-rose-800' },
+  ]
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">📊 صورة الوضع الحالي</CardTitle>
+        <CardDescription className="text-xs">
+          {directionsCount} اتجاه محفوظ · {items.reduce((s, i) => s + i.count, 0)} بند SWOT · اقرأ الأدلّة أولاً ثم اختر بثقة.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {items.map((i) => (
+            <div key={i.labelAr} className={`rounded-lg border p-2 text-center ${i.cls}`}>
+              <div className="text-xl">{i.icon}</div>
+              <div className="mt-0.5 text-xl font-bold tabular-nums">{i.count}</div>
+              <div className="text-[10px]">{i.labelAr}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// أزرار عمل سريعة للاتجاه المختار — الأدوات ذات الصلة بالفئة.
+function QuickActionsCard({ direction, category }: { direction: DirectionLite; category: Category }) {
+  const catMeta = CATEGORY_META[category]
+  // مسارات مناسبة لكل فئة — تفتح الأداة المناسبة بلا فقدان سياق.
+  const actions: { icon: string; label: string; to: string; hint: string }[] = []
+  actions.push({ icon: '🔭', label: 'اعرضه على الآفاق الثلاثة', to: '/three-horizons', hint: 'حدد أين يقع: قصير/متوسط/بعيد' })
+  actions.push({ icon: '💡', label: 'حوّله لمبادرات', to: '/initiatives', hint: 'إجراءات قابلة للتنفيذ' })
+  if (category === 'growth' || category === 'innovation') {
+    actions.push({ icon: '📈', label: 'قارِن بمصفوفة أنسوف', to: '/ansoff', hint: 'اختراق/تطوير/تنويع' })
+  }
+  if (category === 'efficiency' || category === 'digital') {
+    actions.push({ icon: '⚡', label: 'رتّبه في مصفوفة الأولوية', to: '/priority-matrix', hint: 'جدول التنفيذ' })
+  }
+  if (category === 'defense' || category === 'exit') {
+    actions.push({ icon: '⚠️', label: 'ادرِج المخاطر', to: '/risk-map', hint: 'حدد المخاطر التنفيذية' })
+  }
+  return (
+    <Card className={`border-2 ${catMeta.bgClass}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <span className="text-2xl">{catMeta.icon}</span>
+          <span>خطوات مقترحة — {catMeta.labelAr}</span>
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {catMeta.descAr} · «{direction.title}»
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {actions.map((a) => (
+            <Link
+              key={a.label}
+              to={a.to}
+              className="flex items-start gap-2 rounded-lg border bg-card p-2.5 text-right transition hover:-translate-y-0.5 hover:shadow-sm"
+            >
+              <span className="text-lg leading-none">{a.icon}</span>
+              <div className="flex-1">
+                <div className="text-xs font-semibold">{a.label}</div>
+                <div className="text-[10px] text-muted-foreground">{a.hint}</div>
+              </div>
+              <span className="text-xs text-primary">←</span>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// عدّ عام: يُرجع Record<K, number>.
+function countBy<T, K extends string>(arr: T[], fn: (t: T) => K): Partial<Record<K, number>> {
+  const out: Partial<Record<K, number>> = {}
+  for (const item of arr) {
+    const k = fn(item)
+    out[k] = (out[k] ?? 0) + 1
+  }
+  return out
 }
 
 function RoadmapCard({ roadmap, preview = false }: { roadmap: Roadmap; preview?: boolean }) {
