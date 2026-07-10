@@ -9,8 +9,7 @@ export interface NavItem {
   // بـ requireAdmin؛ هذا فقط لتنظيف التنقّل.
   adminOnly?: boolean
   // PRO-F — يربط العنصر بإدارة معيّنة. للمدير المستقل (INDEPENDENT_PRO)،
-  // نُخفي العناصر التي لا تطابق تخصّصه. عناصر بلا `dept` تظهر للجميع
-  // (مثلاً "اختيار الإدارة" أو "لوحة الاحترافية").
+  // نُخفي العناصر التي لا تطابق تخصّصه.
   dept?: DeptCode
   // M1..M3 — عنصر مخصّص للمدير المستقل (INDEPENDENT_PRO) فقط. يظهر
   // للمالك والمستقل في السايدبار (المسار في الراوتر يفتح للـ OWNER أيضاً)،
@@ -161,130 +160,151 @@ const ownerNav: NavSection[] = [
   },
 ]
 
+// ─── سايدبار المدير — ٩ أقسام مرقّمة (المسار الاستراتيجي المقفل) ─
+// المدير المستقل يمشي من ① → ⑥. الأقسام غير المرقّمة (البداية،
+// المالي، الخطة والذكاء) أدوات مساندة تُستخدم عبر الرحلة.
+//
+// خارج المرحلة: قسم «العملاء» (proClientsSection) يُضاف تلقائياً فوق
+// السايدبار للمدير المستقل عبر `navFor()`.
+//
+// INTERNAL manager: يرى نفس الأقسام بدون فلترة `proOnly`.
+// INDEPENDENT_PRO مع تخصّص: يُطبَّق فلتر `dept === specialty`
+// في `navFor()` فيرى فقط تدقيقات/إصلاحات تخصّصه.
 const managerNav: NavSection[] = [
+  // ─── ٠) البداية ─────────────────────────────────────────────
   {
-    title: 'التشخيص',
-    accent: 'sky',
-    items: [{ to: '/manager/diagnostic', label: 'تشخيص المدير', icon: '🎯' }],
-  },
-  {
-    title: 'الإدارة',
+    title: '🏠 البداية',
     accent: 'teal',
     items: [
-      { to: '/manager/select-dept',         label: 'اختيار الإدارة',    icon: '🏢' },
-      { to: '/manager/dept-dashboard',      label: 'لوحة الإدارة',       icon: '📊' },
-      { to: '/manager/pro-dashboard',       label: 'اللوحة الاحترافية',  icon: '⭐' },
-      { to: '/manager/dept-deep',           label: 'تحليل مبسّط',         icon: '📝' },
-      { to: '/manager/contradictions',      label: 'تحليل التناقضات',       icon: '⚡' },
-      { to: '/manager/strategic-plan',      label: 'الخطة الاستراتيجية',     icon: '🗺️', proOnly: true },
-      { to: '/manager/dept-smart',          label: 'تحليل SMART',         icon: '✨' },
-      { to: '/manager/dept-gap',            label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
+      { to: '/manager/dept-dashboard', label: 'لوحة الإدارة',  icon: '📊' },
+      { to: '/manager/diagnostic',      label: 'تشخيص المدير', icon: '🎯' },
     ],
   },
-  // ─── المرحلة ① — التشخيص وتحليل البيئة ─────────────────────────────
-  // ترتيب مطابق لجدول المستخدم (#١-٩) — رحلة العميل واختبار الضغط والجاهزية
-  // الرقمية غير موجودة بعد. تُغذّي المرحلة ② (SWOT) في التسلسل المقفل.
+
+  // ─── ① التشخيص وتحليل البيئة ─────────────────────────────
+  // ٩ أدوات جوهرية للبيئة الداخلية والخارجية + التدقيق التخصّصي
+  // (يظهر تدقيق واحد فقط للمدير المستقل بحسب `dept === specialty`).
   {
-    title: 'المرحلة ① — تحليل البيئة',
+    title: '🌐 ① التشخيص وتحليل البيئة',
     accent: 'sky',
     items: [
-      // #١ — البيئة الداخلية (7S) ⭐
-      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',      icon: '🎯', proOnly: true },
-      // #٢ — سلسلة القيمة ⭐
-      { to: '/value-chain',           label: 'سلسلة القيمة',              icon: '🔗', proOnly: true },
-      // #٣ — Porter الخمس
-      { to: '/porter',                label: 'قوى بورتر الخمس',           icon: '⚔️', proOnly: true },
-      // #٤ — PESTEL ⭐ (نسخة الإدارة فقط للمدير المستقل — نسخة الشركة مخفيّة)
-      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',            icon: '🌐', proOnly: true },
-      // #٥ — القدرات الجوهرية
-      { to: '/core-capabilities',     label: 'القدرات الجوهرية',          icon: '💎', proOnly: true },
-      // #٦ — المقارنة المعيارية
-      { to: '/benchmarking',          label: 'المقارنة المرجعية',         icon: '🔍', proOnly: true },
-      // #٨ — DNA المنظمة (#٧ رحلة العميل مفقودة)
-      { to: '/org-dna',               label: 'DNA المنظمة',               icon: '🧬', proOnly: true },
-      // #٩ — أصحاب المصلحة (#١٠ اختبار الضغط + #١١ الجاهزية الرقمية مفقودتان)
-      { to: '/stakeholders',          label: 'أصحاب المصلحة',             icon: '👥', proOnly: true },
-      // أدوات مصدر بيانات "البيئة الداخلية" — تلتقط الإجابات التفصيلية.
-      { to: '/manager/deep-analysis', label: 'التحليل العميق (البيئة الداخلية بالتفصيل)', icon: '🔬', proOnly: true },
+      // ⭐ الأدوات النجمية (٣)
+      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',   icon: '🎯', proOnly: true },
+      { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة', icon: '🔬', proOnly: true },
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',         icon: '🌐', proOnly: true },
+      // بقية أدوات المرحلة
+      { to: '/value-chain',           label: 'سلسلة القيمة',           icon: '🔗', proOnly: true },
+      { to: '/porter',                label: 'قوى بورتر الخمس',        icon: '⚔️', proOnly: true },
+      { to: '/core-capabilities',     label: 'القدرات الجوهرية',       icon: '💎', proOnly: true },
+      { to: '/benchmarking',          label: 'المقارنة المرجعية',      icon: '🔍', proOnly: true },
+      { to: '/org-dna',               label: 'DNA المنظمة',            icon: '🧬', proOnly: true },
+      { to: '/stakeholders',          label: 'أصحاب المصلحة',          icon: '👥', proOnly: true },
+      // تدقيق التخصّص (فلتر `dept` يُظهر واحداً فقط للمدير المستقل).
+      { to: '/manager/hr/audit',             label: 'تدقيق الموارد البشرية',  icon: '👤', dept: 'HR' },
+      { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE' },
+      { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES' },
+      { to: '/manager/marketing/audit',      label: 'تدقيق التسويق',          icon: '📢', dept: 'MARKETING' },
+      { to: '/manager/operations/audit',     label: 'تدقيق العمليات',         icon: '⚙️', dept: 'OPERATIONS' },
+      { to: '/manager/it/audit',             label: 'تدقيق تقنية المعلومات',  icon: '💻', dept: 'IT' },
+      { to: '/manager/cs/audit',             label: 'تدقيق خدمة العملاء',     icon: '📞', dept: 'CUSTOMER_SERVICE' },
+      { to: '/manager/logistics/audit',      label: 'تدقيق اللوجستيات',       icon: '🚚', dept: 'LOGISTICS' },
+      { to: '/manager/quality/audit',        label: 'تدقيق الجودة',           icon: '✅', dept: 'QUALITY' },
+      { to: '/manager/projects/audit',       label: 'تدقيق المشاريع',         icon: '📋', dept: 'PROJECTS' },
+      { to: '/manager/governance/audit',     label: 'تدقيق الحوكمة',          icon: '🏛️', dept: 'GOVERNANCE' },
+      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '⚖️', dept: 'GOVERNANCE' },
+      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال',         icon: '⚖️', dept: 'COMPLIANCE' },
+      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },
     ],
   },
+
+  // ─── ② التوليف ─────────────────────────────────────────────
   {
-    title: 'تدقيق الإدارات',
-    accent: 'indigo',
-    items: [
-      { to: '/manager/hr/audit',             label: 'الموارد البشرية',          icon: '👤', dept: 'HR' },
-      { to: '/manager/finance/audit',        label: 'المالية',                  icon: '💰', dept: 'FINANCE' },
-      { to: '/manager/finance/break-even',   label: 'نقطة التعادل',             icon: '⚖️', dept: 'FINANCE' },
-      { to: '/manager/sales/audit',          label: 'المبيعات',                  icon: '💼', dept: 'SALES' },
-      { to: '/manager/marketing/audit',      label: 'التسويق',                   icon: '📢', dept: 'MARKETING' },
-      { to: '/manager/operations/audit',     label: 'العمليات',                  icon: '⚙️', dept: 'OPERATIONS' },
-      { to: '/manager/it/audit',             label: 'تقنية المعلومات',           icon: '💻', dept: 'IT' },
-      { to: '/manager/cs/audit',             label: 'خدمة العملاء',              icon: '📞', dept: 'CUSTOMER_SERVICE' },
-      { to: '/manager/logistics/audit',      label: 'الإمداد واللوجستيات',       icon: '🚚', dept: 'LOGISTICS' },
-      { to: '/manager/logistics/reform',     label: 'خطة إصلاح اللوجستيات',     icon: '🔧', dept: 'LOGISTICS' },
-      { to: '/manager/quality/audit',        label: 'الجودة',                    icon: '✅', dept: 'QUALITY' },
-      { to: '/manager/projects/audit',       label: 'المشاريع',                  icon: '📋', dept: 'PROJECTS' },
-      { to: '/manager/governance/audit',     label: 'الحوكمة',                   icon: '🏛️', dept: 'GOVERNANCE' },
-      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',              icon: '⚖️', dept: 'GOVERNANCE' },
-    ],
-  },
-  // ─── الأدوات الاستراتيجية للمدير المستقل الخبير ───────────────────────
-  // المدير المستقل الخبير يستخدم كل الأدوات الاستراتيجية على مستوى إدارة
-  // عميله. مثلاً مستشار HR يعمل SWOT لإدارة HR، Objectives لخطة HR، KPIs
-  // لقياس أداء HR، إلخ. الفرق مع "المستشار" (طبقة أعلى غير مُنمذجة كدور):
-  //   المدير الخبير: أدوات استراتيجية على مستوى إدارة واحدة/عميل واحد.
-  //   المستشار:     نفس الأدوات على مستوى شركة كاملة أو عدّة عملاء.
-  // بمعنى الأدوات هي هي، فقط النطاق يختلف — نتيجة `?client=<id>` تُحدّد.
-  {
-    title: 'التوليف الاستراتيجي',
+    title: '🧭 ② التوليف',
     accent: 'rose',
     items: [
-      // M1 — التوليف الاستراتيجي لإدارة العميل.
-      // /gap-analysis (نسخة الشركة) مخفيّة — يستخدم المدير /manager/dept-gap.
-      { to: '/swot',            label: 'تحليل SWOT',       icon: '🧭', proOnly: true },
-      { to: '/tows',            label: 'مصفوفة TOWS',       icon: '🔄', proOnly: true },
-      { to: '/risk-map',        label: 'خريطة المخاطر',     icon: '⚠️', proOnly: true },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',   icon: '⚡', proOnly: true },
+      { to: '/swot',                   label: 'تحليل SWOT',     icon: '🧭', proOnly: true },
+      { to: '/tows',                   label: 'مصفوفة TOWS',     icon: '🔄', proOnly: true },
+      { to: '/manager/contradictions', label: 'تحليل التناقضات', icon: '⚡', proOnly: true },
     ],
   },
+
+  // ─── ③ التوجّه والخيارات ─────────────────────────────────
+  // Gap (سواء العام أو dept-scoped) هنا حسب `journeyStages.ts`.
   {
-    title: 'التخطيط والتنفيذ',
-    accent: 'emerald',
+    title: '🎯 ③ التوجّه والخيارات',
+    accent: 'amber',
     items: [
-      // M2 — أدوات التخطيط والتنفيذ لإدارة العميل.
-      { to: '/objectives',   label: 'الأهداف',          icon: '🎯', proOnly: true },
-      { to: '/okrs',         label: 'OKRs',             icon: '🏆', proOnly: true },
-      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩', proOnly: true },
-      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊', proOnly: true },
-      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️', proOnly: true },
-      { to: '/initiatives',  label: 'المبادرات',        icon: '💡', proOnly: true },
-      { to: '/projects',     label: 'المشاريع',         icon: '📁', proOnly: true },
-      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️', proOnly: true },
-      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅', proOnly: true },
-      { to: '/tasks',        label: 'المهام',           icon: '✓', proOnly: true },
-      // R6 — أدوات جديدة أساسية لمسار المدير المستقل.
-      { to: '/bmc',          label: 'نموذج الأعمال Canvas', icon: '🧩', proOnly: true },
-      { to: '/bsc',          label: 'Balanced Scorecard',   icon: '⚖️', proOnly: true },
-      { to: '/raci',         label: 'مصفوفة RACI',           icon: '👥', proOnly: true },
-      { to: '/eisenhower',   label: 'مصفوفة أيزنهاور',      icon: '📊', proOnly: true },
+      { to: '/directions',       label: 'التوجّه الاستراتيجي',   icon: '🎯', proOnly: true },
+      { to: '/bmc',              label: 'نموذج الأعمال Canvas', icon: '🧩', proOnly: true },
+      { to: '/manager/dept-gap', label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
+      { to: '/ansoff',           label: 'مصفوفة أنسوف',          icon: '📈', proOnly: true },
+      { to: '/bcg',              label: 'مصفوفة BCG',            icon: '⭐', proOnly: true },
+      { to: '/choices',          label: 'القرار الاستراتيجي',   icon: '✅', proOnly: true },
+      { to: '/three-horizons',   label: 'الآفاق الثلاثة',        icon: '🔭', proOnly: true },
+      { to: '/scenarios',        label: 'السيناريوهات',          icon: '🔮', proOnly: true },
     ],
   },
+
+  // ─── ④ الأهداف والمؤشرات ─────────────────────────────────
   {
-    title: 'التحليل المالي',
+    title: '📊 ④ الأهداف والمؤشرات',
     accent: 'emerald',
     items: [
-      // M3 — التحليل المالي للإدارة (مالية/عمليات/مبيعات — كلها تحتاج تحليل).
+      { to: '/bsc',                label: 'Balanced Scorecard', icon: '⚖️', proOnly: true },
+      { to: '/objectives',         label: 'الأهداف الاستراتيجية', icon: '🎯', proOnly: true },
+      { to: '/okrs',               label: 'OKRs',                 icon: '🏆', proOnly: true },
+      { to: '/ogsm',               label: 'إطار OGSM',            icon: '🧩', proOnly: true },
+      { to: '/kpis',               label: 'مؤشرات الأداء',       icon: '📊', proOnly: true },
+      { to: '/kpi-entries',        label: 'إدخالات المؤشرات',    icon: '✍️', proOnly: true },
+      { to: '/manager/dept-smart', label: 'ذكاء KPIs',            icon: '✨', proOnly: true },
+      { to: '/annual-plan',        label: 'الخطة السنوية',       icon: '🗓️', proOnly: true },
+    ],
+  },
+
+  // ─── ⑤ المبادرات والمخاطر ─────────────────────────────────
+  {
+    title: '💡 ⑤ المبادرات والمخاطر',
+    accent: 'violet',
+    items: [
+      { to: '/initiatives',     label: 'المبادرات',         icon: '💡', proOnly: true },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡', proOnly: true },
+      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',    icon: '📊', proOnly: true },
+      { to: '/risk-map',        label: 'خريطة المخاطر',      icon: '⚠️', proOnly: true },
+      { to: '/raci',            label: 'مصفوفة RACI',        icon: '👥', proOnly: true },
+    ],
+  },
+
+  // ─── ⑥ التنفيذ والمتابعة ─────────────────────────────────
+  {
+    title: '🚀 ⑥ التنفيذ والمتابعة',
+    accent: 'orange',
+    items: [
+      { to: '/projects',    label: 'المشاريع',   icon: '📁', proOnly: true },
+      { to: '/gantt-chart', label: 'مخطط جانت', icon: '📅', proOnly: true },
+      { to: '/tasks',       label: 'المهام',    icon: '✓', proOnly: true },
+    ],
+  },
+
+  // ─── التحليل المالي (مساند لكل المراحل) ─────────────────────
+  {
+    title: '💰 التحليل المالي',
+    accent: 'emerald',
+    items: [
       { to: '/financial-analysis',         label: 'Dupont و Monte Carlo', icon: '📐', proOnly: true },
-      { to: '/manager/finance/break-even', label: 'نقطة التعادل',        icon: '⚖️', dept: 'FINANCE' },
+      { to: '/manager/finance/break-even', label: 'نقطة التعادل',         icon: '⚖️', dept: 'FINANCE' },
     ],
   },
+
+  // ─── الخطة والذكاء + خطط إصلاح تخصّصية ─────────────────────
   {
-    title: 'الامتثال',
-    accent: 'rose',
+    title: '🗺️ الخطة والذكاء',
+    accent: 'violet',
     items: [
-      { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال — أساسي',   icon: '⚖️', dept: 'COMPLIANCE' },
-      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال — احترافي', icon: '🛡️', dept: 'COMPLIANCE' },
-      { to: '/manager/compliance/reform',    label: 'خطة الإصلاح',              icon: '🔧', dept: 'COMPLIANCE' },
+      { to: '/manager/strategic-plan', label: 'الخطة الاستراتيجية', icon: '🗺️', proOnly: true },
+      { to: '/manager/dept-deep',      label: 'التحليل المبسّط',    icon: '📝' },
+      // خطط إصلاح تخصّصية (فلتر `dept` يُظهرها فقط للتخصّصات المعنية).
+      { to: '/manager/logistics/reform',  label: 'خطة إصلاح اللوجستيات', icon: '🔧', dept: 'LOGISTICS' },
+      { to: '/manager/compliance/reform', label: 'خطة إصلاح الامتثال',   icon: '🔧', dept: 'COMPLIANCE' },
     ],
   },
 ]
@@ -315,7 +335,7 @@ const investorNav: NavSection[] = [
 // PRO-B — قسم مستقل للمدير المستقل (INDEPENDENT_PRO) يعرض قائمة عملائه.
 // يُدرج فقط عندما يكون نوع المدير INDEPENDENT_PRO لأنه لا معنى له للـ INTERNAL.
 const proClientsSection: NavSection = {
-  title: 'العملاء',
+  title: '🤝 العملاء',
   accent: 'amber',
   items: [{ to: '/manager/clients', label: 'عملائي', icon: '🤝' }],
 }
@@ -331,8 +351,7 @@ export function navFor(
       ? [proClientsSection, ...managerNav]
       : managerNav
     // PRO-F — للمدير المستقل مع تخصّص محدّد: احذف كل بند مرتبط بإدارة
-    // غير إدارته من قوائم "تدقيق الإدارات" و"الامتثال"، ثم أسقط الأقسام
-    // اللي بقت فارغة (مثلاً قسم الامتثال إذا كان تخصّصه ليس COMPLIANCE).
+    // غير إدارته، ثم أسقط الأقسام اللي بقت فارغة.
     if (managerType === 'INDEPENDENT_PRO' && specialty) {
       return base
         .map((s) => ({
