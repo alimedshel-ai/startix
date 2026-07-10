@@ -147,24 +147,19 @@ export const router = createBrowserRouter([
               { path: '/diagnostic/owner', element: <DiagnosticOwnerPage /> },
               { path: '/diagnostic/result', element: <DiagnosticResultPage /> },
               { path: '/company-health', element: <CompanyHealthPage /> },
-              { path: '/pestel', element: <PESTELPage /> },
-              { path: '/porter', element: <PorterFiveForcesPage /> },
-              { path: '/benchmarking', element: <BenchmarkingPage /> },
-              { path: '/stakeholders', element: <StakeholdersPage /> },
-              { path: '/org-dna', element: <OrgDNAPage /> },
-              { path: '/value-chain', element: <ValueChainPage /> },
-              { path: '/core-capabilities', element: <CoreCapabilitiesPage /> },
+              // Stage-① environment tools moved to shared area below
+              // (المدير المستقل يحتاجها لتحليل بيئة إدارة العميل).
+              // /pestel, /porter, /benchmarking, /stakeholders, /org-dna,
+              // /value-chain, /core-capabilities → shared.
               // M1 tools moved to shared area below (accessible to MANAGER too).
               { path: '/ambition-gap', element: <AmbitionGapPage /> },
               { path: '/strategic-tensions', element: <StrategicTensionsPage /> },
-              { path: '/directions', element: <DirectionsPage /> },
               { path: '/scenarios', element: <ScenariosPage /> },
-              { path: '/choices', element: <ChoicesPage /> },
-              { path: '/ansoff', element: <AnsoffMatrixPage /> },
-              { path: '/bcg', element: <BCGMatrixPage /> },
               { path: '/space', element: <SPACEMatrixPage /> },
               { path: '/qspm', element: <QSPMPage /> },
               { path: '/three-horizons', element: <ThreeHorizonsPage /> },
+              // /directions, /choices, /ansoff, /bcg moved to shared area below
+              // (المدير المستقل يحتاجها لبناء استراتيجية العميل).
               // M2 execution tools moved to shared area below.
               // /priority-matrix moved to shared area below.
               // M2 execution tools (initiatives, projects, gantt, tasks, kpi-entries) moved to shared area below.
@@ -238,11 +233,25 @@ export const router = createBrowserRouter([
           {
             element: <MainLayout />,
             children: [
+              // Stage-① — تحليل البيئة (٧ أدوات، كلها proOnly في manager nav).
+              { path: '/pestel', element: <PESTELPage /> },
+              { path: '/porter', element: <PorterFiveForcesPage /> },
+              { path: '/benchmarking', element: <BenchmarkingPage /> },
+              { path: '/stakeholders', element: <StakeholdersPage /> },
+              { path: '/org-dna', element: <OrgDNAPage /> },
+              { path: '/value-chain', element: <ValueChainPage /> },
+              { path: '/core-capabilities', element: <CoreCapabilitiesPage /> },
+              // Stage-② — التوليف.
               { path: '/swot', element: <SWOTPage /> },
               { path: '/tows', element: <TOWSPage /> },
               { path: '/gap-analysis', element: <GapAnalysisPage /> },
               { path: '/risk-map', element: <RiskMapPage /> },
               { path: '/priority-matrix', element: <PriorityMatrixPage /> },
+              // Stage-③ — التوجهات والخيارات.
+              { path: '/directions', element: <DirectionsPage /> },
+              { path: '/choices', element: <ChoicesPage /> },
+              { path: '/ansoff', element: <AnsoffMatrixPage /> },
+              { path: '/bcg', element: <BCGMatrixPage /> },
               // M2 — أدوات التنفيذ.
               { path: '/objectives', element: <ObjectivesPage /> },
               { path: '/ogsm', element: <OGSMPage /> },
