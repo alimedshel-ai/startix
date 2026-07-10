@@ -1,4 +1,5 @@
 import type { DeptCode } from '@/lib/deptApi'
+import type { StageId } from '@/lib/journeyStages'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
 export interface NavItem {
@@ -24,6 +25,11 @@ export interface NavSection {
   title: string
   accent: AccentColor
   items: NavItem[]
+  // ربط القسم بمرحلة في التسلسل الاستراتيجي المقفل. Sidebar يستخدمه لعرض
+  // شارة حالة (🔒 مقفل / ✓ مكتمل / ● قيد العمل) بجانب عنوان القسم.
+  // الأقسام غير المرتبطة بمرحلة (البداية، المالي، الخطة والذكاء) لا يوجد
+  // لها stageId فتظهر بدون شارة.
+  stageId?: StageId
 }
 
 const ownerNav: NavSection[] = [
@@ -187,6 +193,7 @@ const managerNav: NavSection[] = [
   {
     title: '🌐 ① التشخيص وتحليل البيئة',
     accent: 'sky',
+    stageId: 'environment',
     items: [
       // ⭐ الأدوات النجمية (٣)
       { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',   icon: '🎯', proOnly: true },
@@ -221,6 +228,7 @@ const managerNav: NavSection[] = [
   {
     title: '🧭 ② التوليف',
     accent: 'rose',
+    stageId: 'synthesis',
     items: [
       { to: '/swot',                   label: 'تحليل SWOT',     icon: '🧭', proOnly: true },
       { to: '/tows',                   label: 'مصفوفة TOWS',     icon: '🔄', proOnly: true },
@@ -233,6 +241,7 @@ const managerNav: NavSection[] = [
   {
     title: '🎯 ③ التوجّه والخيارات',
     accent: 'amber',
+    stageId: 'directions',
     items: [
       { to: '/directions',       label: 'التوجّه الاستراتيجي',   icon: '🎯', proOnly: true },
       { to: '/bmc',              label: 'نموذج الأعمال Canvas', icon: '🧩', proOnly: true },
@@ -249,6 +258,7 @@ const managerNav: NavSection[] = [
   {
     title: '📊 ④ الأهداف والمؤشرات',
     accent: 'emerald',
+    stageId: 'indicators',
     items: [
       { to: '/bsc',                label: 'Balanced Scorecard', icon: '⚖️', proOnly: true },
       { to: '/objectives',         label: 'الأهداف الاستراتيجية', icon: '🎯', proOnly: true },
@@ -265,6 +275,7 @@ const managerNav: NavSection[] = [
   {
     title: '💡 ⑤ المبادرات والمخاطر',
     accent: 'violet',
+    stageId: 'initiatives',
     items: [
       { to: '/initiatives',     label: 'المبادرات',         icon: '💡', proOnly: true },
       { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡', proOnly: true },
@@ -278,6 +289,7 @@ const managerNav: NavSection[] = [
   {
     title: '🚀 ⑥ التنفيذ والمتابعة',
     accent: 'orange',
+    stageId: 'execution',
     items: [
       { to: '/projects',    label: 'المشاريع',   icon: '📁', proOnly: true },
       { to: '/gantt-chart', label: 'مخطط جانت', icon: '📅', proOnly: true },
