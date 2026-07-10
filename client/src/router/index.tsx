@@ -71,6 +71,7 @@ import { BusinessModelCanvasPage } from '@/pages/owner/BusinessModelCanvasPage'
 import { BSCPage } from '@/pages/owner/BSCPage'
 import { RACIPage } from '@/pages/owner/RACIPage'
 import { EisenhowerPage } from '@/pages/owner/EisenhowerPage'
+import { InternalEnvironmentPage } from '@/pages/owner/InternalEnvironmentPage'
 
 // --- Manager pages -------------------------------------------------------
 import { DiagnosticManagerPage } from '@/pages/manager/DiagnosticManagerPage'
@@ -233,7 +234,8 @@ export const router = createBrowserRouter([
           {
             element: <MainLayout />,
             children: [
-              // Stage-① — تحليل البيئة (٧ أدوات، كلها proOnly في manager nav).
+              // Stage-① — تحليل البيئة (٨ أدوات، كلها proOnly في manager nav).
+              { path: '/internal-environment', element: <InternalEnvironmentPage /> },
               { path: '/pestel', element: <PESTELPage /> },
               { path: '/porter', element: <PorterFiveForcesPage /> },
               { path: '/benchmarking', element: <BenchmarkingPage /> },

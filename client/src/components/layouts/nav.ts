@@ -63,43 +63,47 @@ const ownerNav: NavSection[] = [
   {
     title: 'التحليل الاستراتيجي',
     accent: 'violet',
+    // ترتيب مطابق لجدول ٣٤ الأداة (المرحلة ①).
     items: [
-      { to: '/pestel',       label: 'تحليل PESTEL',          icon: '🌐' },
-      { to: '/porter',       label: 'قوى بورتر الخمس',       icon: '⚔️' },
-      { to: '/benchmarking', label: 'المقارنة المرجعية',     icon: '🔍' },
-      { to: '/stakeholders',        label: 'أصحاب المصلحة',         icon: '👥' },
-      { to: '/org-dna',             label: 'الحمض التنظيمي',         icon: '🧬' },
-      { to: '/value-chain',         label: 'سلسلة القيمة',           icon: '🔗' },
-      { to: '/core-capabilities',   label: 'القدرات الجوهرية',       icon: '💎' },
+      { to: '/internal-environment', label: 'البيئة الداخلية (7S)',   icon: '🎯' },
+      { to: '/value-chain',          label: 'سلسلة القيمة',           icon: '🔗' },
+      { to: '/porter',               label: 'قوى بورتر الخمس',        icon: '⚔️' },
+      { to: '/pestel',               label: 'تحليل PESTEL',           icon: '🌐' },
+      { to: '/core-capabilities',    label: 'القدرات الجوهرية',       icon: '💎' },
+      { to: '/benchmarking',         label: 'المقارنة المرجعية',      icon: '🔍' },
+      { to: '/org-dna',              label: 'الحمض التنظيمي',         icon: '🧬' },
+      { to: '/stakeholders',         label: 'أصحاب المصلحة',          icon: '👥' },
     ],
   },
   {
-    title: 'التوليف',
+    title: 'المرحلة ② — التوليف',
     accent: 'rose',
+    // ⚠️ Gap نُقل إلى ③ (الاتجاه) مطابقاً لجدول المستخدم.
     items: [
       { to: '/swot',                 label: 'تحليل SWOT',         icon: '🧭' },
       { to: '/tows',                 label: 'مصفوفة TOWS',         icon: '🔄' },
-      { to: '/gap-analysis',         label: 'تحليل الفجوة',        icon: '📐' },
       { to: '/risk-map',             label: 'خريطة المخاطر',       icon: '⚠️' },
       { to: '/ambition-gap',         label: 'فجوة الطموح',         icon: '🎯' },
       { to: '/strategic-tensions',   label: 'التوترات الاستراتيجية', icon: '⚖️' },
     ],
   },
   {
-    title: 'الاتجاه الاستراتيجي',
+    title: 'المرحلة ③ — التوجّهات والخيارات',
     accent: 'amber',
+    // ترتيب مطابق لجدول المستخدم (#١٤-٢٠).
     items: [
-      { to: '/directions',      label: 'الاتجاهات',          icon: '🧭' },
-      { to: '/scenarios',       label: 'السيناريوهات',       icon: '🔮' },
-      { to: '/choices',         label: 'القرار الاستراتيجي', icon: '✅' },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡' },
-      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',    icon: '📊' },
-      { to: '/ansoff',          label: 'مصفوفة أنسوف',       icon: '📐' },
-      { to: '/bcg',             label: 'مصفوفة BCG',         icon: '⭐' },
-      { to: '/space',           label: 'مصفوفة SPACE',       icon: '🛰️' },
-      { to: '/qspm',            label: 'مصفوفة QSPM',        icon: '🧮' },
-      { to: '/three-horizons',  label: 'الآفاق الثلاثة',     icon: '🔭' },
-      { to: '/bmc',             label: 'نموذج الأعمال Canvas', icon: '🧩' },
+      { to: '/directions',      label: 'الاتجاهات',              icon: '🧭' },
+      { to: '/bmc',             label: 'نموذج الأعمال Canvas',   icon: '🧩' },
+      { to: '/gap-analysis',    label: 'تحليل الفجوة',           icon: '📐' },
+      { to: '/three-horizons',  label: 'الآفاق الثلاثة',         icon: '🔭' },
+      { to: '/choices',         label: 'القرار الاستراتيجي',     icon: '✅' },
+      { to: '/bcg',             label: 'مصفوفة BCG',             icon: '⭐' },
+      { to: '/ansoff',          label: 'مصفوفة أنسوف',           icon: '📐' },
+      { to: '/scenarios',       label: 'السيناريوهات',           icon: '🔮' },
+      { to: '/priority-matrix', label: 'مصفوفة الأولوية',        icon: '⚡' },
+      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',        icon: '📊' },
+      { to: '/space',           label: 'مصفوفة SPACE',           icon: '🛰️' },
+      { to: '/qspm',            label: 'مصفوفة QSPM',            icon: '🧮' },
     ],
   },
   {
@@ -178,24 +182,31 @@ const managerNav: NavSection[] = [
     ],
   },
   // ─── المرحلة ① — التشخيص وتحليل البيئة ─────────────────────────────
-  // ١١ أداة لتحليل البيئة الداخلية والخارجية لإدارة العميل. تُغذّي المرحلة
-  // ② (SWOT) في التسلسل الاستراتيجي المقفل (journeyStages.ts).
+  // ترتيب مطابق لجدول المستخدم (#١-٩) — رحلة العميل واختبار الضغط والجاهزية
+  // الرقمية غير موجودة بعد. تُغذّي المرحلة ② (SWOT) في التسلسل المقفل.
   {
     title: 'المرحلة ① — تحليل البيئة',
     accent: 'sky',
     items: [
-      // البيئة الداخلية للإدارة — بنك ٦٠+ سؤالاً على ٦ أقسام.
-      { to: '/manager/deep-analysis', label: 'البيئة الداخلية للإدارة',  icon: '🔬', proOnly: true },
-      // البيئة الخارجية.
-      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',          icon: '🌐', proOnly: true },
-      { to: '/pestel',                label: 'PESTEL على مستوى الشركة',  icon: '🌍', proOnly: true },
-      { to: '/porter',                label: 'قوى بورتر الخمس',          icon: '⚔️', proOnly: true },
-      { to: '/benchmarking',          label: 'المقارنة المرجعية',        icon: '🔍', proOnly: true },
-      // القدرات والسلسلة.
-      { to: '/value-chain',           label: 'سلسلة القيمة',             icon: '🔗', proOnly: true },
-      { to: '/core-capabilities',     label: 'القدرات الجوهرية',         icon: '💎', proOnly: true },
+      // #١ — البيئة الداخلية (7S) ⭐
+      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',      icon: '🎯', proOnly: true },
+      // #٢ — سلسلة القيمة ⭐
+      { to: '/value-chain',           label: 'سلسلة القيمة',              icon: '🔗', proOnly: true },
+      // #٣ — Porter الخمس
+      { to: '/porter',                label: 'قوى بورتر الخمس',           icon: '⚔️', proOnly: true },
+      // #٤ — PESTEL ⭐ (شركة + إدارة)
+      { to: '/pestel',                label: 'PESTEL على مستوى الشركة',   icon: '🌍', proOnly: true },
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',            icon: '🌐', proOnly: true },
+      // #٥ — القدرات الجوهرية
+      { to: '/core-capabilities',     label: 'القدرات الجوهرية',          icon: '💎', proOnly: true },
+      // #٦ — المقارنة المعيارية
+      { to: '/benchmarking',          label: 'المقارنة المرجعية',         icon: '🔍', proOnly: true },
+      // #٨ — DNA المنظمة (#٧ رحلة العميل مفقودة)
       { to: '/org-dna',               label: 'DNA المنظمة',               icon: '🧬', proOnly: true },
-      { to: '/stakeholders',          label: 'أصحاب المصلحة',            icon: '👥', proOnly: true },
+      // #٩ — أصحاب المصلحة (#١٠ اختبار الضغط + #١١ الجاهزية الرقمية مفقودتان)
+      { to: '/stakeholders',          label: 'أصحاب المصلحة',             icon: '👥', proOnly: true },
+      // أدوات مصدر بيانات "البيئة الداخلية" — تلتقط الإجابات التفصيلية.
+      { to: '/manager/deep-analysis', label: 'التحليل العميق (البيئة الداخلية بالتفصيل)', icon: '🔬', proOnly: true },
     ],
   },
   {

@@ -37,24 +37,36 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     order: 1,
     locked: true,
     labelAr: '① البيئة الداخلية والخارجية',
-    descAr: 'تشخيص البيئة عبر ١١ أداة (PESTEL، Porter، سلسلة القيمة، القدرات، …).',
+    descAr: 'تشخيص البيئة عبر ٨-١١ أداة (البيئة الداخلية 7S، سلسلة القيمة، Porter، PESTEL، …).',
     icon: '🌐',
     accent: 'sky',
+    // ⚠️ الترتيب مطابق لجدول المستخدم (٣-٩ + إضافة #١ البيئة الداخلية).
+    // الترقيم في التعليقات يعكس رقم الأداة في جدول ٣٤ الأصلي.
     toolPaths: [
-      '/pestel', '/manager/dept-pestel',
-      '/porter', '/benchmarking',
-      '/value-chain', '/core-capabilities',
-      '/org-dna', '/stakeholders',
-      '/manager/dept-deep', '/manager/deep-analysis',
-      // R6 — نموذج الأعمال ينتمي للتشخيص لأنه يوضّح البنية.
-      '/bmc',
+      '/internal-environment',      // #1 — البيئة الداخلية ⭐ (7S)
+      '/value-chain',               // #2 — سلسلة القيمة ⭐
+      '/porter',                    // #3 — Porter الخمس
+      '/pestel',                    // #4 — PESTEL ⭐ (على مستوى الشركة)
+      '/manager/dept-pestel',       // #4 — PESTEL ⭐ (على مستوى الإدارة)
+      '/core-capabilities',         // #5 — القدرات الجوهرية
+      '/benchmarking',              // #6 — المقارنة المعيارية
+      // #7 رحلة العميل — غير موجودة بعد
+      '/org-dna',                   // #8 — DNA المنظمة
+      '/stakeholders',              // #9 — أصحاب المصلحة
+      // #10 اختبار الضغط، #11 الجاهزية الرقمية — غير موجودتين
+      // مصدر بيانات "البيئة الداخلية" #1 — تظهر مع الأدوات كخيار عميق:
+      '/manager/dept-deep',
+      '/manager/deep-analysis',
     ],
-    starredPaths: ['/pestel', '/manager/dept-pestel', '/value-chain', '/manager/deep-analysis', '/bmc'],
+    starredPaths: [
+      '/internal-environment', '/value-chain',
+      '/pestel', '/manager/dept-pestel', '/manager/deep-analysis',
+    ],
     completionArtifacts: [
+      'INTERNAL_ENV',
       'PESTEL', 'PORTER', 'BENCHMARK', 'STAKEHOLDERS',
       'ORG_DNA', 'VALUE_CHAIN', 'CORE_CAPABILITIES',
-      'DEPT_DEEP_ANSWERS',
-      'BMC',
+      'DEPT_DEEP_ANSWERS', 'DEPT_DEEP_FULL',
     ],
   },
   {
@@ -62,31 +74,45 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     order: 2,
     locked: true,
     labelAr: '② التوليف — SWOT ← TOWS',
-    descAr: 'اجمع مخرجات البيئة في ٤ محاور، ثم حوّلها إلى استراتيجيات SO/ST/WO/WT.',
+    descAr: 'اجمع مخرجات البيئة في ٤ محاور (SWOT)، ثم حوّلها إلى استراتيجيات (TOWS).',
     icon: '🧭',
     accent: 'rose',
-    toolPaths: ['/swot', '/tows', '/manager/dept-gap', '/gap-analysis'],
+    // ⚠️ Gap تحوّل إلى ③ (كما في جدول المستخدم — تحليل الفجوات #16).
+    toolPaths: [
+      '/swot',                      // #12 — SWOT ⭐
+      '/tows',                      // #13 — TOWS ⭐
+    ],
     starredPaths: ['/swot', '/tows'],
-    completionArtifacts: ['GAP_ANALYSIS'],
-    // SWOT مخزَّن في نموذج SWOT الخاص (ليس StrategicArtifact) — R5.3 يفحصه بشكل خاص.
+    // SWOT مخزَّن في نموذج SWOT الخاص (ليس StrategicArtifact) — يُفحص خصّيصاً.
+    completionArtifacts: [],
   },
   {
     id: 'directions',
     order: 3,
     locked: true,
     labelAr: '③ التوجّهات والخيارات',
-    descAr: 'التوجّه الاستراتيجي، أنسوف، BCG، الآفاق الثلاثة، الاختيار.',
+    descAr: 'التوجه، BMC، الفجوات، الآفاق، الخيارات، BCG، أنسوف.',
     icon: '🎯',
     accent: 'amber',
+    // ⚠️ ترتيب مطابق لجدول المستخدم (#١٤-٢٠).
     toolPaths: [
-      '/directions', '/scenarios', '/choices',
-      '/ansoff', '/bcg', '/space', '/qspm', '/three-horizons',
+      '/directions',                // #14 — التوجه الاستراتيجي ⭐
+      '/bmc',                       // #15 — نموذج الأعمال Canvas ⭐ (نُقل من ①)
+      '/gap-analysis',              // #16 — تحليل الفجوات (نُقل من ②)
+      '/manager/dept-gap',          //     — نظيرة الإدارة
+      '/three-horizons',            // #17 — الآفاق الثلاثة
+      '/choices',                   // #18 — الخيارات الاستراتيجية ⭐
+      '/bcg',                       // #19 — BCG ⭐
+      '/ansoff',                    // #20 — أنسوف ⭐
+      // أدوات إضافية غير موجودة في جدول ٣٤ لكنها جزء من الاختيار.
+      '/scenarios', '/space', '/qspm',
       '/ambition-gap', '/strategic-tensions',
     ],
-    starredPaths: ['/directions', '/ansoff', '/bcg', '/choices'],
+    starredPaths: ['/directions', '/bmc', '/choices', '/bcg', '/ansoff'],
     completionArtifacts: [
-      'DIRECTIONS', 'CHOICES', 'ANSOFF', 'BCG',
-      'SPACE', 'QSPM', 'THREE_HORIZONS',
+      'DIRECTIONS', 'BMC', 'GAP_ANALYSIS',
+      'THREE_HORIZONS', 'CHOICES', 'BCG', 'ANSOFF',
+      'SPACE', 'QSPM',
       'AMBITION_GAP', 'STRATEGIC_TENSIONS',
     ],
   },

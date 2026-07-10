@@ -8,6 +8,7 @@ type DeptScopedArtifactType =
   | `PESTEL_${DeptCode}`
   | `GAP_ANALYSIS_${DeptCode}`
   | `VALUE_CHAIN_${DeptCode}`
+  | `INTERNAL_ENV_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
@@ -36,6 +37,8 @@ export type ArtifactType =
   | 'DEPT_DEEP_FULL'
   // R6 — الأدوات الأربع الأساسية المفقودة.
   | 'BMC' | 'BSC' | 'RACI' | 'EISENHOWER'
+  // البيئة الداخلية (٧S) — على مستوى شركة.
+  | 'INTERNAL_ENV'
   | DeptScopedArtifactType
 
 export interface Artifact<T = unknown> {

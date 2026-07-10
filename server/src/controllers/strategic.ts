@@ -41,6 +41,8 @@ const BASE_ARTIFACT_TYPES = [
   'BSC',          // Balanced Scorecard (٤ أبعاد)
   'RACI',         // مصفوفة المسؤوليات (Task × Role)
   'EISENHOWER',   // مصفوفة عاجل × مهم (٢×٢)
+  // البيئة الداخلية (٧S — Strategy/Structure/Systems/…).
+  'INTERNAL_ENV',
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────
@@ -56,6 +58,7 @@ const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
   `PESTEL_${d}` as const,
   `GAP_ANALYSIS_${d}` as const,
   `VALUE_CHAIN_${d}` as const,
+  `INTERNAL_ENV_${d}` as const,
 ]);
 
 const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;

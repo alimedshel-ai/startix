@@ -209,34 +209,30 @@ export function ClientDetailPage() {
         </div>
       </div>
 
-      {/* المرحلة ① — تحليل البيئة (الداخلية + الخارجية) */}
+      {/* المرحلة ① — تحليل البيئة (ترتيب مطابق لجدول ٣٤ الأداة) */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           المرحلة ① — تحليل البيئة (تُغذّي SWOT في المرحلة ②)
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* #1 — البيئة الداخلية ⭐ */}
           <ToolCard
-            icon="🔬"
-            title="البيئة الداخلية للإدارة"
-            description="بنك ٦٠+ سؤالاً على ٦ أقسام (حوكمة / مالي / فريق / رقمي / إلخ). حفظ آلي."
-            to={`/manager/deep-analysis${clientQ}`}
+            icon="🎯"
+            title="البيئة الداخلية (7S)"
+            description="نموذج McKinsey — استراتيجية/هيكل/أنظمة/قيادة/فريق/مهارات/قيم."
+            to={`/internal-environment${clientQ}`}
             primary
-            muted={mutedFor('/manager/deep-analysis')}
+            muted={mutedFor('/internal-environment')}
           />
-          <ToolCard
-            icon="🌐"
-            title={`PESTEL — ${DEPT_LABEL[specialty]}`}
-            description="٦ عوامل خارجية بمقترحات مخصّصة لتخصّصك."
-            to={`/manager/dept-pestel${clientQ}`}
-            muted={mutedFor('/manager/dept-pestel')}
-          />
+          {/* #2 — سلسلة القيمة ⭐ */}
           <ToolCard
             icon="🔗"
-            title="سلسلة القيمة"
-            description="تحليل أنشطة الشركة الأساسية والدعم لكشف مصادر القيمة."
+            title={`سلسلة القيمة — ${DEPT_LABEL[specialty]}`}
+            description="أنشطة الإدارة الأساسية والمُمكِّنة (٧ أنشطة مخصّصة)."
             to={`/value-chain${clientQ}`}
             muted={mutedFor('/value-chain')}
           />
+          {/* #3 — Porter */}
           <ToolCard
             icon="⚔️"
             title="قوى بورتر الخمس"
@@ -244,13 +240,23 @@ export function ClientDetailPage() {
             to={`/porter${clientQ}`}
             muted={mutedFor('/porter')}
           />
+          {/* #4 — PESTEL ⭐ */}
+          <ToolCard
+            icon="🌐"
+            title={`PESTEL — ${DEPT_LABEL[specialty]}`}
+            description="٦ عوامل خارجية بمقترحات مخصّصة لتخصّصك."
+            to={`/manager/dept-pestel${clientQ}`}
+            muted={mutedFor('/manager/dept-pestel')}
+          />
+          {/* #5 — القدرات الجوهرية */}
           <ToolCard
             icon="💎"
             title="القدرات الجوهرية"
-            description="ما تتفوّق فيه إدارتك على المنافسين — Value/Rareness/Imitability/Org."
+            description="ما تتفوّق فيه إدارتك — Value/Rareness/Imitability/Org."
             to={`/core-capabilities${clientQ}`}
             muted={mutedFor('/core-capabilities')}
           />
+          {/* #6 — المقارنة المرجعية */}
           <ToolCard
             icon="🔍"
             title="المقارنة المرجعية"
@@ -258,6 +264,8 @@ export function ClientDetailPage() {
             to={`/benchmarking${clientQ}`}
             muted={mutedFor('/benchmarking')}
           />
+          {/* #7 رحلة العميل — غير موجودة بعد */}
+          {/* #8 — DNA المنظمة */}
           <ToolCard
             icon="🧬"
             title="DNA المنظمة"
@@ -265,12 +273,22 @@ export function ClientDetailPage() {
             to={`/org-dna${clientQ}`}
             muted={mutedFor('/org-dna')}
           />
+          {/* #9 — أصحاب المصلحة */}
           <ToolCard
             icon="👥"
             title="أصحاب المصلحة"
-            description="خريطة نفوذ × اهتمام لكل صاحب مصلحة داخل/خارج الإدارة."
+            description="خريطة نفوذ × اهتمام لكل صاحب مصلحة."
             to={`/stakeholders${clientQ}`}
             muted={mutedFor('/stakeholders')}
+          />
+          {/* #10 اختبار الضغط + #11 الجاهزية الرقمية — غير موجودتين */}
+          {/* أداة مصدر البيانات للبيئة الداخلية — بنك ٣٣٠ سؤالاً */}
+          <ToolCard
+            icon="🔬"
+            title="التحليل العميق للإدارة"
+            description="بنك ٣٣٠ سؤالاً على ٦ أقسام — يُغذّي البيئة الداخلية بالتفصيل."
+            to={`/manager/deep-analysis${clientQ}`}
+            muted={mutedFor('/manager/deep-analysis')}
           />
         </div>
       </div>
