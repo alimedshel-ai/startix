@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { createObjective, deleteObjective, listObjectives, updateObjective, type Objective } from '@/lib/strategicApi'
+import { createObjective, deleteObjective, getArtifact, listObjectives, updateObjective, type Objective } from '@/lib/strategicApi'
 
 const TYPES = [
   ['financial',    'مالي'],
@@ -57,6 +57,7 @@ function Editor({ companyId }: { companyId: string }) {
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', type: TYPES[0][0] as string })
 
   useEffect(() => {
@@ -99,6 +100,59 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // ─── ترابط: BSC → Objectives ─────────────────────────────────
+  // كل بُعد BSC (financial/customer/internal/learning) عنده حقل objectives
+  // نصّي. نُقسّم على أسطر جديدة ونُنشئ Objective لكل سطر مع type مطابق:
+  //   financial → 'financial'
+  //   customer  → 'customer'
+  //   internal  → 'operations'
+  //   learning  → 'people'
+  async function importFromBSC() {
+    setImporting(true)
+    try {
+      interface BSCPerspective { objectives: string; measures: string; initiatives: string; target: string }
+      interface BSC { perspectives: Record<'financial' | 'customer' | 'internal' | 'learning', BSCPerspective> }
+      const art = await getArtifact<BSC>(companyId, 'BSC')
+      const persp = art?.data?.perspectives
+      if (!persp) {
+        toast.error('لا BSC محفوظ — افتح /bsc أوّلاً.')
+        return
+      }
+      const bscTypeMap: Record<string, string> = {
+        financial: 'financial',
+        customer: 'customer',
+        internal: 'operations',
+        learning: 'people',
+      }
+      const existingTitles = new Set(objectives.map((o) => o.title))
+      let added = 0
+      for (const key of ['financial', 'customer', 'internal', 'learning'] as const) {
+        const p = persp[key]
+        if (!p?.objectives) continue
+        const lines = p.objectives.split('\n').map((l) => l.replace(/^[•\-·]\s*/, '').trim()).filter(Boolean)
+        for (const line of lines) {
+          if (existingTitles.has(line)) continue
+          try {
+            const o = await createObjective({
+              companyId,
+              title: line,
+              description: `من بُعد BSC ${key} · مقاييس: ${p.measures || 'غير محدّدة'}`,
+              type: bscTypeMap[key],
+            })
+            setObjectives((p2) => [...p2, o])
+            added++
+          } catch { /* تخطّى الفشل الفردي */ }
+        }
+      }
+      if (added === 0) toast.error('كل أهداف BSC مُستوردَة سابقاً.')
+      else toast.success(`أُضيف ${added} هدفاً من BSC — راجعها وأضِف OKRs.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من BSC'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const counts = {
     active: objectives.filter((o) => o.status === 'active').length,
     achieved: objectives.filter((o) => o.status === 'achieved').length,
@@ -130,9 +184,14 @@ function Editor({ companyId }: { companyId: string }) {
 
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
-        <CardHeader>
-          <CardTitle>هدف جديد</CardTitle>
-          <CardDescription>SMART: محدد، قابل للقياس، قابل للتحقيق، ذو صلة، محدد زمنياً.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>هدف جديد</CardTitle>
+            <CardDescription>SMART: محدد، قابل للقياس، قابل للتحقيق، ذو صلة، محدد زمنياً.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={importFromBSC} disabled={importing}>
+            {importing ? 'جاري…' : '⚖️ استورد من BSC'}
+          </Button>
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-2">

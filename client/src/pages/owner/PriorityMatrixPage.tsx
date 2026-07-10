@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { ONBOARDING_PAINS } from '@/lib/onboardingOptions'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 type Quadrant = 'doFirst' | 'schedule' | 'delegate' | 'eliminate'
 
@@ -41,10 +43,24 @@ export function PriorityMatrixPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const user = useAuthStore((s) => s.user)
   const [data, setData] = useState<PriorityData>(EMPTY)
   const [newTitle, setNewTitle] = useState('')
   const [newQuad, setNewQuad] = useState<Quadrant>('doFirst')
   const [saving, setSaving] = useState(false)
+
+  // ─── ترابط: user.pains → Priority Matrix (doFirst) ──────────────
+  // الآلام التي اختارها المدير في /onboarding ملحّة بطبيعتها → تُقتَرَح
+  // كعناصر في ربع "افعلها أولاً". المدير ينقر لإضافتها.
+  const pains = user?.pains ?? []
+  const suggestedPains = ONBOARDING_PAINS.filter((p) => pains.includes(p.code))
+  function addPain(painLabel: string) {
+    const title = `معالجة: ${painLabel}`
+    if (data.items.some((x) => x.title === title)) return
+    setData((prev) => ({
+      items: [...prev.items, { id: crypto.randomUUID(), title, quadrant: 'doFirst' }],
+    }))
+  }
 
   useEffect(() => {
     getArtifact<PriorityData>(companyId, 'PRIORITY_MATRIX').then((row) => {
@@ -81,6 +97,36 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {suggestedPains.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">💡 آلامك من التسجيل — تحويلها إلى «افعلها أولاً»</CardTitle>
+            <CardDescription>اضغط الألم لإضافته كعنصر أولوية قصوى.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {suggestedPains.map((p) => {
+              const already = data.items.some((x) => x.title === `معالجة: ${p.labelAr}`)
+              return (
+                <button
+                  key={p.code}
+                  type="button"
+                  onClick={() => addPain(p.labelAr)}
+                  disabled={already}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                    already
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-primary/40 bg-card hover:bg-primary hover:text-primary-foreground'
+                  }`}
+                >
+                  <span aria-hidden>{p.icon}</span>
+                  {already ? '✓ ' : '＋ '}{p.labelAr}
+                </button>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>إضافة مبادرة</CardTitle>

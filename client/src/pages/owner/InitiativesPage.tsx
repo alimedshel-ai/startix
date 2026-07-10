@@ -138,6 +138,57 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // ─── ترابط: Ansoff → Initiatives ─────────────────────────────
+  // كل مبادرة نمو في Ansoff تُصبح Initiative. الأولوية حسب المخاطرة:
+  //   marketPenetration → high     (منخفضة المخاطرة)
+  //   productDevelopment → medium  (متوسطة)
+  //   marketDevelopment → medium   (متوسطة)
+  //   diversification → low        (عالية المخاطرة، خذها بحذر)
+  async function importFromAnsoff() {
+    setImportingSyn('directions')
+    try {
+      interface AnsoffInit { title: string; quadrant: string }
+      const art = await getArtifact<{ initiatives: AnsoffInit[] }>(companyId, 'ANSOFF')
+      const inits = art?.data?.initiatives ?? []
+      if (inits.length === 0) {
+        toast.error('لا مبادرات Ansoff — افتح /ansoff أوّلاً.')
+        return
+      }
+      const priorityMap: Record<string, 'high' | 'medium' | 'low'> = {
+        marketPenetration:  'high',
+        productDevelopment: 'medium',
+        marketDevelopment:  'medium',
+        diversification:    'low',
+      }
+      const quadLabelMap: Record<string, string> = {
+        marketPenetration:  'اختراق السوق',
+        productDevelopment: 'تطوير المنتج',
+        marketDevelopment:  'تطوير السوق',
+        diversification:    'التنويع',
+      }
+      const existingTitles = new Set(items.map((x) => x.title))
+      let added = 0
+      for (const i of inits) {
+        if (!i.title?.trim()) continue
+        const priority = priorityMap[i.quadrant] ?? 'medium'
+        const label = quadLabelMap[i.quadrant] ?? i.quadrant
+        const title = `[${label}] ${i.title}`
+        if (existingTitles.has(title)) continue
+        try {
+          const created = await createInitiative({ companyId, title, description: `من Ansoff / ${label}`, priority })
+          setItems((p) => [...p, created])
+          added++
+        } catch { /* skip */ }
+      }
+      if (added === 0) toast.error('كل مبادرات Ansoff مُستوردَة سابقاً.')
+      else toast.success(`أُضيف ${added} مبادرة من Ansoff`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من Ansoff'))
+    } finally {
+      setImportingSyn(null)
+    }
+  }
+
   // ─── ترابط: Directions → Initiatives ───────────────────────────
   // كل اتجاه في DIRECTIONS يُصبح مبادرة. الأولوية تعتمد على score:
   //   feasibility × impact ≥ 16 → high
@@ -190,6 +241,9 @@ function Editor({ companyId }: { companyId: string }) {
             </Button>
             <Button variant="outline" size="sm" onClick={importFromDirections} disabled={importingSyn !== null}>
               {importingSyn === 'directions' ? 'جاري…' : '🎯 من الاتجاهات'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={importFromAnsoff} disabled={importingSyn !== null}>
+              {importingSyn === 'directions' ? 'جاري…' : '📐 من Ansoff'}
             </Button>
           </div>
         </CardHeader>

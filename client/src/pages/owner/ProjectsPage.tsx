@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { createProject, deleteProject, listProjects, updateProject, type Project } from '@/lib/strategicApi'
+import { createProject, deleteProject, listInitiatives, listProjects, updateProject, type Initiative, type Project } from '@/lib/strategicApi'
 
 const STATUS = [
   ['active',    'نشط',     'border-sky-300 bg-sky-50/60'],
@@ -49,15 +49,54 @@ export function ProjectsPage() {
 
 function Editor({ companyId }: { companyId: string }) {
   const [items, setItems] = useState<Project[]>([])
+  const [initiatives, setInitiatives] = useState<Initiative[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
   const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 90).toISOString().slice(0, 10)
   const [form, setForm] = useState({ title: '', description: '', startDate: today, endDate: future })
 
   useEffect(() => {
     listProjects(companyId).then(setItems).catch(() => undefined).finally(() => setLoading(false))
+    listInitiatives(companyId).then(setInitiatives).catch(() => undefined)
   }, [companyId])
+
+  // ─── ترابط: Initiatives → Projects ─────────────────────────────
+  // كل مبادرة بحالة planned/in_progress تُنشئ مشروعاً عملياً بتاريخ
+  // بداية = اليوم، نهاية = بعد 90 يوماً. المدير يعدّل التواريخ لاحقاً
+  // في /gantt-chart.
+  async function importFromInitiatives() {
+    if (initiatives.length === 0) {
+      toast.error('لا مبادرات مسجّلة — افتح /initiatives أوّلاً.')
+      return
+    }
+    setImporting(true)
+    try {
+      const existingTitles = new Set(items.map((p) => p.title))
+      const eligible = initiatives.filter((i) => i.status === 'planned' || i.status === 'in_progress')
+      let added = 0
+      for (const i of eligible) {
+        if (existingTitles.has(i.title)) continue
+        try {
+          const p = await createProject({
+            companyId, initiativeId: i.id,
+            title: i.title,
+            description: i.description ?? undefined,
+            startDate: today, endDate: future,
+          })
+          setItems((prev) => [...prev, p])
+          added++
+        } catch { /* skip */ }
+      }
+      if (added === 0) toast.error('كل المبادرات المؤهّلة مُستوردَة سابقاً.')
+      else toast.success(`أُنشئ ${added} مشروعاً من المبادرات — عدّل التواريخ في /gantt-chart.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من المبادرات'))
+    } finally {
+      setImporting(false)
+    }
+  }
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -105,9 +144,14 @@ function Editor({ companyId }: { companyId: string }) {
     <>
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
-        <CardHeader>
-          <CardTitle>مشروع جديد</CardTitle>
-          <CardDescription>تواريخ البدء والانتهاء تظهر في مخطط جانت.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>مشروع جديد</CardTitle>
+            <CardDescription>تواريخ البدء والانتهاء تظهر في مخطط جانت.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={importFromInitiatives} disabled={importing}>
+            {importing ? 'جاري…' : '💡 استورد من المبادرات'}
+          </Button>
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-4">
