@@ -60,6 +60,9 @@ const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
   `VALUE_CHAIN_${d}` as const,
   `INTERNAL_ENV_${d}` as const,
   `PORTER_${d}` as const,
+  `BENCHMARK_${d}` as const,
+  `ORG_DNA_${d}` as const,
+  `STAKEHOLDERS_${d}` as const,
 ]);
 
 const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;

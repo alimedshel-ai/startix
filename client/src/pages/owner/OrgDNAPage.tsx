@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { DEPT_ORG_DNA } from '@/lib/deptStrategyBanks'
+import { getArtifact, upsertArtifact, type ArtifactType } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 interface OrgDNAData {
   vision: string
@@ -42,26 +45,59 @@ const EMPTY: OrgDNAData = {
 }
 
 export function OrgDNAPage() {
+  const user = useAuthStore((s) => s.user)
+  const isDeptScoped =
+    user?.userType === 'MANAGER' &&
+    user?.managerType === 'INDEPENDENT_PRO' &&
+    user?.specialtyDeptType != null &&
+    DEPT_ORG_DNA[user.specialtyDeptType] != null
+  const specialty = user?.specialtyDeptType ?? null
+  const title = isDeptScoped
+    ? `الحمض التنظيمي — ${DEPT_LABEL[specialty as DeptCode]}`
+    : 'الحمض التنظيمي'
+  const description = isDeptScoped
+    ? 'رؤية ورسالة وقيم إدارة العميل — مقترحات جاهزة يقبلها المدير ويعدّلها.'
+    : 'الرؤية، الرسالة، القيم، نمط الثقافة، والهيكل التنظيمي — هوية المنشأة.'
   return (
-    <StrategicShell
-      title="الحمض التنظيمي"
-      description="الرؤية، الرسالة، القيم، نمط الثقافة، والهيكل التنظيمي — هوية المنشأة."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
+    <StrategicShell title={title} description={description}>
+      {(companyId) => (
+        <Editor companyId={companyId} specialty={isDeptScoped ? (specialty as DeptCode) : null} />
+      )}
     </StrategicShell>
   )
 }
 
-function Editor({ companyId }: { companyId: string }) {
+function Editor({ companyId, specialty }: { companyId: string; specialty: DeptCode | null }) {
+  const artifactType: ArtifactType = specialty ? `ORG_DNA_${specialty}` : 'ORG_DNA'
+  const suggestions = specialty ? DEPT_ORG_DNA[specialty] : null
   const [data, setData] = useState<OrgDNAData>(EMPTY)
   const [newValue, setNewValue] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getArtifact<OrgDNAData>(companyId, 'ORG_DNA').then((row) => {
+    getArtifact<OrgDNAData>(companyId, artifactType).then((row) => {
       if (row?.data) setData({ ...EMPTY, ...row.data, values: row.data.values ?? [] })
-    })
-  }, [companyId])
+    }).catch(() => undefined)
+  }, [companyId, artifactType])
+
+  function pickVision(v: string)  { setData((p) => ({ ...p, vision: v })) }
+  function pickMission(m: string) { setData((p) => ({ ...p, mission: m })) }
+  function toggleValue(v: string) {
+    setData((p) => ({
+      ...p,
+      values: p.values.includes(v) ? p.values.filter((x) => x !== v) : [...p.values, v],
+    }))
+  }
+  function fillFromDept() {
+    if (!suggestions) return
+    setData((p) => ({
+      ...p,
+      vision:  p.vision.trim()  ? p.vision  : suggestions.vision[0],
+      mission: p.mission.trim() ? p.mission : suggestions.mission[0],
+      values:  p.values.length > 0 ? p.values : suggestions.values,
+    }))
+    toast.success('🧠 تم ملء الرؤية والرسالة والقيم من بنك تخصّصك — عدّل حسب سياق عميلك.')
+  }
 
   function addValue() {
     const v = newValue.trim()
@@ -76,7 +112,7 @@ function Editor({ companyId }: { companyId: string }) {
   async function save() {
     setSaving(true)
     try {
-      await upsertArtifact(companyId, 'ORG_DNA', data)
+      await upsertArtifact(companyId, artifactType, data)
       toast.success('تم حفظ الحمض التنظيمي')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل الحفظ'))
@@ -90,6 +126,36 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {specialty && suggestions && (
+        <>
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+              <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+                🎯 السياق: إدارة {DEPT_LABEL[specialty]} فقط
+              </span>
+              <span className="text-muted-foreground">
+                مقترحات رؤية/رسالة/قيم مخصّصة لإدارة العميل — اقبل الأقرب أو ابدأ يدوياً.
+              </span>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+            <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3">
+                <div className="text-3xl" aria-hidden>🧠</div>
+                <div>
+                  <div className="text-sm font-bold">توليد تلقائي من بنك تخصّصك</div>
+                  <div className="text-xs text-muted-foreground">
+                    نملأ الرؤية والرسالة والقيم بمقترحات مبنيّة على أفضل الممارسات — يبقى الحقل قابلاً للتعديل بالكامل.
+                  </div>
+                </div>
+              </div>
+              <Button onClick={fillFromDept} size="lg">✨ ولّد الآن</Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-fuchsia-200 bg-gradient-to-br from-fuchsia-500/10 to-transparent">
           <CardHeader>
@@ -99,13 +165,32 @@ function Editor({ companyId }: { companyId: string }) {
             </CardTitle>
             <CardDescription>إلى أين تتطلع شركتك خلال 5–10 سنوات؟</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <Textarea
               rows={4}
               value={data.vision}
               onChange={(e) => setData((p) => ({ ...p, vision: e.target.value }))}
               placeholder="أن نكون…"
             />
+            {suggestions && (
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">مقترحات:</div>
+                {suggestions.vision.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => pickVision(v)}
+                    className={`block w-full rounded-md border px-2 py-1 text-right text-[11px] transition ${
+                      data.vision === v
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-muted-foreground/20 bg-background/60 hover:bg-primary/5'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -117,13 +202,32 @@ function Editor({ companyId }: { companyId: string }) {
             </CardTitle>
             <CardDescription>ما الذي تفعله الشركة وكيف ولمن؟</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <Textarea
               rows={4}
               value={data.mission}
               onChange={(e) => setData((p) => ({ ...p, mission: e.target.value }))}
               placeholder="نحن نوفر…"
             />
+            {suggestions && (
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">مقترحات:</div>
+                {suggestions.mission.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => pickMission(m)}
+                    className={`block w-full rounded-md border px-2 py-1 text-right text-[11px] transition ${
+                      data.mission === m
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-muted-foreground/20 bg-background/60 hover:bg-primary/5'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -136,12 +240,38 @@ function Editor({ companyId }: { companyId: string }) {
             <CardDescription>السلوكيات غير القابلة للتفاوض ({data.values.length} قيمة).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {suggestions && suggestions.values.length > 0 && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-2">
+                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  💡 قيم مقترحة لتخصّصك — انقر للاختيار/الإلغاء:
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.values.map((v) => {
+                    const chosen = data.values.includes(v)
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => toggleValue(v)}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                          chosen
+                            ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
+                            : 'border-primary/30 bg-card hover:bg-primary hover:text-primary-foreground'
+                        }`}
+                      >
+                        {chosen ? '✓ ' : '＋ '}{v}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 value={newValue}
                 onChange={(e) => setNewValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addValue())}
-                placeholder="مثال: الشفافية، الجودة، التعاون…"
+                placeholder="أو اكتب قيمة مخصّصة…"
               />
               <Button variant="outline" onClick={addValue}>إضافة</Button>
             </div>

@@ -10,6 +10,9 @@ type DeptScopedArtifactType =
   | `VALUE_CHAIN_${DeptCode}`
   | `INTERNAL_ENV_${DeptCode}`
   | `PORTER_${DeptCode}`
+  | `BENCHMARK_${DeptCode}`
+  | `ORG_DNA_${DeptCode}`
+  | `STAKEHOLDERS_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
