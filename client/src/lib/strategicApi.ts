@@ -15,6 +15,7 @@ type DeptScopedArtifactType =
   | `STAKEHOLDERS_${DeptCode}`
   | `BMC_${DeptCode}`
   | `THREE_HORIZONS_${DeptCode}`
+  | `ANSOFF_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'
