@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { CATEGORY_META, categorize } from '@/lib/directionCategory'
 import { ONBOARDING_PAINS } from '@/lib/onboardingOptions'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 
 type Quadrant = 'doFirst' | 'schedule' | 'delegate' | 'eliminate'
@@ -44,10 +47,12 @@ export function PriorityMatrixPage() {
 
 function Editor({ companyId }: { companyId: string }) {
   const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
   const [data, setData] = useState<PriorityData>(EMPTY)
   const [newTitle, setNewTitle] = useState('')
   const [newQuad, setNewQuad] = useState<Quadrant>('doFirst')
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   // ─── ترابط: user.pains → Priority Matrix (doFirst) ──────────────
   // الآلام التي اختارها المدير في /onboarding ملحّة بطبيعتها → تُقتَرَح
@@ -93,10 +98,118 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // 🧠 توليد ذكيّ — من المبادرات + قرار Choices:
+  //   • مبادرة ⭐ [قرار] X       → doFirst (الأثر الأعلى)
+  //   • critical/high + growth/efficiency → doFirst (أثر ↑ + جهد ↓)
+  //   • critical/high + innovation/digital → schedule (أثر ↑ + جهد ↑)
+  //   • medium + customer/quality → delegate (أثر ↓ + جهد ↓)
+  //   • low + exit → eliminate (أثر ↓ + جهد ↑)
+  async function generateFromInitiatives() {
+    setGenerating(true)
+    try {
+      const initiatives = await listInitiatives(companyId)
+      if (initiatives.length === 0) {
+        toast.error('لا مبادرات — افتح /initiatives لتوليدها أوّلاً.')
+        return
+      }
+      const existing = new Set(data.items.map((i) => i.title))
+      const toAdd: Item[] = []
+      const highImpactLowEffort = new Set(['growth', 'efficiency', 'customer'])
+      const highImpactHighEffort = new Set(['innovation', 'digital', 'partnership'])
+      const lowImpactLowEffort   = new Set(['quality', 'people', 'compliance'])
+      for (const init of initiatives) {
+        if (!init.title || existing.has(init.title)) continue
+        const cat = categorize(init.title + ' ' + (init.description ?? ''))
+        const isStar = init.title.startsWith('⭐')
+        let quadrant: Quadrant = 'schedule'
+        if (isStar) quadrant = 'doFirst'
+        else if (init.priority === 'critical' || init.priority === 'high') {
+          quadrant = highImpactLowEffort.has(cat) ? 'doFirst' : highImpactHighEffort.has(cat) ? 'schedule' : 'doFirst'
+        } else if (init.priority === 'medium') {
+          quadrant = lowImpactLowEffort.has(cat) ? 'delegate' : 'schedule'
+        } else {
+          quadrant = cat === 'exit' ? 'eliminate' : 'delegate'
+        }
+        toAdd.push({ id: crypto.randomUUID(), title: init.title, quadrant })
+      }
+      if (toAdd.length === 0) {
+        toast.message('كل المبادرات مضافة سلفاً.')
+        return
+      }
+      setData((p) => ({ items: [...p.items, ...toAdd] }))
+      const counts: Record<Quadrant, number> = { doFirst: 0, schedule: 0, delegate: 0, eliminate: 0 }
+      for (const t of toAdd) counts[t.quadrant]++
+      const parts: string[] = []
+      if (counts.doFirst) parts.push(`${counts.doFirst} في «افعلها أوّلاً»`)
+      if (counts.schedule) parts.push(`${counts.schedule} في «جدولها»`)
+      if (counts.delegate) parts.push(`${counts.delegate} في «فوّضها»`)
+      if (counts.eliminate) parts.push(`${counts.eliminate} في «احذفها»`)
+      toast.success(`🧠 أُضيف ${toAdd.length} مبادرة: ${parts.join(' · ')}`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const byQuad = (q: Quadrant) => data.items.filter((i) => i.quadrant === q)
 
   return (
     <>
+      {/* بطاقة تعريف */}
+      <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+        <CardContent className="p-4 text-xs leading-relaxed">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl leading-none">⚡</div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-foreground">ما الفرق بين مصفوفة الأولوية وأيزنهاور؟</div>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">أيزنهاور = عاجل × مهم</b> (للمهام اليومية والأزمات).<br/>
+                <b className="text-foreground">الأولوية = أثر × جهد</b> (للمبادرات الاستراتيجية) — أنسب لاختيار «ماذا نُطلق أوّلاً».
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">القاعدة الذهبيّة:</b> ابدأ بربع
+                <b className="text-emerald-700"> 🔥 افعلها أوّلاً</b> (أثر ↑ + جهد ↓) — أعلى عائد بأقلّ تكلفة.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* شارة السياق */}
+      {specialty && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+            <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+              🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+            </span>
+            <span className="text-muted-foreground">
+              التصنيف يعتمد على أولوية المبادرة وفئتها (نمو → أثر عالٍ، ابتكار → جهد عالٍ، …).
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🧠 توليد من المبادرات */}
+      <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl" aria-hidden>🧠</div>
+            <div>
+              <div className="text-sm font-bold">توليد ذكيّ من المبادرات</div>
+              <div className="text-xs text-muted-foreground">
+                يصنّف المبادرات بحسب الأولوية والفئة:
+                القرار ⭐ + الأولوية العالية للفئات (نمو/كفاءة/عميل) → افعلها أوّلاً؛
+                الابتكار/الرقمنة → جدولها؛ الجودة/الفريق → فوّضها؛ خروج → احذفها.
+              </div>
+            </div>
+          </div>
+          <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
+            {generating ? 'جاري…' : '✨ ولّد الآن'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {suggestedPains.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
           <CardHeader className="pb-3">
@@ -171,8 +284,12 @@ function Editor({ companyId }: { companyId: string }) {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {items.map((i) => (
+                  {items.map((i) => {
+                    const cat = categorize(i.title)
+                    const catMeta = CATEGORY_META[cat]
+                    return (
                     <li key={i.id} className="flex items-center gap-2 rounded-lg border bg-card p-2 text-sm">
+                      <span className="text-base" title={catMeta.labelAr}>{catMeta.icon}</span>
                       <span className="flex-1">{i.title}</span>
                       <select
                         className="rounded-md border bg-background px-1.5 py-1 text-xs"
@@ -185,7 +302,8 @@ function Editor({ companyId }: { companyId: string }) {
                       </select>
                       <button onClick={() => remove(i.id)} className="text-muted-foreground hover:text-destructive">×</button>
                     </li>
-                  ))}
+                    )
+                  })}
                   {items.length === 0 && (
                     <li className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
                       لا توجد عناصر — أضف من فوق.
@@ -201,6 +319,29 @@ function Editor({ companyId }: { companyId: string }) {
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving}>{saving ? 'جاري الحفظ…' : 'حفظ المصفوفة'}</Button>
       </div>
+
+      {/* 🎯 الخطوة التالية — عناصر «افعلها أوّلاً» تُصبح مبادرات فعلية */}
+      {byQuad('doFirst').length > 0 && (
+        <Card className="border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">💡</div>
+              <div>
+                <div className="text-sm font-bold text-emerald-900">
+                  الخطوة التالية: حوّل «افعلها أوّلاً» إلى مبادرات ومشاريع
+                </div>
+                <div className="text-xs text-emerald-800/80">
+                  {byQuad('doFirst').length} عنصر جاهز للتنفيذ — أضِفها للمبادرات ثم أنشئ مشاريع بتواريخ.
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/initiatives" className={buttonVariants({ variant: 'outline' })}>💡 المبادرات</Link>
+              <Link to="/projects" className={buttonVariants({ variant: 'default' })}>📁 المشاريع ←</Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>
   )
 }
