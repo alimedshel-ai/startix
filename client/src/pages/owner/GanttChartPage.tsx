@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { listProjects, listTasks, type Project, type Task } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 const MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
 
@@ -68,7 +72,32 @@ export function GanttChartPage() {
   )
 }
 
+function IntroCard() {
+  return (
+    <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+      <CardContent className="p-4 text-xs leading-relaxed">
+        <div className="flex items-start gap-3">
+          <div className="text-2xl leading-none">📅</div>
+          <div className="flex-1">
+            <div className="text-sm font-bold text-foreground">ما هو مخطّط جانت؟</div>
+            <p className="mt-1 text-muted-foreground">
+              عرض زمني لكل مشاريعك ومهامك على خطّ الوقت — لتعرف <b className="text-foreground">من متى إلى متى</b> يجري كل شيء،
+              أين تتداخل الجداول، وماذا يتخلّف عن الموعد.
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              <b className="text-foreground">استعمله عندما:</b> صنّفت المهام (أيزنهاور) وحدّدت المسؤوليات (RACI)،
+              وتحتاج جدولاً زمنياً موحّداً.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function Chart({ companyId }: { companyId: string }) {
+  const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,11 +121,34 @@ function Chart({ companyId }: { companyId: string }) {
 
   if (!range) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="p-6 text-center text-sm text-muted-foreground">
-          لا توجد مشاريع أو مهام بتواريخ بعد. أضف بعض المشاريع لرؤيتها على المخطط.
-        </CardContent>
-      </Card>
+      <>
+        <IntroCard />
+        {specialty && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+              <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+                🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+              </span>
+            </CardContent>
+          </Card>
+        )}
+        <Card className="border-2 border-dashed border-amber-300 bg-amber-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-3xl">🗓️</div>
+              <div>
+                <div className="text-sm font-bold text-amber-900">لا توجد مشاريع أو مهام بتواريخ بعد</div>
+                <div className="mt-0.5 text-xs text-amber-800/80">
+                  أنشئ مشروعاً بتاريخ بداية ونهاية من صفحة المشاريع لتراه على المخطّط.
+                </div>
+              </div>
+            </div>
+            <Link to="/projects" className={buttonVariants({ variant: 'default' })}>
+              افتح المشاريع ←
+            </Link>
+          </CardContent>
+        </Card>
+      </>
     )
   }
 
@@ -105,6 +157,21 @@ function Chart({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <IntroCard />
+
+      {specialty && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+            <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+              🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+            </span>
+            <span className="text-muted-foreground">
+              مشاريعك ومهامك لهذا العميل — مخطّط جانت يعرضها كلها معاً على خطّ الوقت.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="overflow-hidden bg-gradient-to-bl from-primary/5 to-violet-500/5">
         <CardHeader>
           <CardTitle>الفترة الزمنية</CardTitle>
@@ -156,6 +223,26 @@ function Chart({ companyId }: { companyId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* 🎯 الخطوة التالية — احسب أثر الجدول على المالية */}
+      {projects.length > 0 && (
+        <Card className="border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">💰</div>
+              <div>
+                <div className="text-sm font-bold text-emerald-900">الخطوة التالية: احسب الأثر المالي</div>
+                <div className="text-xs text-emerald-800/80">
+                  الآن وعندك جدول زمني، احسب Dupont لعائد الاستثمار وMonte Carlo لسيناريوهات الربح.
+                </div>
+              </div>
+            </div>
+            <Link to="/financial-analysis" className={buttonVariants({ variant: 'default' })}>
+              افتح التحليل المالي ←
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {tasks.filter((t) => t.dueDate && !t.projectId).length > 0 && (
         <Card>

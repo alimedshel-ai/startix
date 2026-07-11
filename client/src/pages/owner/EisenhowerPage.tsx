@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { ONBOARDING_PAINS } from '@/lib/onboardingOptions'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── R6.4 — مصفوفة أيزنهاور (Urgent × Important) ────────────────────
@@ -50,8 +52,10 @@ export function EisenhowerPage() {
 
 function Editor({ companyId }: { companyId: string }) {
   const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
   const [data, setData] = useState<EisenhowerData>(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [title, setTitle] = useState('')
   const [quad, setQuad] = useState<Quadrant>('do')
   const [linkedPain, setLinkedPain] = useState('')
@@ -95,11 +99,111 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // 🧠 توليد من المبادرات — الأولوية → الربع.
+  //   critical → do (افعل الآن)
+  //   high     → schedule (جدولها)
+  //   medium   → delegate (فوّضها)
+  //   low      → delete (احذفها إن لم يفد)
+  async function generateFromInitiatives() {
+    setGenerating(true)
+    try {
+      const initiatives = await listInitiatives(companyId)
+      if (initiatives.length === 0) {
+        toast.error('لا مبادرات محفوظة — افتح /initiatives أوّلاً.')
+        return
+      }
+      const existing = new Set(data.tasks.map((t) => t.title))
+      const priorityMap: Record<string, Quadrant> = {
+        critical: 'do',
+        high:     'schedule',
+        medium:   'delegate',
+        low:      'delete',
+      }
+      const toAdd = initiatives
+        .filter((i) => i.title && !existing.has(i.title))
+        .slice(0, 16)
+      if (toAdd.length === 0) {
+        toast.message('كل المبادرات مضافة سلفاً.')
+        return
+      }
+      setData((p) => ({
+        tasks: [
+          ...p.tasks,
+          ...toAdd.map((i) => ({
+            id: crypto.randomUUID(),
+            title: i.title,
+            quadrant: priorityMap[i.priority] ?? 'schedule',
+          })),
+        ],
+      }))
+      toast.success(`🧠 أُضيف ${toAdd.length} مهمة — موزّعة على الأرباع بحسب الأولوية.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const userPains = user?.pains ?? []
   const suggestedPains = ONBOARDING_PAINS.filter((p) => userPains.includes(p.code))
 
   return (
     <>
+      {/* بطاقة تعريف */}
+      <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+        <CardContent className="p-4 text-xs leading-relaxed">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl leading-none">🎯</div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-foreground">ما هي مصفوفة أيزنهاور؟</div>
+              <p className="mt-1 text-muted-foreground">
+                أداة لترتيب المهام بحسب <b className="text-foreground">العاجل × المهم</b> — تُظهر
+                لك أين تُنفق وقتك:
+                <b className="text-rose-700"> 🔥 افعل الآن</b> (مهم+عاجل — الأزمات) ·
+                <b className="text-emerald-700"> 📅 جدولها</b> (مهم+غير عاجل — الاستراتيجي) ·
+                <b className="text-amber-700"> 🤝 فوّضها</b> (غير مهم+عاجل — التشتيت) ·
+                <b className="text-slate-600"> 🗑️ احذفها</b> (غير مهم+غير عاجل — الضياع).
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">القيمة الحقيقية</b> في الربع الأخضر «جدولها» — هناك الاستراتيجية تحدث.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* شارة سياق المدير المستقل */}
+      {specialty && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+            <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+              🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+            </span>
+            <span className="text-muted-foreground">
+              يمكنك توليد المهام من المبادرات — أولويتها تحدّد الربع تلقائياً.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🧠 توليد من المبادرات */}
+      <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl" aria-hidden>🧠</div>
+            <div>
+              <div className="text-sm font-bold">توليد المهام من المبادرات</div>
+              <div className="text-xs text-muted-foreground">
+                الأولوية → الربع: حرجة → افعل الآن · عالية → جدولها · متوسطة → فوّضها · منخفضة → احذفها.
+              </div>
+            </div>
+          </div>
+          <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
+            {generating ? 'جاري…' : '✨ ولّد من المبادرات'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* R4-derived — اقتراحات آلية من user.pains */}
       {suggestedPains.length > 0 && data.tasks.length === 0 && (
         <Card className="border-primary/30 bg-primary/5">
@@ -174,6 +278,28 @@ function Editor({ companyId }: { companyId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* 🎯 الخطوة التالية — عندما توجد مهام في «جدولها» أو «افعل الآن» */}
+      {data.tasks.filter((t) => t.quadrant === 'do' || t.quadrant === 'schedule').length > 0 && (
+        <Card className="border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">📅</div>
+              <div>
+                <div className="text-sm font-bold text-emerald-900">
+                  الخطوة التالية: خطّط الجدول الزمني في جانت
+                </div>
+                <div className="text-xs text-emerald-800/80">
+                  المهام في «افعل الآن» و«جدولها» تحتاج تواريخ بداية ونهاية — ضعها في مخطّط جانت.
+                </div>
+              </div>
+            </div>
+            <Link to="/gantt-chart" className={buttonVariants({ variant: 'default' })}>
+              افتح مخطّط جانت ←
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         {(Object.keys(QUADRANTS) as Quadrant[]).map((q) => {

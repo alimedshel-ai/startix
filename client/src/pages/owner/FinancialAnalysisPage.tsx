@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { EmptyState } from '@/components/EmptyState'
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
-import type { Company } from '@/lib/deptApi'
+import { DEPT_LABEL, type Company, type DeptCode } from '@/lib/deptApi'
 import {
   createDupont,
   createMonteCarloRun,
@@ -22,6 +22,39 @@ import {
   type MonteCarloRun,
   type TriangularDist,
 } from '@/lib/financeApi'
+import { useAuthStore } from '@/store/authStore'
+
+// ─── هيكل تكاليف افتراضي بحسب تخصّص المدير المستقل ────────────
+// كل إدارة لها هيكل تكاليف مميّز. نستعمله لتعبئة Dupont/Monte Carlo
+// عندما OPEX فارغ ولا نُخفي عن المدير أنّه رقم تقديري.
+interface DeptFinPreset {
+  // نسبة الميزانية المطلوبة كتكاليف متغيّرة (min/likely/max) — البقية ثابتة.
+  variableCostPct: TriangularDist
+  // نسبة صافي الربح المتوقّعة من الإيراد (لتقدير netIncome في Dupont).
+  netMarginTarget: number
+  // نسبة إجمالي الأصول من الإيراد (لتقدير totalAssets).
+  assetsRatio: number
+  // نسبة حقوق الملكية من إجمالي الأصول.
+  equityRatio: number
+  // ملاحظة تفسيرية للمدير.
+  costHintAr: string
+}
+
+const DEPT_FIN_PRESETS: Record<DeptCode, DeptFinPreset> = {
+  HR:               { variableCostPct: { min: 0.55, likely: 0.65, max: 0.75 }, netMarginTarget: 0.12, assetsRatio: 0.5, equityRatio: 0.6, costHintAr: 'الرواتب هي أكبر تكلفة (~٦٥٪) — الفرق عمولات وتدريب.' },
+  FINANCE:          { variableCostPct: { min: 0.20, likely: 0.30, max: 0.42 }, netMarginTarget: 0.25, assetsRatio: 1.0, equityRatio: 0.5, costHintAr: 'التكاليف منخفضة (~٣٠٪) — أنظمة وبرمجيات ومرتّبات محدودة.' },
+  SALES:            { variableCostPct: { min: 0.30, likely: 0.42, max: 0.55 }, netMarginTarget: 0.18, assetsRatio: 0.4, equityRatio: 0.5, costHintAr: 'العمولات والحوافز أساسية (~٤٢٪) — الفرق تسويق وسفريات.' },
+  MARKETING:        { variableCostPct: { min: 0.40, likely: 0.55, max: 0.70 }, netMarginTarget: 0.10, assetsRatio: 0.3, equityRatio: 0.6, costHintAr: 'الإعلانات هي أكبر بند (~٥٥٪) — الفرق أدوات ومحتوى.' },
+  OPERATIONS:       { variableCostPct: { min: 0.50, likely: 0.62, max: 0.75 }, netMarginTarget: 0.15, assetsRatio: 1.5, equityRatio: 0.5, costHintAr: 'المواد الخام والطاقة أساسية (~٦٢٪) — كثافة أصول عالية.' },
+  IT:               { variableCostPct: { min: 0.25, likely: 0.38, max: 0.52 }, netMarginTarget: 0.20, assetsRatio: 0.8, equityRatio: 0.6, costHintAr: 'السحابة والتراخيص (~٣٨٪) + كوادر تقنية غالية.' },
+  CUSTOMER_SERVICE: { variableCostPct: { min: 0.60, likely: 0.72, max: 0.82 }, netMarginTarget: 0.08, assetsRatio: 0.3, equityRatio: 0.6, costHintAr: 'الأجور والدعم كثيفة (~٧٢٪) — الفرق أدوات وأمن.' },
+  SUPPORT:          { variableCostPct: { min: 0.55, likely: 0.68, max: 0.80 }, netMarginTarget: 0.10, assetsRatio: 0.3, equityRatio: 0.6, costHintAr: 'مهندسو الدعم (~٦٨٪) + قواعد معرفة وأدوات مراقبة.' },
+  LOGISTICS:        { variableCostPct: { min: 0.55, likely: 0.68, max: 0.80 }, netMarginTarget: 0.12, assetsRatio: 1.3, equityRatio: 0.4, costHintAr: 'الوقود والنقل (~٦٨٪) — كثافة أصول (شاحنات، مستودعات).' },
+  QUALITY:          { variableCostPct: { min: 0.30, likely: 0.42, max: 0.55 }, netMarginTarget: 0.18, assetsRatio: 0.5, equityRatio: 0.6, costHintAr: 'المختبرات والفحوصات (~٤٢٪) — عوائد وقاية عالية.' },
+  PROJECTS:         { variableCostPct: { min: 0.40, likely: 0.55, max: 0.68 }, netMarginTarget: 0.15, assetsRatio: 0.3, equityRatio: 0.7, costHintAr: 'مدراء المشاريع (~٥٥٪) + أدوات جدولة ومتابعة.' },
+  COMPLIANCE:       { variableCostPct: { min: 0.30, likely: 0.42, max: 0.55 }, netMarginTarget: 0.20, assetsRatio: 0.4, equityRatio: 0.7, costHintAr: 'الاستشارات والتدقيقات (~٤٢٪) — استثمار وقائي.' },
+  GOVERNANCE:       { variableCostPct: { min: 0.25, likely: 0.35, max: 0.48 }, netMarginTarget: 0.22, assetsRatio: 0.3, equityRatio: 0.8, costHintAr: 'المستشارون القانونيون (~٣٥٪) + سكرتير مجلس.' },
+}
 
 // ─── C13 — تحليل Dupont + محاكاة Monte Carlo ─────────────────────────────────
 // صفحة تحليل مالي متقدّم لصاحب الشركة. كل الحسابات على السيرفر — لا localStorage.
@@ -42,6 +75,9 @@ function FinancialAnalysisContent() {
   // R4.4 — نستهلك useCompany حتى يفتح المدير المستقل الأداة عبر ?client=X.
   // نبقي الحالة الداخلية `company` لتوافق مع الاستخدامات السفلية بلا تغيير شامل.
   const scope = useCompany()
+  const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
+  const preset = specialty ? DEPT_FIN_PRESETS[specialty] : null
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [dupont, setDupont] = useState<DupontAnalysis | null>(null)
@@ -103,10 +139,49 @@ function FinancialAnalysisContent() {
         description="تحليل Dupont لتحديد محرّكات ROE + محاكاة Monte Carlo لتوقّع توزيع الأرباح."
       />
 
+      {/* بطاقة تعريف */}
+      <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+        <CardContent className="p-4 text-xs leading-relaxed">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl leading-none">💰</div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-foreground">ما الفرق بين Dupont و Monte Carlo؟</div>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">Dupont</b> يجيب: <em>لماذا</em> عائدنا على حقوق الملكية عند مستواه الحالي؟
+                يفكّك ROE إلى ٣ محرّكات (هامش الربح × دوران الأصول × الرافعة). يفيدك في <b>معرفة أين المشكلة</b>.
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">Monte Carlo</b> يجيب: <em>ما احتمالية</em> ربحنا العام القادم؟
+                يشغّل آلاف السيناريوهات باحتمالات مختلفة. يفيدك في <b>معرفة المخاطر بالأرقام</b>.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* شارة السياق + تلميح تكاليف التخصّص */}
+      {specialty && preset && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col gap-2 p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+                🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+              </span>
+              <span className="text-muted-foreground">
+                هيكل التكاليف الافتراضي مُخصّص لإدارتك — عدّله لو أرقامك مختلفة.
+              </span>
+            </div>
+            <div className="rounded-md border border-dashed bg-card/40 p-2 text-[10px] text-muted-foreground">
+              💡 {preset.costHintAr}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <OpexHint opex={company.opex} focus={['budget', 'target', 'avgSalary']} title="أرقام تشغيلية مغذّية لبنود التحليل" />
 
-      <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} />
-      <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} />
+      <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} preset={preset} opex={company.opex} />
+      <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} preset={preset} opex={company.opex} />
     </div>
   )
 }
@@ -131,14 +206,27 @@ function DupontCard({
   companyId,
   initial,
   onSaved,
+  preset,
+  opex,
 }: {
   companyId: string
   initial: DupontAnalysis | null
   onSaved: (d: DupontAnalysis) => void
+  preset: DeptFinPreset | null
+  opex?: Company['opex']
 }) {
   // ملاحظة: النموذج يخزّن العوامل الثلاثة الناتجة فقط — لا الأرقام الخام.
   // نبدأ من الافتراضات ثم نُحدَّث بعد الحفظ الأول.
-  const [draft, setDraft] = useState<DupontDraft>(DUPONT_DEFAULTS)
+  // إن كان OPEX + preset متوفرين: نُشتقّ افتراضات تخصّصية.
+  const initialDraft = useMemo<DupontDraft>(() => {
+    if (!preset || !opex?.target) return DUPONT_DEFAULTS
+    const revenue = opex.target
+    const netIncome = Math.round(revenue * preset.netMarginTarget)
+    const totalAssets = Math.round(revenue * preset.assetsRatio)
+    const equity = Math.round(totalAssets * preset.equityRatio)
+    return { netIncome, revenue, totalAssets, equity }
+  }, [preset, opex])
+  const [draft, setDraft] = useState<DupontDraft>(initialDraft)
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -250,18 +338,34 @@ function MonteCarloCard({
   companyId,
   initial,
   onSaved,
+  preset,
+  opex,
 }: {
   companyId: string
   initial: MonteCarloRun | null
   onSaved: (r: MonteCarloRun) => void
+  preset: DeptFinPreset | null
+  opex?: Company['opex']
 }) {
+  const smartDefaults = useMemo<MonteCarloDraft>(() => {
+    if (!preset || !opex?.target) return MC_DEFAULTS
+    // إيراد ± ٢٠٪ حول OPEX.target
+    const t = opex.target
+    const revenue = { min: Math.round(t * 0.8), likely: t, max: Math.round(t * 1.2) }
+    // نسبة تكاليف متغيّرة من preset
+    const variableCostPct = preset.variableCostPct
+    // تكاليف ثابتة ≈ ميزانية × ٣٥٪ (تقدير محافظ)
+    const fx = opex.budget ?? t * 0.5
+    const fixedCosts = { min: Math.round(fx * 0.85), likely: Math.round(fx), max: Math.round(fx * 1.2) }
+    return { revenue, variableCostPct, fixedCosts, iterations: 10_000 }
+  }, [preset, opex])
   const [draft, setDraft] = useState<MonteCarloDraft>(() =>
     initial ? {
       revenue: initial.inputs.revenue,
       variableCostPct: initial.inputs.variableCostPct,
       fixedCosts: initial.inputs.fixedCosts,
       iterations: initial.iterations,
-    } : MC_DEFAULTS
+    } : smartDefaults
   )
   const [running, setRunning] = useState(false)
 
