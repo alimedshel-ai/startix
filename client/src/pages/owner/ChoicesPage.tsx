@@ -262,9 +262,13 @@ function Editor({ companyId }: { companyId: string }) {
   const scored: ScoredDirection[] = filteredDirections
     .map((d) => scoreDirection(d, swot, strategyPath))
     .sort((a, b) => b.score - a.score)
-  const topThree = scored.slice(0, 3)
-  const rest = scored.slice(3)
   const bestPick = scored[0] ?? null
+  // تصنيف ثلاثيّ يساعد المدير على فهم عدد الاتجاهات المهمّة:
+  //   ⭐ توصية        = الأعلى (bestPick)
+  //   🎯 مرشّحون     = نقاطهم ≥ ٦٠ (ما عدا التوصية) — أساسيّون للمراجعة
+  //   📋 بدائل ضعيفة = نقاطهم < ٦٠ — يمكن تجاهلها بأمان
+  const essentials = scored.slice(1).filter((s) => s.score >= 60)
+  const weakAlts = scored.slice(1).filter((s) => s.score < 60)
   const picked = choice.selectedDirectionId
     ? directions.find((d) => d.id === choice.selectedDirectionId) ?? null
     : null
@@ -299,6 +303,16 @@ function Editor({ companyId }: { companyId: string }) {
       {/* الخطوة ١ — اختيار الاتجاه */}
       {!picked && (
         <>
+          {/* 📊 مركز اتّخاذ القرار — يشرح ما يراه المدير وكم اتجاه لديه */}
+          <GuidancePanel
+            totalCount={directions.length}
+            visibleCount={scored.length}
+            essentialCount={essentials.length}
+            weakCount={weakAlts.length}
+            hasRecommendation={!!bestPick}
+            recommendationScore={bestPick ? Math.round(bestPick.score) : 0}
+          />
+
           {/* 🏆 توصية المنصّة — الاتجاه الأعلى تسجيلاً بشرح تفصيلي */}
           {bestPick && (
             <RecommendationCard
@@ -314,22 +328,33 @@ function Editor({ companyId }: { companyId: string }) {
             />
           )}
 
-          {scored.length > 1 && (
+          {/* 🎯 مرشّحون أساسيّون — نقاطهم ≥ ٦٠ (بديل جدّي للتوصية) */}
+          {essentials.length > 0 && (
             <>
-              <div className="flex items-center justify-between px-2 pt-2">
-                <div className="text-sm font-semibold text-muted-foreground">
-                  بدائل مقترحة {rest.length > 0 ? `(الأعلى ٣ من ${scored.length})` : ''}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50/40 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎯</span>
+                  <div>
+                    <div className="text-sm font-bold text-sky-900">
+                      {essentials.length} مرشّح أساسي — بديل جدّي للتوصية
+                    </div>
+                    <div className="text-[10px] text-sky-800/80">
+                      نقاطهم ≥ ٦٠ — يستحقّون المراجعة قبل أن ترفض توصية المنصّة.
+                    </div>
+                  </div>
                 </div>
-                <span className="text-[10px] text-muted-foreground">اضغط «لماذا؟» على أي بطاقة لفهم الترتيب.</span>
+                <span className="rounded-full border border-sky-300 bg-card px-2 py-0.5 text-[10px] font-medium text-sky-800">
+                  اضغط «❔ لماذا؟» على كل بطاقة
+                </span>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {topThree.map((s, i) => (
+                {essentials.map((s, i) => (
                   <RankedCard
                     key={s.direction.id}
                     scored={s}
-                    rank={i}
-                    isBest={i === 0 && !bestPick}
+                    rank={i + 1}
+                    isBest={false}
                     expanded={expandedReasonId === s.direction.id}
                     onToggleReason={() => setExpandedReasonId(expandedReasonId === s.direction.id ? null : s.direction.id)}
                     onPick={() => {
@@ -343,48 +368,61 @@ function Editor({ companyId }: { companyId: string }) {
                   />
                 ))}
               </div>
+            </>
+          )}
 
-              {/* الاتجاهات المتبقّية — مطويّة افتراضياً */}
-              {rest.length > 0 && !showAll && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll(true)}
-                  className="mx-auto rounded-full border-2 border-dashed border-muted-foreground/40 bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-                >
-                  ▼ أظهر باقي {rest.length} اتجاه (أدنى ترتيباً)
-                </button>
-              )}
-              {rest.length > 0 && showAll && (
-                <>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {rest.map((s, i) => (
-                      <RankedCard
-                        key={s.direction.id}
-                        scored={s}
-                        rank={i + 3}
-                        isBest={false}
-                        expanded={expandedReasonId === s.direction.id}
-                        onToggleReason={() => setExpandedReasonId(expandedReasonId === s.direction.id ? null : s.direction.id)}
-                        onPick={() => {
-                          const rationale = buildRationale(s.direction, swot)
-                          setChoice((p) => ({ ...p, selectedDirectionId: s.direction.id, rationale: p.rationale || rationale }))
-                          toast.success(`✓ اخترت «${s.direction.title}»`)
-                          setTimeout(() => {
-                            document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }, 100)
-                        }}
-                      />
-                    ))}
+          {/* 📋 بدائل ضعيفة — مطويّة افتراضياً، «يمكن تجاهلها بأمان» */}
+          {weakAlts.length > 0 && !showAll && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="mx-auto rounded-full border-2 border-dashed border-muted-foreground/40 bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            >
+              ▼ عرض {weakAlts.length} بديل ضعيف (نقاط أقل من ٦٠ — يمكن تجاهلها)
+            </button>
+          )}
+          {weakAlts.length > 0 && showAll && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <div>
+                    <div className="text-sm font-bold text-slate-700">
+                      {weakAlts.length} بديل ضعيف
+                    </div>
+                    <div className="text-[10px] text-slate-600">
+                      نقاطهم أقل من ٦٠ — عادةً لا تُغيّر القرار.
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAll(false)}
-                    className="mx-auto text-xs text-muted-foreground hover:underline"
-                  >
-                    ▲ أخفِ البدائل الإضافيّة
-                  </button>
-                </>
-              )}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {weakAlts.map((s, i) => (
+                  <RankedCard
+                    key={s.direction.id}
+                    scored={s}
+                    rank={essentials.length + i + 1}
+                    isBest={false}
+                    expanded={expandedReasonId === s.direction.id}
+                    onToggleReason={() => setExpandedReasonId(expandedReasonId === s.direction.id ? null : s.direction.id)}
+                    onPick={() => {
+                      const rationale = buildRationale(s.direction, swot)
+                      setChoice((p) => ({ ...p, selectedDirectionId: s.direction.id, rationale: p.rationale || rationale }))
+                      toast.success(`✓ اخترت «${s.direction.title}»`)
+                      setTimeout(() => {
+                        document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }, 100)
+                    }}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="mx-auto text-xs text-muted-foreground hover:underline"
+              >
+                ▲ إخفاء البدائل الضعيفة
+              </button>
             </>
           )}
 
@@ -714,6 +752,113 @@ function QuadBadge({ q }: { q: Quad }) {
 function QuadBadgeInline({ q }: { q: Quad }) {
   const label: Record<Quad, string> = { SO: 'هجومي', ST: 'دفاعي', WO: 'تحويلي', WT: 'تقليصي' }
   return <span>{q} • {label[q]}</span>
+}
+
+// ─── 📊 مركز القرار — يشرح للمدير كيف يعمل التصنيف وكم اتجاه لديه ─
+function GuidancePanel({
+  totalCount, visibleCount,
+  essentialCount, weakCount,
+  hasRecommendation, recommendationScore,
+}: {
+  totalCount: number
+  visibleCount: number
+  essentialCount: number
+  weakCount: number
+  hasRecommendation: boolean
+  recommendationScore: number
+}) {
+  const [howOpen, setHowOpen] = useState(false)
+  const filtered = totalCount - visibleCount
+  const buckets = [
+    hasRecommendation && {
+      icon: '⭐',
+      cls: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+      title: `توصية المنصّة (${recommendationScore}/١٠٠)`,
+      hint: 'الأعلى نقاطاً — ابدأ منها.',
+    },
+    essentialCount > 0 && {
+      icon: '🎯',
+      cls: 'border-sky-300 bg-sky-50 text-sky-900',
+      title: `${essentialCount} مرشّح أساسي`,
+      hint: 'نقاطهم ≥ ٦٠ — قارنهم قبل الرفض.',
+    },
+    weakCount > 0 && {
+      icon: '📋',
+      cls: 'border-slate-300 bg-slate-50 text-slate-800',
+      title: `${weakCount} بديل ضعيف`,
+      hint: 'نقاطهم < ٦٠ — عادةً لا تُغيّر القرار.',
+    },
+  ].filter(Boolean) as { icon: string; cls: string; title: string; hint: string }[]
+
+  return (
+    <Card className="border-primary/30 bg-gradient-to-l from-primary/10 to-transparent">
+      <CardContent className="space-y-3 p-3">
+        {/* السطر العلوي: عدد الاتجاهات + زر «كيف تختار؟» */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">📊</span>
+            <div>
+              <div className="text-sm font-bold">مركز اتّخاذ القرار</div>
+              <div className="text-[10px] text-muted-foreground">
+                لديك <b className="text-foreground tabular-nums">{totalCount}</b> اتجاه إجمالاً
+                {filtered > 0 && ` · ${visibleCount} بعد الفلترة`}
+                {' · '}صنّفناها بحسب النقاط الذكيّة (٠-١٠٠).
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Link
+              to="/directions"
+              className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 text-[11px] font-medium hover:bg-muted"
+            >
+              ＋ أضِف/راجع الاتجاهات
+            </Link>
+            <button
+              type="button"
+              onClick={() => setHowOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 text-[11px] font-medium hover:bg-muted"
+            >
+              ❓ كيف تختار قراراً سليماً؟ {howOpen ? '▲' : '▼'}
+            </button>
+          </div>
+        </div>
+
+        {/* تصنيف الاتجاهات ٣ مجموعات */}
+        {buckets.length > 0 && (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {buckets.map((b) => (
+              <div key={b.title} className={`rounded-lg border p-2 ${b.cls}`}>
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="text-lg">{b.icon}</span>
+                  <span className="text-xs">{b.title}</span>
+                </div>
+                <div className="mt-0.5 text-[10px] leading-relaxed">{b.hint}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* شرح تفصيلي (يفتح بالضغط) */}
+        {howOpen && (
+          <div className="rounded-lg border-2 border-dashed border-primary/30 bg-card p-3 text-xs leading-relaxed space-y-2">
+            <div className="font-bold text-foreground">🔎 كيف نُصنّف الاتجاهات؟</div>
+            <p className="text-muted-foreground">
+              نجمع ٥ إشارات في نقاط ذكيّة من ٠ إلى ١٠٠: قابلية × أثر (٤٠) + دعم SWOT (٢٠)
+              − خصم مخاطر (١٥) + بونص ربع TOWS (١٠) + مطابقة مسارك (١٥).
+            </p>
+            <div className="mt-2 font-bold text-foreground">📌 خطوات القرار السليم:</div>
+            <ol className="mr-3 list-decimal space-y-1 text-muted-foreground marker:text-primary">
+              <li>اقرأ <b className="text-foreground">توصية المنصّة</b> أعلاه أوّلاً — إن أعجبتك اضغط «اختر».</li>
+              <li>لست مقتنعاً؟ راجع الـ <b className="text-foreground">مرشّحين الأساسيّين</b> ({essentialCount}) — نقاطهم قريبة من التوصية.</li>
+              <li>لكل بطاقة زر <b className="text-foreground">«❔ لماذا؟»</b> يشرح تفكيك النقاط والأدلّة الداعمة.</li>
+              <li>البدائل الضعيفة (نقاط &lt; ٦٠) لا تحتاج مراجعة — يمكن تجاهلها بأمان.</li>
+              <li>لإضافة/حذف اتجاهات ارجع إلى <b className="text-foreground">/directions</b>.</li>
+            </ol>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 // ─── 🏆 توصية المنصّة — الاتجاه الأعلى تسجيلاً مع سبب مفصّل ─────
