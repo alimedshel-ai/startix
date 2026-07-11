@@ -56,6 +56,35 @@ const DEPT_FIN_PRESETS: Record<DeptCode, DeptFinPreset> = {
   GOVERNANCE:       { variableCostPct: { min: 0.25, likely: 0.35, max: 0.48 }, netMarginTarget: 0.22, assetsRatio: 0.3, equityRatio: 0.8, costHintAr: 'المستشارون القانونيون (~٣٥٪) + سكرتير مجلس.' },
 }
 
+// ─── ثوابت العمل السعودية (٢٠٢٦) ──────────────────────────────
+// تُستخدَم في هيكل تكاليف الإدارة السنوي.
+const GOSI_SAUDI_RATE     = 0.1175   // ١١٫٧٥٪ حصة صاحب العمل للسعوديين
+const GOSI_NON_SAUDI_RATE = 0.02     // ٢٪ حصة صاحب العمل للأجانب (إصابات فقط)
+const IQAMA_ANNUAL_FEE    = 9_600    // رسوم إقامة + مقابل مالي سنوي/موظف أجنبي (تقريبي)
+const HEALTH_INSURANCE_DEFAULT_ANNUAL = 8_000   // متوسط تأمين صحي/موظف/سنة
+const BENEFITS_RATE       = 0.30     // بدلات (سكن + نقل + انتقالات + نهاية الخدمة) كنسبة من الراتب الأساس
+
+// أدوات وتراخيص خاصّة بكل إدارة — كلفة سنوية تقديرية بالريال.
+interface DeptLicenseCost {
+  itemsAr: string
+  annualSAR: number
+}
+const DEPT_LICENSE_COSTS: Record<DeptCode, DeptLicenseCost> = {
+  HR:               { itemsAr: 'شهادات SHRM/CIPD + برامج HR (SuccessFactors/Workday)', annualSAR:  50_000 },
+  FINANCE:          { itemsAr: 'ERP مالي + شهادات CMA/CPA + أدوات تدقيق', annualSAR:  80_000 },
+  SALES:            { itemsAr: 'CRM (Salesforce/HubSpot) + أدوات تمكين المبيعات', annualSAR:  60_000 },
+  MARKETING:        { itemsAr: 'منصات إعلانية + Marketing Automation + محتوى', annualSAR: 100_000 },
+  OPERATIONS:       { itemsAr: 'ERP + شهادات ISO + برامج جودة وسلامة', annualSAR:  90_000 },
+  IT:               { itemsAr: 'اشتراكات سحابية (AWS/Azure) + تراخيص برمجيات + شهادات', annualSAR: 150_000 },
+  CUSTOMER_SERVICE: { itemsAr: 'مركز اتصال (Zendesk/Intercom) + شهادات خدمة', annualSAR:  45_000 },
+  SUPPORT:          { itemsAr: 'Jira/ServiceNow + أدوات مراقبة + قاعدة معرفة', annualSAR:  55_000 },
+  LOGISTICS:        { itemsAr: 'WMS/TMS + تتبّع الأسطول + برامج سلامة', annualSAR:  80_000 },
+  QUALITY:          { itemsAr: 'شهادات ISO + مختبرات فحص + شهادات Six Sigma', annualSAR:  90_000 },
+  PROJECTS:         { itemsAr: 'أدوات PM (Jira/MSProject) + شهادات PMP', annualSAR:  60_000 },
+  COMPLIANCE:       { itemsAr: 'GRC + اشتراكات لوائح + شهادات CCEP', annualSAR:  70_000 },
+  GOVERNANCE:       { itemsAr: 'بوابة مجلس + استشارات قانونية + شهادات IoD', annualSAR:  60_000 },
+}
+
 // ─── C13 — تحليل Dupont + محاكاة Monte Carlo ─────────────────────────────────
 // صفحة تحليل مالي متقدّم لصاحب الشركة. كل الحسابات على السيرفر — لا localStorage.
 
@@ -180,9 +209,210 @@ function FinancialAnalysisContent() {
 
       <OpexHint opex={company.opex} focus={['budget', 'target', 'avgSalary']} title="أرقام تشغيلية مغذّية لبنود التحليل" />
 
+      {/* 🏗️ هيكل تكاليف الإدارة الفعلية — للمدير المستقل فقط */}
+      {specialty && (
+        <DeptCostBreakdownCard
+          specialty={specialty}
+          opex={company.opex}
+          onUseInDupont={(deptBudget) => {
+            // ملء Dupont بميزانية الإدارة عوض إيراد الشركة الكامل.
+            const patch = deptBudget
+            // نُطلق حدث مخصّص عبر setState من الأب — لكن Dupont child يتلقّى preset+opex فقط،
+            // لذلك نستخدم رسالة toast للإرشاد بدلاً من التلاعب المباشر.
+            toast.success(`💡 استعمل ${SAR_FMT.format(patch)} كإيراد إدارتك في Dupont/Monte Carlo أدناه.`)
+          }}
+        />
+      )}
+
       <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} preset={preset} opex={company.opex} />
       <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} preset={preset} opex={company.opex} />
     </div>
+  )
+}
+
+// ─── 🏗️ هيكل تكاليف الإدارة السنوي (تفصيلي، سعودي) ─────────────
+function DeptCostBreakdownCard({
+  specialty, opex, onUseInDupont,
+}: {
+  specialty: DeptCode
+  opex?: Company['opex']
+  onUseInDupont: (deptBudget: number) => void
+}) {
+  const lic = DEPT_LICENSE_COSTS[specialty]
+  const [team, setTeam] = useState<number>(opex?.team ?? 5)
+  const [avgSalary, setAvgSalary] = useState<number>(opex?.avgSalary ?? 12_000)
+  const [saudiPct, setSaudiPct] = useState<number>(50) // نسبة السعوديين
+  const [healthInsurance, setHealthInsurance] = useState<number>(HEALTH_INSURANCE_DEFAULT_ANNUAL)
+  const [licenseCost, setLicenseCost] = useState<number>(lic.annualSAR)
+  const [otherCost, setOtherCost] = useState<number>(0)
+
+  // ─── حسابات مشتقّة ─────────────────────────────
+  const breakdown = useMemo(() => {
+    const saudiCount = Math.round(team * (saudiPct / 100))
+    const nonSaudiCount = team - saudiCount
+    // رواتب أساسية سنوية
+    const baseSalariesAnnual = team * avgSalary * 12
+    // البدلات (سكن + نقل + انتقالات + مكافأة نهاية الخدمة) ~٣٠٪ من الرواتب
+    const benefitsAnnual = baseSalariesAnnual * BENEFITS_RATE
+    // GOSI — التأمينات الاجتماعية (حصة صاحب العمل)
+    const gosiSaudi = saudiCount * avgSalary * 12 * GOSI_SAUDI_RATE
+    const gosiNonSaudi = nonSaudiCount * avgSalary * 12 * GOSI_NON_SAUDI_RATE
+    const gosiTotal = gosiSaudi + gosiNonSaudi
+    // التأمين الصحي (إلزامي)
+    const healthTotal = team * healthInsurance
+    // رسوم الإقامات والمقابل المالي (للأجانب فقط)
+    const iqamaTotal = nonSaudiCount * IQAMA_ANNUAL_FEE
+    // الإجمالي
+    const total = baseSalariesAnnual + benefitsAnnual + gosiTotal + healthTotal + iqamaTotal + licenseCost + otherCost
+    return {
+      saudiCount, nonSaudiCount,
+      baseSalariesAnnual, benefitsAnnual,
+      gosiTotal, gosiSaudi, gosiNonSaudi,
+      healthTotal, iqamaTotal,
+      licenseCost, otherCost,
+      total,
+    }
+  }, [team, avgSalary, saudiPct, healthInsurance, licenseCost, otherCost])
+
+  const monthly = breakdown.total / 12
+
+  // نسب البنود من الإجمالي (لعرض شريطي).
+  const items = [
+    { labelAr: 'رواتب أساسية',        value: breakdown.baseSalariesAnnual, icon: '💵', color: 'bg-emerald-500' },
+    { labelAr: 'بدلات (سكن + نقل + نهاية خدمة)', value: breakdown.benefitsAnnual, icon: '🏠', color: 'bg-sky-500' },
+    { labelAr: 'التأمينات الاجتماعية (GOSI)', value: breakdown.gosiTotal, icon: '🏛️', color: 'bg-violet-500' },
+    { labelAr: 'التأمين الصحي',        value: breakdown.healthTotal, icon: '🏥', color: 'bg-rose-500' },
+    { labelAr: 'رسوم الإقامات والمقابل المالي', value: breakdown.iqamaTotal, icon: '📄', color: 'bg-amber-500' },
+    { labelAr: 'التراخيص والأدوات',   value: breakdown.licenseCost, icon: '🛠️', color: 'bg-indigo-500' },
+    { labelAr: 'أخرى',                  value: breakdown.otherCost, icon: '➕', color: 'bg-slate-500' },
+  ]
+
+  return (
+    <Card className="overflow-hidden border-2 border-primary/30">
+      <div className="h-1 bg-gradient-to-l from-amber-500 via-orange-500 to-rose-500" />
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          🏗️ هيكل تكاليف إدارة {DEPT_LABEL[specialty]} السنوية
+        </CardTitle>
+        <CardDescription className="text-xs">
+          محسوبة بمعايير العمل السعودية (GOSI ١١٫٧٥٪ للسعوديين، ٢٪ للأجانب · رسوم إقامة ٩٬٦٠٠/سنة/موظف أجنبي · بدلات ~٣٠٪ من الراتب).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 lg:grid-cols-2">
+        {/* المدخلات */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="dc_team" className="text-xs">عدد الموظفين</Label>
+              <Input
+                id="dc_team" type="number" min={0}
+                value={team}
+                onChange={(e) => setTeam(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dc_salary" className="text-xs">متوسط الراتب الشهري (SAR)</Label>
+              <Input
+                id="dc_salary" type="number" min={0}
+                value={avgSalary}
+                onChange={(e) => setAvgSalary(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dc_saudi" className="text-xs">نسبة السعوديين (نطاقات)</Label>
+              <span className="text-xs tabular-nums font-medium">{saudiPct}٪</span>
+            </div>
+            <input
+              id="dc_saudi" type="range" min={0} max={100} step={5}
+              value={saudiPct}
+              onChange={(e) => setSaudiPct(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+              <span>سعوديون: {breakdown.saudiCount}</span>
+              <span>أجانب: {breakdown.nonSaudiCount}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="dc_health" className="text-xs">تأمين صحي/موظف/سنة (SAR)</Label>
+              <Input
+                id="dc_health" type="number" min={0}
+                value={healthInsurance}
+                onChange={(e) => setHealthInsurance(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dc_lic" className="text-xs">تراخيص وأدوات (SAR/سنة)</Label>
+              <Input
+                id="dc_lic" type="number" min={0}
+                value={licenseCost}
+                onChange={(e) => setLicenseCost(Math.max(0, Number(e.target.value) || 0))}
+              />
+              <div className="text-[10px] leading-tight text-muted-foreground">
+                افتراضي إدارتك: {lic.itemsAr}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="dc_other" className="text-xs">تكاليف أخرى (سنوي، اختياري)</Label>
+            <Input
+              id="dc_other" type="number" min={0}
+              value={otherCost}
+              onChange={(e) => setOtherCost(Math.max(0, Number(e.target.value) || 0))}
+              placeholder="إيجار، مرافق، سفر، تدريب…"
+            />
+          </div>
+        </div>
+
+        {/* المخرجات */}
+        <div className="space-y-3">
+          <div className="rounded-2xl border bg-gradient-to-br from-primary/10 to-transparent p-4">
+            <div className="text-xs text-muted-foreground">إجمالي تكاليف الإدارة السنوية</div>
+            <div className="text-3xl font-bold tabular-nums">{SAR_FMT.format(breakdown.total)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              شهرياً ~ <b className="text-foreground tabular-nums">{SAR_FMT.format(monthly)}</b> · لكل موظف/سنة
+              ~ <b className="text-foreground tabular-nums">{SAR_FMT.format(team > 0 ? breakdown.total / team : 0)}</b>
+            </div>
+          </div>
+
+          {/* تفصيل البنود مع أشرطة نسبيّة */}
+          <ul className="space-y-1.5">
+            {items.filter((i) => i.value > 0).map((i) => {
+              const pct = breakdown.total > 0 ? (i.value / breakdown.total) * 100 : 0
+              return (
+                <li key={i.labelAr} className="rounded-lg border bg-card p-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{i.icon}</span>
+                    <span className="flex-1">{i.labelAr}</span>
+                    <span className="tabular-nums text-muted-foreground">{pct.toFixed(1)}٪</span>
+                    <span className="tabular-nums font-medium">{SAR_FMT.format(i.value)}</span>
+                  </div>
+                  <div className="mt-1 h-1 rounded-full bg-muted">
+                    <div className={`h-full rounded-full ${i.color}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onUseInDupont(breakdown.total)}
+            title="استخدم إجمالي هذه التكاليف كإيراد/ميزانية الإدارة في Dupont/Monte Carlo"
+          >
+            💡 استخدم هذه الأرقام في Dupont/Monte Carlo أدناه
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
