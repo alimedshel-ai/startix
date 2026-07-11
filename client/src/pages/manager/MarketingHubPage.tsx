@@ -222,8 +222,55 @@ export function MarketingHubPage() {
             <Input id="b_name" value={data.brand.name} onChange={(e) => setData((p) => ({ ...p, brand: { ...p.brand, name: e.target.value } }))} placeholder="مثال: نون / سلة / …" />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="b_logo">رابط الشعار (URL)</Label>
-            <Input id="b_logo" type="url" value={data.brand.logoUrl} onChange={(e) => setData((p) => ({ ...p, brand: { ...p.brand, logoUrl: e.target.value } }))} placeholder="https://example.com/logo.png" />
+            <Label htmlFor="b_logo">الشعار — رابط أو رفع مباشر</Label>
+            <Input id="b_logo" type="url" value={data.brand.logoUrl.startsWith('data:') ? '' : data.brand.logoUrl} onChange={(e) => setData((p) => ({ ...p, brand: { ...p.brand, logoUrl: e.target.value } }))} placeholder="https://example.com/logo.png" />
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                <span>📤</span>
+                <span>رفع شعار من جهازك</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    // حجم الحدّ الأقصى: ٥٠٠ كيلوبايت — كافٍ لشعار مضغوط.
+                    if (file.size > 500 * 1024) {
+                      toast.error(`الملف كبير (${Math.round(file.size / 1024)}KB) — الحدّ الأقصى ٥٠٠KB. اضغط الصورة أو استعمل SVG.`)
+                      e.target.value = ''
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      const dataUrl = reader.result as string
+                      setData((p) => ({ ...p, brand: { ...p.brand, logoUrl: dataUrl } }))
+                      toast.success(`رُفع ${file.name} (${Math.round(file.size / 1024)}KB)`)
+                    }
+                    reader.onerror = () => toast.error('تعذّرت قراءة الملف.')
+                    reader.readAsDataURL(file)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {data.brand.logoUrl.startsWith('data:') && (
+                <>
+                  <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
+                    ✓ شعار مرفوع مباشرة
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setData((p) => ({ ...p, brand: { ...p.brand, logoUrl: '' } }))}
+                    className="text-[10px] text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    ✕ إزالة
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="text-[10px] leading-relaxed text-muted-foreground">
+              PNG · JPG · WebP · SVG (بحدّ ٥٠٠KB). الشعارات المرفوعة تُحفَظ داخل بيانات مركز التسويق.
+            </div>
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label htmlFor="b_tag">الشعار النصّي / Slogan</Label>
