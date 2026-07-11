@@ -18,6 +18,7 @@ import {
   type DeptCode,
 } from '@/lib/deptApi'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
+import { useAuthStore } from '@/store/authStore'
 
 interface Props {
   deptCode: DeptCode
@@ -304,44 +305,195 @@ function AuditValueCard({ deptCode }: { deptCode: DeptCode }) {
   )
 }
 
-// ─── بعد التدقيق: ما الذي فُتِح؟ ───────────────────────────────────
+// ─── بعد التدقيق: ما الذي فُتِح؟ ولماذا؟ ─────────────────────────
+// المدير كان يشوف ٦ أدوات مفتوحة بلا سياق — يظنّ أنها كلها مطلوبة الآن.
+// الآن كل أداة تُصنّف بمستوى الخطّة (تشغيلي/تكتيكي/استراتيجي)، ويُشرح
+// «لماذا فُتِحت» و «لماذا الآن»، ويفلتر المدير بحسب خطّته.
+type PlanLevel = 'operational' | 'tactical' | 'strategic'
+
+const PLAN_LEVEL_META: Record<PlanLevel, { icon: string; labelAr: string; color: string; horizonAr: string }> = {
+  operational: { icon: '⚙️', labelAr: 'تشغيليّة',   color: 'border-emerald-400 bg-emerald-50 text-emerald-800', horizonAr: 'يوم/شهر' },
+  tactical:    { icon: '🎯', labelAr: 'تكتيكيّة',   color: 'border-sky-400 bg-sky-50 text-sky-800',           horizonAr: '٣-١٢ شهر' },
+  strategic:   { icon: '🔭', labelAr: 'استراتيجيّة', color: 'border-purple-400 bg-purple-50 text-purple-800',   horizonAr: '١+ سنة' },
+}
+
+// خرائط: مسار المدير → مستوى الخطّة الافتراضي.
+function pathToPlanLevel(path: string | null | undefined): PlanLevel | null {
+  if (path === 'QUICK')  return 'operational'
+  if (path === 'MEDIUM') return 'tactical'
+  if (path === 'LONG')   return 'strategic'
+  return null
+}
+
 function UnlockedToolsCard({ deptCode, clientQuery }: { deptCode: DeptCode; clientQuery: string }) {
-  const _ = deptCode // للاستخدام المستقبلي — عرض روابط مخصّصة لكل تخصّص
+  const user = useAuthStore((s) => s.user)
+  const defaultLevel = pathToPlanLevel(user?.strategyPath)
+  const [levelFilter, setLevelFilter] = useState<PlanLevel | null>(defaultLevel)
+  const _ = deptCode
   void _
-  const tools = [
-    { icon: '🎯', label: 'البيئة الداخلية (7S)', to: `/internal-environment${clientQuery}`, desc: 'يُوَلَّد تلقائياً من درجات المحاور' },
-    { icon: '🧠', label: 'ذكاء KPIs',             to: `/manager/dept-smart${clientQuery}`,   desc: 'مقاييس مخصّصة تُنشأ في القاعدة' },
-    { icon: '📐', label: 'تحليل الفجوة',           to: `/manager/dept-gap${clientQuery}`,    desc: 'محاور من التدقيق مع خطة معالجة' },
-    { icon: '🌐', label: 'PESTEL للإدارة',         to: `/manager/dept-pestel${clientQuery}`, desc: 'العوامل الخارجية بمقترحات جاهزة' },
-    { icon: '⚔️', label: 'قوى بورتر الخمس',        to: `/porter${clientQuery}`,               desc: 'مُعاد تفسير القوى لتخصّصك' },
-    { icon: '🗺️', label: 'الخطة الاستراتيجية',    to: `/manager/strategic-plan${clientQuery}`, desc: 'مسار موصى به حسب صحّتك' },
+
+  // كل أداة تحمل مستويات الخطّة التي تنتمي إليها + سبب فتحها.
+  const tools: {
+    icon: string; label: string; to: string; desc: string;
+    levels: PlanLevel[]; unlockReason: string;
+  }[] = [
+    {
+      icon: '🎯', label: 'البيئة الداخليّة (7S)', to: `/internal-environment${clientQuery}`,
+      desc: 'يُوَلَّد تلقائياً من درجات المحاور.',
+      levels: ['tactical', 'strategic'],
+      unlockReason: 'التدقيق قدّم درجات ٤ محاور تُغذّي 7S تلقائياً.',
+    },
+    {
+      icon: '🧠', label: 'ذكاء KPIs',              to: `/manager/dept-smart${clientQuery}`,
+      desc: 'مقاييس مخصّصة تُنشأ في القاعدة.',
+      levels: ['operational', 'tactical'],
+      unlockReason: 'التدقيق حدّد الفجوات فأصبحت المقاييس معروفة.',
+    },
+    {
+      icon: '📐', label: 'تحليل الفجوة',            to: `/manager/dept-gap${clientQuery}`,
+      desc: 'محاور من التدقيق مع خطة معالجة.',
+      levels: ['operational', 'tactical'],
+      unlockReason: 'الفجوة تُقاس مباشرة من الفارق بين الحالي والمستهدف.',
+    },
+    {
+      icon: '🌐', label: 'PESTEL للإدارة',          to: `/manager/dept-pestel${clientQuery}`,
+      desc: 'العوامل الخارجيّة بمقترحات جاهزة.',
+      levels: ['tactical', 'strategic'],
+      unlockReason: 'PESTEL يكمّل الصورة الخارجيّة بعد رصد الداخليّة.',
+    },
+    {
+      icon: '⚔️', label: 'قوى بورتر الخمس',         to: `/porter${clientQuery}`,
+      desc: 'مُعاد تفسير القوى لتخصّصك.',
+      levels: ['strategic'],
+      unlockReason: 'بورتر أداة تموضع تنافسي — مطلوبة للتخطيط طويل الأمد.',
+    },
+    {
+      icon: '🗺️', label: 'الخطّة الاستراتيجيّة',   to: `/manager/strategic-plan${clientQuery}`,
+      desc: 'مسار موصى به حسب صحّتك.',
+      levels: ['operational', 'tactical', 'strategic'],
+      unlockReason: 'الخطّة تختار مسارها من صحّة إدارتك المُقاسة الآن.',
+    },
   ]
+
+  const inLevel = (t: typeof tools[number]) => !levelFilter || t.levels.includes(levelFilter)
+  const inLevelCount = tools.filter(inLevel).length
+  const outLevelCount = tools.length - inLevelCount
+
   return (
     <Card className="border-emerald-200 bg-emerald-50/40">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <span aria-hidden>🎉</span>
-          الأدوات التي فُتِحت لك الآن
-        </CardTitle>
-        <CardDescription>
-          نتيجة التدقيق تُغذّي كل هذه الأدوات — كل واحدة بضغطة واحدة.
-        </CardDescription>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span aria-hidden>🎉</span>
+              الأدوات التي فُتِحت — ولماذا الآن؟
+            </CardTitle>
+            <CardDescription className="text-xs">
+              كلّها تعتمد على التدقيق الذي أنجزته للتوّ. اختر مستوى خطّتك لتُبرِز ما يناسبها.
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {tools.map((t) => (
-          <Link
-            key={t.to}
-            to={t.to}
-            className="group flex items-start gap-2 rounded-lg border bg-card p-2.5 transition hover:-translate-y-0.5 hover:shadow-md"
+
+      {/* 🎛️ فلتر مستوى الخطّة */}
+      <CardContent className="pb-2">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 text-xs">
+          <span className="text-muted-foreground">مستوى خطّتك:</span>
+          {(['operational', 'tactical', 'strategic'] as PlanLevel[]).map((lvl) => {
+            const meta = PLAN_LEVEL_META[lvl]
+            const active = levelFilter === lvl
+            const isDefault = defaultLevel === lvl
+            return (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => setLevelFilter(active ? null : lvl)}
+                className={`inline-flex items-center gap-1 rounded-full border-2 px-2 py-0.5 transition ${
+                  active ? `${meta.color} ring-2 ring-primary/40 shadow-sm` : meta.color
+                }`}
+              >
+                <span>{meta.icon}</span>
+                <span>{meta.labelAr}</span>
+                <span className="opacity-70">({meta.horizonAr})</span>
+                {isDefault && !active && <span className="text-[9px] font-bold">⭐</span>}
+                {active && <span>✓</span>}
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setLevelFilter(null)}
+            className={`rounded-full border px-2 py-0.5 transition ${
+              !levelFilter ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+            }`}
           >
-            <span className="text-xl" aria-hidden>{t.icon}</span>
-            <div className="flex-1">
-              <div className="text-sm font-semibold">{t.label}</div>
-              <div className="text-[11px] text-muted-foreground">{t.desc}</div>
-            </div>
-            <span className="text-xs opacity-0 transition group-hover:opacity-100">←</span>
-          </Link>
-        ))}
+            عرض الكلّ
+          </button>
+        </div>
+        {defaultLevel && (
+          <div className="mt-1.5 text-[10px] text-muted-foreground">
+            ⭐ الافتراضي مُشتقّ من مسارك ({PLAN_LEVEL_META[defaultLevel].labelAr}) — يمكنك تغييره من أعلى.
+          </div>
+        )}
+      </CardContent>
+
+      {/* الأدوات — تُبرَز داخل الخطّة، تُبهت خارجها */}
+      <CardContent>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {tools.map((t) => {
+            const matches = inLevel(t)
+            return (
+              <Link
+                key={t.to}
+                to={t.to}
+                className={`group flex flex-col gap-1 rounded-lg border-2 p-2.5 transition hover:-translate-y-0.5 hover:shadow-md ${
+                  matches ? 'bg-card' : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-xl leading-none" aria-hidden>{t.icon}</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{t.label}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">{t.desc}</div>
+                  </div>
+                  <span className="text-xs opacity-0 transition group-hover:opacity-100">←</span>
+                </div>
+                {/* شارات المستوى + سبب الفتح */}
+                <div className="flex flex-wrap items-center gap-1 pt-1 text-[9px]">
+                  {t.levels.map((lvl) => {
+                    const meta = PLAN_LEVEL_META[lvl]
+                    const isCurrent = levelFilter === lvl
+                    return (
+                      <span
+                        key={lvl}
+                        className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 ${meta.color} ${
+                          isCurrent ? 'ring-2 ring-primary/40 font-bold' : ''
+                        }`}
+                      >
+                        <span>{meta.icon}</span>
+                        <span>{meta.labelAr}</span>
+                      </span>
+                    )
+                  })}
+                  {!matches && levelFilter && (
+                    <span className="rounded-full border border-dashed bg-card px-1.5 py-0.5 text-muted-foreground">
+                      خارج خطّتك ({PLAN_LEVEL_META[levelFilter].labelAr})
+                    </span>
+                  )}
+                </div>
+                <div className="rounded-md border border-dashed bg-muted/40 p-1.5 text-[10px] text-muted-foreground">
+                  <b className="text-foreground">لماذا فُتِحت الآن؟</b> {t.unlockReason}
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+        {levelFilter && outLevelCount > 0 && (
+          <div className="mt-2 rounded-lg border border-dashed bg-muted/30 p-2 text-[10px] text-muted-foreground">
+            💡 {outLevelCount} أدوات باهتة أعلاه لأنّها خارج مستوى «{PLAN_LEVEL_META[levelFilter].labelAr}» —
+            الوصول ممكن، لكنها لا تخدم أهدافك في هذه المرحلة. اضغط «عرض الكلّ» لتُبرِزها.
+          </div>
+        )}
       </CardContent>
     </Card>
   )
