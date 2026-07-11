@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCompany } from '@/hooks/useCompany'
 import { apiErrorMessage } from '@/lib/api'
+import { DEPT_LABEL } from '@/lib/deptApi'
+import { DEPT_SCENARIO_BANK } from '@/lib/deptScenarios'
 import { createScenario, deleteScenario, getArtifact, getSWOT, listScenarios, type Scenario, type ScenarioProjection } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 import type { StrategyPath } from '@/types/user'
@@ -71,7 +73,29 @@ function Editor({ companyId }: { companyId: string }) {
   const user = useAuthStore((s) => s.user)
   const strategyPath = user?.strategyPath ?? null
   const horizon = pathHorizon(strategyPath)
-  const orderedPS = orderedPresets(strategyPath)
+  // إعادة تفسير للمدير المستقل — نستبدل المعدّلات والافتراضات والتسميات ببنك تخصّصه.
+  const specialty = user?.specialtyDeptType ?? null
+  const isDeptScoped =
+    user?.userType === 'MANAGER' &&
+    user?.managerType === 'INDEPENDENT_PRO' &&
+    specialty != null &&
+    DEPT_SCENARIO_BANK[specialty] != null
+  const deptBank = isDeptScoped ? DEPT_SCENARIO_BANK[specialty!] : null
+  const revenueLabelAr = deptBank?.context.revenueLabelAr ?? 'الإيراد'
+  const profitLabelAr = deptBank?.context.profitLabelAr ?? 'الربح'
+  // نطبّق المعدّلات/التلميحات من بنك الإدارة عند وجودها.
+  const effectivePresets = useMemo<PresetMeta[]>(() => {
+    if (!deptBank) return PRESETS
+    return PRESETS.map((p) => {
+      const dp = deptBank.presets[p.name]
+      return dp ? { ...p, growthRate: dp.growthRate, marginRate: dp.marginRate, hint: dp.hint } : p
+    })
+  }, [deptBank])
+  const orderedPS = useMemo<PresetMeta[]>(() => {
+    if (strategyPath === 'QUICK')  return [effectivePresets[2], effectivePresets[1], effectivePresets[0]]
+    if (strategyPath === 'MEDIUM') return [effectivePresets[1], effectivePresets[0], effectivePresets[2]]
+    return [effectivePresets[0], effectivePresets[1], effectivePresets[2]]
+  }, [effectivePresets, strategyPath])
   const recommendedName = recommendedPreset(strategyPath)
 
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -121,7 +145,8 @@ function Editor({ companyId }: { companyId: string }) {
       const s = await createScenario({
         companyId,
         name: preset.name,
-        assumptions: defaultAssumptions(preset.name, strategyPath),
+        // نستخدم افتراضات بنك التخصّص إن وجدت — أدقّ من العامّة.
+        assumptions: deptBank?.presets[preset.name]?.assumptions ?? defaultAssumptions(preset.name, strategyPath),
         projections,
       })
       setScenarios((p) => [...p, s])
@@ -150,13 +175,18 @@ function Editor({ companyId }: { companyId: string }) {
           const profit  = Math.round(revenue * preset.marginRate)
           return { year: baseYear + i, revenue, profit }
         })
-        const assumptions = buildAssumptions({
-          preset: preset.name,
-          path: strategyPath,
-          opex: company?.opex ?? null,
-          swot,
-          hasPestel: !!pestelArt,
-        })
+        // بنك الإدارة يقدّم افتراضات تخصّصية — نلصقها فوق ما يُبنى من SWOT/OPEX.
+        const deptAssumptions = deptBank?.presets[preset.name]?.assumptions ?? []
+        const assumptions = [
+          ...buildAssumptions({
+            preset: preset.name,
+            path: strategyPath,
+            opex: company?.opex ?? null,
+            swot,
+            hasPestel: !!pestelArt,
+          }),
+          ...deptAssumptions,
+        ]
         try {
           const s = await createScenario({ companyId, name: preset.name, assumptions, projections })
           setScenarios((p) => [...p, s])
@@ -198,15 +228,21 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
-      {/* شارة السياق — مسارك يحدّد أفق الإسقاط وترتيب البريستات */}
+      {/* شارة السياق — مسارك + تخصّصك (إن وُجد) يحدّدان أفق الإسقاط والتفسير */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+          {isDeptScoped && (
+            <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+              🎯 السياق: إدارة {DEPT_LABEL[specialty!]}
+            </span>
+          )}
           <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
             {horizon.icon} مسارك: {horizon.label}
           </span>
           <span className="text-muted-foreground">
-            أفق السيناريوهات = <b className="text-foreground">{horizon.years} {horizon.years === 1 ? 'سنة' : 'سنوات'}</b>
-            {' · '}البريستات مرتّبة بحسب أولوية مسارك (الأول: <b className="text-foreground">{recommendedName}</b>).
+            {deptBank
+              ? deptBank.context.contextHintAr + ` · أفق ${horizon.years} ${horizon.years === 1 ? 'سنة' : 'سنوات'}.`
+              : `أفق السيناريوهات = ${horizon.years} ${horizon.years === 1 ? 'سنة' : 'سنوات'} · البريستات مرتّبة بحسب أولوية مسارك (الأول: ${recommendedName}).`}
           </span>
         </CardContent>
       </Card>
@@ -337,8 +373,8 @@ function Editor({ companyId }: { companyId: string }) {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>مقارنة الإيرادات</CardTitle>
-            <CardDescription>الإيرادات المتوقعة عبر السنوات لكل سيناريو — أفق {horizon.years} {horizon.years === 1 ? 'سنة' : 'سنوات'} بحسب مسارك.</CardDescription>
+            <CardTitle>مقارنة {revenueLabelAr}</CardTitle>
+            <CardDescription>{revenueLabelAr} المتوقّع عبر السنوات لكل سيناريو — أفق {horizon.years} {horizon.years === 1 ? 'سنة' : 'سنوات'} بحسب مسارك.</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -393,8 +429,8 @@ function Editor({ companyId }: { companyId: string }) {
                     <thead>
                       <tr className="text-muted-foreground">
                         <th className="text-right">السنة</th>
-                        <th className="text-right">الإيراد</th>
-                        <th className="text-right">الربح</th>
+                        <th className="text-right">{revenueLabelAr}</th>
+                        <th className="text-right">{profitLabelAr}</th>
                       </tr>
                     </thead>
                     <tbody>
