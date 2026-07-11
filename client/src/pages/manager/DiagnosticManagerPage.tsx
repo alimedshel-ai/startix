@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/PageHeader'
 import { api, apiErrorMessage } from '@/lib/api'
-import { getMyFirstCompany } from '@/lib/deptApi'
+import { DEPT_LABEL, getMyFirstCompany, type Company, type DeptCode } from '@/lib/deptApi'
 import { useAuthStore } from '@/store/authStore'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { ExperienceLevel, TeamSize, ToolingOption } from '@/lib/managerInvestorQuestions'
@@ -84,6 +84,11 @@ export function DiagnosticManagerPage() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
   const [sources, setSources] = useState<FieldSources>({})
+  const [savedCompany, setSavedCompany] = useState<Company | null>(null)
+  // «editing» = المدير يريد تعديل التشخيص الحالي، حتى لو محفوظ سلفاً.
+  const [editing, setEditing] = useState(false)
+  // «justSaved» = عرض بطاقة النجاح الكبيرة بعد الحفظ الناجح — بدل الانتقال.
+  const [justSaved, setJustSaved] = useState(false)
   const user = useAuthStore((s) => s.user)
   const {
     register,
@@ -96,30 +101,27 @@ export function DiagnosticManagerPage() {
     defaultValues: { departmentType: 'HR', toolingMaturity: 'basic' },
   })
 
-  // ─── الملء التلقائي عند تحميل الصفحة ───────────────────────────────────
-  // اسم الشركة يأتي من التسجيل (أُنشئت عبر PRO-1 أو أوّل تدقيق). كل الباقي
-  // من مسودّة التشخيص المجاني قبل التسجيل (diagnosticStore.managerDraft).
+  // ─── الملء التلقائي + كشف الحالة المحفوظة ───────────────────────
   useEffect(() => {
     let cancel = false
     ;(async () => {
       const nextSources: FieldSources = {}
       const draft = useDiagnosticStore.getState().managerDraft
 
-      // اسم الشركة من الشركة الأولى المرتبطة بالحساب (تُنشأ عند التسجيل
-      // لو أعطى المستقل firstClientName، أو تلقائياً عند حفظ تشخيص المدير
-      // الداخلي عبر submitManagerDiagnostic).
       try {
         const { company } = await getMyFirstCompany()
         if (cancel) return
         if (company?.name) {
           setValue('companyName', company.name)
           nextSources.companyName = 'registration'
+          // وجود شركة مربوطة يعني أن التشخيص المدير حُفظ سابقاً
+          // (لأنه هو مَن ينشئ الشركة على السيرفر).
+          setSavedCompany(company)
         }
       } catch {
         /* غياب الشركة ليس خطأً — المستخدم يكتب الاسم يدوياً */
       }
 
-      // الإدارة: من التشخيص المسبق أوّلاً، ثم من user.specialtyDeptType كاحتياط.
       if (draft.departmentType) {
         setValue('departmentType', draft.departmentType)
         nextSources.departmentType = 'diagnostic'
@@ -185,7 +187,14 @@ export function DiagnosticManagerPage() {
         decisionAuthority: 'tactical',
       })
       toast.success('تم حفظ التشخيص')
-      navigate('/manager/dept-dashboard')
+      // نعرض بطاقة النجاح على نفس الصفحة بدل الانتقال المباشر.
+      setJustSaved(true)
+      setEditing(false)
+      // نُحدّث savedCompany بعد الحفظ — إن كان أوّل حفظ.
+      try {
+        const { company } = await getMyFirstCompany()
+        if (company) setSavedCompany(company)
+      } catch { /* skip */ }
     } catch (err: unknown) {
       toast.error(apiErrorMessage(err, 'تعذّر إرسال التشخيص'))
     } finally {
@@ -196,18 +205,108 @@ export function DiagnosticManagerPage() {
   const dept = watch('departmentType')
   const tooling = watch('toolingMaturity')
 
+  // متى نعرض حالة «مُكتمل» بدل الفورم؟
+  // • عند وجود شركة محفوظة (savedCompany) + لم نضغط «تعديل» بعد.
+  // • وليس بعد الحفظ الجديد مباشرة (justSaved له بطاقة خاصّة).
+  const showCompletedState = savedCompany && !editing && !justSaved
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="تشخيص المدير"
-        description="راجع الحقول المعبّأة من تسجيلك وتشخيصك السابق، ثم أضف تحدّياً حالياً."
+        description={
+          showCompletedState
+            ? 'تشخيصك محفوظ — يمكنك مراجعة لوحة إدارتك أو تعديل البيانات.'
+            : 'راجع الحقول المعبّأة من تسجيلك وتشخيصك السابق، ثم أضف تحدّياً حالياً.'
+        }
       />
 
+      {/* ✅ حالة «مُكتمل» — نعرضها بدل الفورم عند وجود شركة محفوظة */}
+      {showCompletedState && (
+        <Card className="mx-auto w-full max-w-2xl overflow-hidden border-2 border-emerald-400 bg-gradient-to-bl from-emerald-500/15 to-transparent shadow-md">
+          <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <span className="text-5xl">✅</span>
+              <div>
+                <CardTitle>تشخيصك مُكتمل — لا حاجة لإعادته</CardTitle>
+                <CardDescription>
+                  الشركة: <b>{savedCompany?.name}</b>
+                  {user?.specialtyDeptType && ` · إدارة ${DEPT_LABEL[user.specialtyDeptType as DeptCode]}`}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="rounded-lg border bg-card p-3">
+              <div className="text-xs font-semibold text-muted-foreground">ماذا الآن؟</div>
+              <p className="mt-1 text-xs leading-relaxed">
+                افتح <b>لوحة الإدارة</b> لبدء أدوات التحليل الاستراتيجي، أو <b>عدّل التشخيص</b> إن تغيّرت
+                بياناتك (حجم الفريق، نضج الأدوات، الشركة).
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              ✏️ تعديل التشخيص
+            </Button>
+            <Link to="/manager/dept-dashboard" className={buttonVariants({ variant: 'default' })}>
+              📊 افتح لوحة إدارتي ←
+            </Link>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* 🎉 بطاقة «تمّ الحفظ للتوّ» — بعد submit مباشرة، بدل الانتقال */}
+      {justSaved && (
+        <Card className="mx-auto w-full max-w-2xl overflow-hidden border-2 border-emerald-500 bg-gradient-to-bl from-emerald-500/20 to-transparent shadow-lg">
+          <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <span className="text-5xl">🎉</span>
+              <div>
+                <CardTitle>تمّ حفظ تشخيصك بنجاح</CardTitle>
+                <CardDescription>
+                  اختر خطوتك التالية — لا حاجة للعودة لهذه الصفحة إلا لتعديل البيانات.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardFooter className="flex flex-wrap justify-between gap-2">
+            <Button variant="ghost" onClick={() => { setJustSaved(false); setEditing(true) }}>
+              ✏️ تعديل التشخيص مجدّداً
+            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/manager/clients" className={buttonVariants({ variant: 'outline' })}>
+                🤝 عملائي
+              </Link>
+              <Button
+                onClick={() => navigate('/manager/dept-dashboard')}
+                size="lg"
+              >
+                📊 افتح لوحة الإدارة ←
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* الفورم — يظهر فقط إذا لم يُحفَظ سلفاً أو المستخدم اختار التعديل */}
+      {!showCompletedState && !justSaved && (
       <Card className="mx-auto w-full max-w-2xl overflow-hidden shadow-sm">
         <div className="h-1.5 bg-gradient-to-l from-sky-500 via-teal-500 to-emerald-500" />
         <CardHeader>
-          <CardTitle>أخبرنا عن إدارتك</CardTitle>
-          <CardDescription>إجاباتك تغذي لوحة الإدارة وتوصيات مؤشرات الأداء.</CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle>{editing ? 'تعديل التشخيص' : 'أخبرنا عن إدارتك'}</CardTitle>
+              <CardDescription>إجاباتك تغذي لوحة الإدارة وتوصيات مؤشرات الأداء.</CardDescription>
+            </div>
+            {editing && (
+              <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                × إلغاء التعديل
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
@@ -272,11 +371,12 @@ export function DiagnosticManagerPage() {
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={submitting} className="mr-auto">
-              {submitting ? 'جاري الحفظ…' : 'حفظ التشخيص'}
+              {submitting ? 'جاري الحفظ…' : (editing ? 'حفظ التعديل' : 'حفظ التشخيص')}
             </Button>
           </CardFooter>
         </form>
       </Card>
+      )}
     </div>
   )
 }
