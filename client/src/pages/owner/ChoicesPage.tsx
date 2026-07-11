@@ -27,6 +27,11 @@ interface ChoiceData {
   rationale: string
   decidedAt: string | null
   decidedTitle: string | null
+  // ⬇ حفظ ما كان مثبَّتاً قبل «عدّل القرار» — يساعدنا في:
+  //   • عرض بانر «أنت تُعدّل قرار [X] — يمكنك استعادته كما هو»
+  //   • زر «استعِد كما كان» يُعيد التثبيت بلا تغيير.
+  previousDecidedTitle?: string | null
+  previousDecidedAt?: string | null
 }
 
 const EMPTY: ChoiceData = {
@@ -34,6 +39,8 @@ const EMPTY: ChoiceData = {
   rationale: '',
   decidedAt: null,
   decidedTitle: null,
+  previousDecidedTitle: null,
+  previousDecidedAt: null,
 }
 
 type Quad = 'SO' | 'ST' | 'WO' | 'WT'
@@ -154,14 +161,52 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
-  async function unlock() {
-    if (!confirm('إعادة فتح القرار؟ سيمكنك اختيار اتجاه آخر.')) return
+  // 🔄 عدّل القرار — بلا نافذة تأكيد، بلا فقدان بيانات.
+  // نُبقي الاتجاه المُختار والمبرّر كما هو، ونُلغي فقط تاريخ التثبيت.
+  // نحفظ العنوان السابق في previousDecidedTitle لبانر إعلامي + زر «استعِد».
+  async function unlockForEdit() {
+    const nextChoice: ChoiceData = {
+      selectedDirectionId: choice.selectedDirectionId,
+      rationale: choice.rationale,
+      decidedAt: null,
+      decidedTitle: null,
+      previousDecidedTitle: choice.decidedTitle,
+      previousDecidedAt: choice.decidedAt,
+    }
     try {
-      await upsertArtifact(companyId, 'CHOICES', EMPTY)
-      setChoice(EMPTY)
-      toast.message('تم فتح القرار')
+      await upsertArtifact(companyId, 'CHOICES', nextChoice)
+      setChoice(nextChoice)
+      toast.message('يمكنك الآن تعديل قرارك — اختيارك السابق محفوظ.')
+      setTimeout(() => {
+        document.getElementById('choice-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     } catch (err) {
-      toast.error(apiErrorMessage(err, 'فشل الإلغاء'))
+      toast.error(apiErrorMessage(err, 'تعذّر فتح القرار للتعديل'))
+    }
+  }
+
+  // 🔙 استعِد القرار السابق كما كان — يُعيد تثبيته مباشرة بلا مراجعة يدوية.
+  async function revertToPrevious() {
+    if (!choice.previousDecidedTitle) return
+    const originalDir = directions.find((d) => d.id === choice.selectedDirectionId)
+    if (!originalDir) {
+      toast.error('الاتجاه السابق لم يعد موجوداً في قائمة الاتجاهات.')
+      return
+    }
+    const nextChoice: ChoiceData = {
+      selectedDirectionId: choice.selectedDirectionId,
+      rationale: choice.rationale,
+      decidedAt: choice.previousDecidedAt ?? new Date().toISOString(),
+      decidedTitle: choice.previousDecidedTitle,
+      previousDecidedTitle: null,
+      previousDecidedAt: null,
+    }
+    try {
+      await upsertArtifact(companyId, 'CHOICES', nextChoice)
+      setChoice(nextChoice)
+      toast.success('استُعيد القرار السابق كما كان.')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستعادة'))
     }
   }
 
@@ -209,14 +254,20 @@ function Editor({ companyId }: { companyId: string }) {
         <Card className="overflow-hidden border-emerald-300 bg-gradient-to-bl from-emerald-500/15 to-transparent">
           <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">✅</span>
-              <div>
-                <CardTitle>القرار مُثبَّت</CardTitle>
-                <CardDescription>
-                  مأخوذ في {new Date(choice.decidedAt!).toLocaleDateString('ar-SA')}.
-                </CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">✅</span>
+                <div>
+                  <CardTitle>القرار مُثبَّت</CardTitle>
+                  <CardDescription>
+                    مأخوذ في {new Date(choice.decidedAt!).toLocaleDateString('ar-SA')}.
+                  </CardDescription>
+                </div>
               </div>
+              {/* 🔄 عدّل القرار — بارز ومباشر، بلا نافذة تأكيد */}
+              <Button variant="outline" onClick={unlockForEdit} size="sm">
+                🔄 عدّل القرار
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -235,7 +286,6 @@ function Editor({ companyId }: { companyId: string }) {
         {roadmap && <RoadmapCard roadmap={roadmap} />}
 
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" onClick={unlock}>إعادة فتح القرار</Button>
           <Link to="/three-horizons" className={buttonVariants({ variant: 'outline' })}>
             عرض على الآفاق الثلاثة ←
           </Link>
@@ -298,6 +348,32 @@ function Editor({ companyId }: { companyId: string }) {
           onCategoryToggle={(c) => setCategoryFilter(categoryFilter === c ? null : c)}
           onQuadToggle={(q) => setQuadFilter(quadFilter === q ? null : q)}
         />
+      )}
+
+      {/* 🔄 بانر التعديل — يظهر عندما فتحنا قراراً مثبَّتاً للتعديل */}
+      {choice.previousDecidedTitle && (
+        <Card className="border-2 border-amber-400 bg-amber-50/70">
+          <CardContent className="flex flex-wrap items-start justify-between gap-3 p-3">
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">🔄</span>
+              <div>
+                <div className="text-sm font-bold text-amber-900">
+                  أنت تُعدّل قرارك السابق
+                </div>
+                <div className="mt-0.5 text-xs text-amber-800">
+                  القرار المُثبَّت السابق: <b>{choice.previousDecidedTitle}</b>
+                  {choice.previousDecidedAt && ` · مأخوذ في ${new Date(choice.previousDecidedAt).toLocaleDateString('ar-SA')}`}
+                </div>
+                <div className="mt-1 text-[10px] text-amber-700">
+                  يمكنك اختيار اتجاه آخر من الأسفل، أو تعديل المبرّر، ثم اضغط «🔒 ثبّت القرار». أو استعِد قرارك السابق كما كان.
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={revertToPrevious} className="border-amber-500 bg-card">
+              ↩️ استعِد كما كان
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* الخطوة ١ — اختيار الاتجاه */}
