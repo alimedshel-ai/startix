@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
@@ -54,14 +55,22 @@ export function ObjectivesPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const [params] = useSearchParams()
+  const clientQS = params.get('client') ? `?client=${params.get('client')}` : ''
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
+  // فحص جاهزية BSC — إن ما كان محفوظاً نُخفي زر الاستيراد ونعرض CTA واضحاً.
+  const [hasBSC, setHasBSC] = useState<boolean | null>(null)
   const [form, setForm] = useState({ title: '', description: '', type: TYPES[0][0] as string })
 
   useEffect(() => {
     listObjectives(companyId).then(setObjectives).catch(() => undefined).finally(() => setLoading(false))
+    // فحص BSC — رفض هادئ يُظهر false، النجاح مع بيانات = true.
+    getArtifact<{ perspectives?: unknown }>(companyId, 'BSC')
+      .then((art) => setHasBSC(!!art?.data?.perspectives))
+      .catch(() => setHasBSC(false))
   }, [companyId])
 
   async function create(e: React.FormEvent) {
@@ -115,7 +124,9 @@ function Editor({ companyId }: { companyId: string }) {
       const art = await getArtifact<BSC>(companyId, 'BSC')
       const persp = art?.data?.perspectives
       if (!persp) {
-        toast.error('لا BSC محفوظ — افتح /bsc أوّلاً.')
+        // نظرياً لن يصل الكود إلى هنا لأن الزر مُخفى — لكن للأمان.
+        setHasBSC(false)
+        toast.error('لم يتم إعداد Balanced Scorecard بعد. افتح صفحة BSC وأنشئ الأبعاد الأربعة ثم عد.')
         return
       }
       const bscTypeMap: Record<string, string> = {
@@ -189,9 +200,21 @@ function Editor({ companyId }: { companyId: string }) {
             <CardTitle>هدف جديد</CardTitle>
             <CardDescription>SMART: محدد، قابل للقياس، قابل للتحقيق، ذو صلة، محدد زمنياً.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={importFromBSC} disabled={importing}>
-            {importing ? 'جاري…' : '⚖️ استورد من BSC'}
-          </Button>
+          {/* زر الاستيراد يظهر فقط لو BSC مكتَمل. وإلا نُظهر رابطاً واضحاً. */}
+          {hasBSC === true && (
+            <Button variant="outline" size="sm" onClick={importFromBSC} disabled={importing}>
+              {importing ? 'جاري…' : '⚖️ استورد من BSC'}
+            </Button>
+          )}
+          {hasBSC === false && (
+            <Link
+              to={`/bsc${clientQS}`}
+              className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+              title="أنشئ Balanced Scorecard أوّلاً لتستورد أهدافه هنا"
+            >
+              ⚖️ أنشئ BSC أوّلاً ←
+            </Link>
+          )}
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-2">
