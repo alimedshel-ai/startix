@@ -29,12 +29,96 @@ interface PESTELData {
   technological: string
   environmental: string
   legal: string
+  // نوع نشاط الشركة — مهمّ لتخصيص التوليد (مثلاً MARKETING B2C≠B2B).
+  activityType?: string
 }
 
 function emptyData(): PESTELData {
   return {
     political: '', economic: '', social: '', technological: '', environmental: '', legal: '',
+    activityType: '',
   }
+}
+
+// أنواع نشاط تُبرز فقط للـ MARKETING — كل نوع يُضيف عوامل PESTEL خاصّة به.
+const MARKETING_ACTIVITY_TYPES: { code: string; labelAr: string; icon: string; contextAr: string }[] = [
+  { code: 'retail_b2c',       icon: '🛍️', labelAr: 'تجزئة B2C',              contextAr: 'مبيعات مباشرة للمستهلك (متاجر، تسوّق)' },
+  { code: 'ecommerce',        icon: '📦', labelAr: 'تجارة إلكترونيّة',        contextAr: 'متجر رقمي، شحن، دفع إلكتروني' },
+  { code: 'b2b_services',     icon: '💼', labelAr: 'خدمات B2B',                contextAr: 'استشارات/برمجيات لعملاء شركات' },
+  { code: 'saas_tech',        icon: '💻', labelAr: 'SaaS / تقنية',            contextAr: 'اشتراكات برمجيّة، منصّات سحابيّة' },
+  { code: 'food_hospitality', icon: '🍽️', labelAr: 'مطاعم وضيافة',           contextAr: 'مطاعم، كافيهات، فنادق' },
+  { code: 'healthcare',       icon: '🏥', labelAr: 'صحّة ورعاية',              contextAr: 'مستشفيات، عيادات، رعاية طويلة الأمد' },
+  { code: 'education',        icon: '🎓', labelAr: 'تعليم وتدريب',            contextAr: 'مدارس، جامعات، تدريب مهني' },
+  { code: 'real_estate',      icon: '🏢', labelAr: 'عقارات',                   contextAr: 'تطوير، وساطة، تأجير' },
+  { code: 'travel_leisure',   icon: '✈️', labelAr: 'سياحة وترفيه',           contextAr: 'سفر، فعاليّات، ترفيه' },
+  { code: 'financial_svc',    icon: '🏦', labelAr: 'خدمات ماليّة',            contextAr: 'بنوك، تأمين، استثمار' },
+  { code: 'manufacturing',    icon: '🏭', labelAr: 'تصنيع',                    contextAr: 'إنتاج، توزيع، سلسلة إمداد' },
+  { code: 'nonprofit',        icon: '🤝', labelAr: 'غير ربحي',                 contextAr: 'جمعيّات، مؤسّسات خيريّة' },
+]
+
+// عوامل PESTEL إضافيّة يُقترح إضافتها بحسب نوع النشاط للتسويق.
+const MARKETING_ACTIVITY_EXTRAS: Record<string, Partial<Record<'political' | 'economic' | 'social' | 'technological' | 'environmental' | 'legal', string[]>>> = {
+  retail_b2c: {
+    social:      ['تحوّل تفضيلات المستهلك بعد الجائحة', 'قوّة توصيات المؤثّرين على قرار الشراء', 'المواسم (رمضان/الوطني/التأسيس) والحملات الموسميّة'],
+    economic:    ['تراجع القوّة الشرائيّة يؤثّر على متوسط قيمة السلّة', 'المنافسة السعريّة من المتاجر الإلكترونيّة'],
+    technological: ['التسوّق عبر الجوّال + Live Commerce', 'الدفع الرقمي (STC Pay/Apple Pay/Tabby)'],
+  },
+  ecommerce: {
+    technological: ['أدوات Marketing Automation', 'الذكاء الاصطناعي في التوصيات', 'أدوات إعادة الاستهداف عبر المنصّات'],
+    legal:       ['أنظمة التجارة الإلكترونيّة', 'PDPL — حماية بيانات العميل', 'أنظمة الإعلانات المضلّلة'],
+    economic:    ['تكلفة اكتساب العميل (CAC) عبر المنصّات المدفوعة', 'تكاليف الشحن ولوجستيّات آخر ميل'],
+    social:      ['ثقة المستهلك في المتاجر الإلكترونيّة السعوديّة', 'اعتماد الجيل الجديد على التسوّق عبر الجوّال'],
+  },
+  b2b_services: {
+    economic:    ['ميزانيّات التسويق في القطاع المستهدف', 'دورة قرار الشراء الطويلة في B2B'],
+    technological: ['LinkedIn Ads + Account-Based Marketing', 'أدوات CRM المتخصّصة (Salesforce/HubSpot)'],
+    social:      ['المؤتمرات القطاعيّة كقناة نفوذ', 'أهميّة Case Studies + Whitepapers'],
+  },
+  saas_tech: {
+    technological: ['تحديثات Google Search/AI في تحسين الظهور', 'التحوّل نحو Product-Led Growth'],
+    economic:    ['نموذج LTV/CAC في SaaS (مطلوب ≥ ٣×)', 'معدّل التخبّط (Churn) وأثره المالي'],
+    social:      ['مجتمعات المطوّرين والمستخدمين كقناة اكتساب'],
+  },
+  food_hospitality: {
+    social:      ['المؤثّرين في مجال الطعام + تريندات Reels', 'مواعيد الوجبات في السعوديّة (سحور/إفطار)'],
+    environmental: ['التغليف الصديق للبيئة'],
+    legal:       ['اشتراطات الصحّة والغذاء (SFDA)', 'تراخيص البلديّة'],
+  },
+  healthcare: {
+    legal:       ['أنظمة الإعلانات الطبيّة الصارمة', 'PDPL في البيانات الصحيّة', 'اشتراطات هيئة تخصّصات صحيّة'],
+    social:      ['الثقة والسمعة أساس القرار', 'التسويق عبر المرضى السابقين'],
+    technological: ['التطبيب عن بُعد + تطبيقات صحيّة'],
+  },
+  education: {
+    social:      ['الوعي بأهميّة التعليم المستمرّ', 'دور أولياء الأمور في قرار الالتحاق'],
+    technological: ['التعليم الإلكتروني (LMS) وسوق EdTech'],
+    legal:       ['اعتمادات وزارة التعليم', 'أنظمة الإعلانات التعليميّة'],
+  },
+  real_estate: {
+    economic:    ['أسعار الفائدة تؤثّر على قرارات الشراء', 'ميزانيّة المشاريع العملاقة (نيوم/رؤية)'],
+    legal:       ['نظام الوساطة العقاريّة الجديد', 'ضريبة التصرّفات العقاريّة'],
+    technological: ['جولات افتراضيّة VR + Property Tech'],
+  },
+  travel_leisure: {
+    political:   ['رؤية ٢٠٣٠ وأثرها على قطاع السياحة (نيوم/العلا)', 'التأشيرات السياحيّة'],
+    social:      ['نمط السفر بعد الجائحة', 'الفعاليّات الكبرى (موسم الرياض) كنقطة تحوّل'],
+    economic:    ['أسعار العملات والوقود'],
+  },
+  financial_svc: {
+    legal:       ['أنظمة SAMA', 'حماية المستهلك المالي', 'التسويق للمنتجات المالية بشروط صارمة'],
+    technological: ['FinTech المحلي', 'موجة Open Banking'],
+    social:      ['ثقة العميل تكسب ببطء وتُفقد بسرعة'],
+  },
+  manufacturing: {
+    political:   ['برامج المحتوى المحلي والصناعة'],
+    economic:    ['أسعار المواد الخام العالميّة', 'صعوبة قياس ROI في التسويق الصناعي'],
+    technological: ['التسويق B2B عبر المعارض المتخصّصة'],
+  },
+  nonprofit: {
+    social:      ['ثقافة العطاء في رمضان', 'الشراكات مع الشركات (CSR)'],
+    legal:       ['أنظمة جمع التبرّعات + هيئة الجمعيّات'],
+    economic:    ['مصادر التمويل الحكومي والخاص'],
+  },
 }
 
 export function DeptPESTELPage() {
@@ -119,16 +203,24 @@ export function DeptPESTELPage() {
   }
 
   // ─── 🧠 توليد تلقائي — يُضيف كل المقترحات مرّة واحدة ─────────────
+  // للتسويق: إذا اختار المدير نوع نشاط، نُضيف عوامل خاصّة به فوق البنك العام.
   function generateAll() {
     if (!specialty) return
     const suggestions = DEPT_PESTEL_SUGGESTIONS[specialty]
+    const activityExtras = specialty === 'MARKETING' && data.activityType
+      ? MARKETING_ACTIVITY_EXTRAS[data.activityType] ?? {}
+      : {}
     // حفظ لقطة قبل التغيير لدعم التراجع.
     setPreGenSnapshot({ ...data })
     setData((prev) => {
       const next = { ...prev }
       let added = 0
       for (const axis of PESTEL_AXES) {
-        const bank = suggestions[axis.key]
+        // البنك العام + الإضافات النشاط-محدّدة.
+        const bank = [
+          ...(suggestions[axis.key] ?? []),
+          ...(activityExtras[axis.key] ?? []),
+        ]
         const current = next[axis.key].trim()
         const lines: string[] = []
         for (const sug of bank) {
@@ -146,7 +238,12 @@ export function DeptPESTELPage() {
         toast.error('كل المقترحات موجودة سلفاً.')
         setPreGenSnapshot(null)
       }
-      else toast.success(`🧠 أُضيف ${added} عنصراً — يمكنك التراجع أو تعديل ما يلزم.`)
+      else {
+        const activityNote = specialty === 'MARKETING' && data.activityType
+          ? ` (شامل عوامل ${MARKETING_ACTIVITY_TYPES.find((a) => a.code === data.activityType)?.labelAr})`
+          : ''
+        toast.success(`🧠 أُضيف ${added} عنصراً${activityNote} — يمكنك التراجع أو تعديل ما يلزم.`)
+      }
       return next
     })
   }
@@ -206,6 +303,56 @@ export function DeptPESTELPage() {
 
       {/* شريط تسلسل المرحلة — يعرض قبل/بعد ويربطها بمسارات مُصفَّاة للمدير */}
       <StageBanner clientQuery={`?client=${scope.company.id}`} />
+
+      {/* 🏷️ نوع نشاط الشركة — يظهر للتسويق فقط ويُخصّص التوليد */}
+      {specialty === 'MARKETING' && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">🏷️ نوع النشاط الذي يُدار تسويقيّاً</CardTitle>
+            <CardDescription className="text-xs">
+              مطلوب لنجاح إدارة التسويق — كل نشاط له جمهوره وقنواته وعوامل PESTEL الخاصّة به.
+              التوليد التلقائي يُضيف عوامل مخصّصة للنوع المُختار.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {MARKETING_ACTIVITY_TYPES.map((t) => {
+                const active = data.activityType === t.code
+                return (
+                  <button
+                    key={t.code}
+                    type="button"
+                    onClick={() => setData((p) => ({ ...p, activityType: active ? '' : t.code }))}
+                    className={`flex items-start gap-2 rounded-xl border-2 p-2.5 text-right transition hover:-translate-y-0.5 hover:shadow ${
+                      active ? 'border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md' : 'bg-card'
+                    }`}
+                  >
+                    <span className="text-2xl leading-none">{t.icon}</span>
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${active ? 'text-primary' : ''}`}>
+                        {t.labelAr}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground leading-relaxed">
+                        {t.contextAr}
+                      </div>
+                    </div>
+                    {active && <span className="text-primary">✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+            {data.activityType && (
+              <div className="mt-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-2 text-xs">
+                💡 <b className="text-foreground">التوليد التلقائي سيضيف عوامل خاصّة بـ</b>
+                {' '}
+                <b>{MARKETING_ACTIVITY_TYPES.find((a) => a.code === data.activityType)?.labelAr}</b>
+                {' '}
+                فوق البنك العام (٣-٤ عوامل إضافيّة موزّعة على المحاور).
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 🧠 توليد تلقائي + أزرار التحكّم */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">

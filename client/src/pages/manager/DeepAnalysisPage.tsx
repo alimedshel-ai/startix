@@ -66,9 +66,19 @@ function classifySection(section: { id: string; title?: string; desc?: string })
 
 type QAValue = string | string[]
 
+// أسئلة مخصّصة يضيفها المدير لتعميق نوع تحليل معيّن.
+interface CustomQuestion {
+  id: string
+  type: AnalysisType
+  label: string
+  answer: string
+}
+
 interface DeepFullData {
   deptCode: DeptCode
   answers: Record<string, QAValue>
+  // أسئلة مخصّصة اختياريّة — تعمّق التحليل حيث المدير يحتاج.
+  customQuestions?: CustomQuestion[]
 }
 
 function ensureQAValue(v: unknown): QAValue | null {
@@ -97,11 +107,15 @@ export function DeepAnalysisPage() {
   const bank = specialty ? DEPT_QUESTIONS[specialty] ?? null : null
 
   const [answers, setAnswers] = useState<Record<string, QAValue>>({})
+  const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   // فلتر نوع التحليل — null = عرض الكلّ.
   const [typeFilter, setTypeFilter] = useState<AnalysisType | null>(null)
+  // نموذج إضافة سؤال مخصّص (يظهر لكل نوع عند الضغط).
+  const [addingForType, setAddingForType] = useState<AnalysisType | null>(null)
+  const [newQuestionText, setNewQuestionText] = useState('')
   // R6-fix — حفظ آلي: البنك ٦٠ سؤالاً على ٦ أقسام؛ المدير قد يجيب جزءاً
   // ثم يغلق. هذا يمنع فقد التقدّم. status = idle → saving → saved | error.
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -120,23 +134,59 @@ export function DeepAnalysisPage() {
     return Array.from(map.values())
   }, [bank])
 
-  // إحصائيات لكل نوع تحليل (لبناء الفلاتر مع عدّاد).
+  // إحصائيات لكل نوع تحليل (لبناء الفلاتر مع عدّاد). تشمل الأسئلة المخصّصة.
   const typeStats = useMemo(() => {
-    const stats: Record<AnalysisType, { total: number; answered: number }> = {
-      situational: { total: 0, answered: 0 },
-      technical:   { total: 0, answered: 0 },
-      administrative: { total: 0, answered: 0 },
-      financial:   { total: 0, answered: 0 },
-      challenges:  { total: 0, answered: 0 },
-      goals:       { total: 0, answered: 0 },
-      other:       { total: 0, answered: 0 },
+    const stats: Record<AnalysisType, { total: number; answered: number; fromBank: number; custom: number }> = {
+      situational:    { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      technical:      { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      administrative: { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      financial:      { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      challenges:     { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      goals:          { total: 0, answered: 0, fromBank: 0, custom: 0 },
+      other:          { total: 0, answered: 0, fromBank: 0, custom: 0 },
     }
     for (const g of grouped) {
       stats[g.type].total += g.questions.length
+      stats[g.type].fromBank += g.questions.length
       stats[g.type].answered += g.questions.filter((q) => answers[q.id] != null).length
     }
+    for (const cq of customQuestions) {
+      stats[cq.type].total++
+      stats[cq.type].custom++
+      if (cq.answer.trim()) stats[cq.type].answered++
+    }
     return stats
-  }, [grouped, answers])
+  }, [grouped, answers, customQuestions])
+
+  // اكتشاف عدم التوازن — نوع فيه أكثر من ضعف متوسّط الأنواع الأخرى.
+  const balanceHint = useMemo(() => {
+    const nonEmpty = Object.entries(typeStats).filter(([t, s]) => t !== 'other' && s.fromBank > 0) as [AnalysisType, typeof typeStats[AnalysisType]][]
+    if (nonEmpty.length < 2) return null
+    const counts = nonEmpty.map(([, s]) => s.fromBank)
+    const max = Math.max(...counts)
+    const min = Math.min(...counts)
+    if (max - min < 3) return null
+    const maxType = nonEmpty.find(([, s]) => s.fromBank === max)?.[0]
+    const minType = nonEmpty.find(([, s]) => s.fromBank === min)?.[0]
+    if (!maxType || !minType) return null
+    return { maxType, min, max, minType, diff: max - min }
+  }, [typeStats])
+
+  function addCustomQuestion(type: AnalysisType, label: string) {
+    const t = label.trim()
+    if (!t) return
+    setCustomQuestions((prev) => [...prev, { id: `cust_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, type, label: t, answer: '' }])
+    setNewQuestionText('')
+    setAddingForType(null)
+    toast.success(`أُضيف سؤال مخصّص في «${ANALYSIS_TYPE_META[type].labelAr}» — أجب عليه في نهاية الصفحة.`)
+  }
+  function updateCustomAnswer(id: string, answer: string) {
+    setCustomQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, answer } : q)))
+  }
+  function removeCustom(id: string) {
+    if (!confirm('حذف هذا السؤال المخصّص؟')) return
+    setCustomQuestions((prev) => prev.filter((q) => q.id !== id))
+  }
 
   // القائمة المفلترة (بحسب نوع التحليل المُختار).
   const visibleGrouped = useMemo(() => {
@@ -157,6 +207,8 @@ export function DeepAnalysisPage() {
         if (cancel) return
         if (artifact && artifact.data && (artifact.data as DeepFullData).deptCode === specialty) {
           setAnswers(normalize(artifact.data))
+          const cq = (artifact.data as DeepFullData).customQuestions
+          if (Array.isArray(cq)) setCustomQuestions(cq)
           setSavedAt(artifact.updatedAt)
         }
       } catch (err) {
@@ -185,7 +237,7 @@ export function DeepAnalysisPage() {
     autosaveTimer.current = setTimeout(async () => {
       setAutosaveStatus('saving')
       try {
-        const payload: DeepFullData = { deptCode: specialty, answers }
+        const payload: DeepFullData = { deptCode: specialty, answers, customQuestions }
         const saved = await upsertArtifact<DeepFullData>(company.id, 'DEPT_DEEP_FULL', payload)
         setSavedAt(saved.updatedAt)
         setAutosaveStatus('saved')
@@ -196,7 +248,7 @@ export function DeepAnalysisPage() {
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
     }
-  }, [answers, company, specialty, loading])
+  }, [answers, customQuestions, company, specialty, loading])
 
   async function save() {
     if (!company || !specialty) return
@@ -204,7 +256,7 @@ export function DeepAnalysisPage() {
     setSaving(true)
     setAutosaveStatus('saving')
     try {
-      const payload: DeepFullData = { deptCode: specialty, answers }
+      const payload: DeepFullData = { deptCode: specialty, answers, customQuestions }
       const saved = await upsertArtifact<DeepFullData>(company.id, 'DEPT_DEEP_FULL', payload)
       setSavedAt(saved.updatedAt)
       setAutosaveStatus('saved')
@@ -322,12 +374,40 @@ export function DeepAnalysisPage() {
         </CardContent>
       </Card>
 
+      {/* 📊 لوحة توازن أنواع التحليل — تكشف الفجوات */}
+      {balanceHint && (
+        <Card className="border-amber-300 bg-amber-50/50">
+          <CardContent className="flex flex-col gap-2 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2">
+              <span className="text-xl">⚖️</span>
+              <div>
+                <div className="text-sm font-bold text-amber-900">توازن غير متكافئ في البنك</div>
+                <div className="mt-0.5 text-amber-800/80">
+                  «{ANALYSIS_TYPE_META[balanceHint.maxType].labelAr}» فيه <b>{balanceHint.max}</b> سؤال بينما
+                  «{ANALYSIS_TYPE_META[balanceHint.minType].labelAr}» فيه <b>{balanceHint.min}</b> فقط
+                  (فارق {balanceHint.diff}) — أضف أسئلة مخصّصة للنوع الأقلّ.
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddingForType(balanceHint.minType)}
+              className="shrink-0"
+            >
+              ＋ أضف سؤال لـ «{ANALYSIS_TYPE_META[balanceHint.minType].labelAr}»
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 🎛️ فلاتر أنواع التحليل — التحليل الفني ظاهر الآن كنوع مستقل */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">🎛️ فلترة حسب نوع التحليل</CardTitle>
           <CardDescription className="text-xs">
             التحليل العميق يجمع ٦ أنواع مختلفة — اختر نوعاً للتركيز عليه، أو اترك «الكلّ» لعرضها بالترتيب.
+            <b className="text-foreground"> يمكنك إضافة أسئلة مخصّصة لكل نوع.</b>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5">
@@ -360,13 +440,53 @@ export function DeepAnalysisPage() {
         </CardContent>
         {typeFilter && (
           <CardContent className="pt-0">
-            <div className={`rounded-lg border-2 border-dashed p-2 text-xs ${ANALYSIS_TYPE_META[typeFilter].color}`}>
-              <b>{ANALYSIS_TYPE_META[typeFilter].icon} {ANALYSIS_TYPE_META[typeFilter].labelAr}</b>:
-              <span className="text-muted-foreground"> {ANALYSIS_TYPE_META[typeFilter].descAr}</span>
+            <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-dashed p-2 text-xs ${ANALYSIS_TYPE_META[typeFilter].color}`}>
+              <div>
+                <b>{ANALYSIS_TYPE_META[typeFilter].icon} {ANALYSIS_TYPE_META[typeFilter].labelAr}</b>:
+                <span className="text-muted-foreground"> {ANALYSIS_TYPE_META[typeFilter].descAr}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingForType(typeFilter)}
+                className="rounded-md border bg-card px-2 py-1 text-[10px] font-medium hover:bg-muted"
+              >
+                ＋ أضف سؤالاً لهذا النوع
+              </button>
             </div>
           </CardContent>
         )}
       </Card>
+
+      {/* 📝 نموذج إضافة سؤال مخصّص */}
+      {addingForType && (
+        <Card className="border-2 border-primary/40 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              ＋ أضف سؤال مخصّص في «{ANALYSIS_TYPE_META[addingForType].icon} {ANALYSIS_TYPE_META[addingForType].labelAr}»
+            </CardTitle>
+            <CardDescription className="text-xs">
+              نصّه مفتوح — يمكنك كتابة أي سؤال يعمّق التحليل في هذا الجانب.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Textarea
+              rows={2}
+              value={newQuestionText}
+              onChange={(e) => setNewQuestionText(e.target.value)}
+              placeholder="مثال: كم نسبة العمليّات المؤتمَتة في إدارتك؟"
+              autoFocus
+            />
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { setAddingForType(null); setNewQuestionText('') }}>
+                إلغاء
+              </Button>
+              <Button size="sm" onClick={() => addCustomQuestion(addingForType, newQuestionText)} disabled={!newQuestionText.trim()}>
+                إضافة السؤال
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {loading && <LoadingSpinner label="جاري تحميل إجاباتك…" />}
 
@@ -417,12 +537,58 @@ export function DeepAnalysisPage() {
         )
       })}
 
+      {/* 🎯 الأسئلة المخصّصة (لو المدير أضاف أي منها) — مجموعة بالنوع */}
+      {customQuestions.length > 0 && (!typeFilter || customQuestions.some((q) => q.type === typeFilter)) && (
+        <Card className="border-2 border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-base">🎯 أسئلتك المخصّصة</CardTitle>
+            <CardDescription className="text-xs">
+              أسئلة أضفتها لتعميق التحليل — الإجابات تُحفَظ آليّاً مع باقي البنك.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(typeFilter ? customQuestions.filter((q) => q.type === typeFilter) : customQuestions).map((cq) => {
+              const tMeta = ANALYSIS_TYPE_META[cq.type]
+              return (
+                <div key={cq.id} className={`rounded-lg border-2 p-3 ${tMeta.color}`}>
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <span className="inline-flex items-center gap-1 rounded-full border bg-card px-1.5 py-0.5 text-[10px] font-medium">
+                        <span>{tMeta.icon}</span>
+                        <span>{tMeta.labelAr}</span>
+                      </span>
+                      <Label className="mt-1 block text-sm font-medium leading-relaxed">
+                        {cq.label}
+                      </Label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(cq.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="حذف السؤال"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <Textarea
+                    rows={2}
+                    value={cq.answer}
+                    onChange={(e) => updateCustomAnswer(cq.id, e.target.value)}
+                    placeholder="اكتب إجابتك…"
+                  />
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="sticky bottom-4 z-10 flex items-center justify-end gap-3 rounded-xl bg-background/70 p-2 backdrop-blur">
         <span className="text-xs text-muted-foreground">
           الحفظ آلي — يمكنك المغادرة والعودة لاحقاً.
         </span>
         <Button onClick={save} disabled={saving} size="lg" className="shadow-lg">
-          {saving ? 'جاري الحفظ…' : `حفظ الآن (${answered} إجابة)`}
+          {saving ? 'جاري الحفظ…' : `حفظ الآن (${answered} إجابة${customQuestions.length > 0 ? ` + ${customQuestions.length} مخصّص` : ''})`}
         </Button>
       </div>
     </div>
