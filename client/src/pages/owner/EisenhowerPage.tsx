@@ -56,6 +56,8 @@ function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<EisenhowerData>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  // نتذكّر آخر دفعة مُولَّدة لدعم زر «↩️ تراجع».
+  const [lastGeneratedIds, setLastGeneratedIds] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [quad, setQuad] = useState<Quadrant>('do')
   const [linkedPain, setLinkedPain] = useState('')
@@ -99,11 +101,12 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
-  // 🧠 توليد من المبادرات — الأولوية → الربع.
-  //   critical → do (افعل الآن)
-  //   high     → schedule (جدولها)
-  //   medium   → delegate (فوّضها)
-  //   low      → delete (احذفها إن لم يفد)
+  // 🧠 توليد من المبادرات — التصنيف بحسب المعنى الحقيقي لأيزنهاور:
+  //   • critical → do        (عاجل ومهم — أزمة/مخاطر فوريّة)
+  //   • high     → schedule  (مهم لكن غير عاجل — استراتيجي)
+  //   • medium   → schedule  (مهم يستحقّ الجدولة، لا الحذف!)
+  //   • low      → delegate  (يمكن تفويضه، لا حذفه بلا مراجعة)
+  //   • ✕ لا نضع أيّاً منها في «احذفها» تلقائياً — الحذف قرار المدير الواعي.
   async function generateFromInitiatives() {
     setGenerating(true)
     try {
@@ -112,36 +115,70 @@ function Editor({ companyId }: { companyId: string }) {
         toast.error('لا مبادرات محفوظة — افتح /initiatives أوّلاً.')
         return
       }
-      const existing = new Set(data.tasks.map((t) => t.title))
+      // مقارنة بلا تحسّس لحالة الأحرف/الفراغات → يمنع تكرار العناوين المتشابهة.
+      const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+      const existing = new Set(data.tasks.map((t) => norm(t.title)))
       const priorityMap: Record<string, Quadrant> = {
         critical: 'do',
         high:     'schedule',
-        medium:   'delegate',
-        low:      'delete',
+        medium:   'schedule',
+        low:      'delegate',
       }
       const toAdd = initiatives
-        .filter((i) => i.title && !existing.has(i.title))
+        .filter((i) => i.title && !existing.has(norm(i.title)))
         .slice(0, 16)
       if (toAdd.length === 0) {
-        toast.message('كل المبادرات مضافة سلفاً.')
+        toast.message('كل المبادرات مضافة سلفاً — لا شيء جديد لتوليده.')
         return
       }
-      setData((p) => ({
-        tasks: [
-          ...p.tasks,
-          ...toAdd.map((i) => ({
-            id: crypto.randomUUID(),
-            title: i.title,
-            quadrant: priorityMap[i.priority] ?? 'schedule',
-          })),
-        ],
+      const newTasks = toAdd.map((i) => ({
+        id: crypto.randomUUID(),
+        title: i.title,
+        quadrant: priorityMap[i.priority] ?? 'schedule',
       }))
-      toast.success(`🧠 أُضيف ${toAdd.length} مهمة — موزّعة على الأرباع بحسب الأولوية.`)
+      setData((p) => ({ tasks: [...p.tasks, ...newTasks] }))
+      setLastGeneratedIds(newTasks.map((t) => t.id))
+      const counts: Record<Quadrant, number> = { do: 0, schedule: 0, delegate: 0, delete: 0 }
+      for (const t of newTasks) counts[t.quadrant]++
+      const parts: string[] = []
+      if (counts.do)       parts.push(`${counts.do} افعل الآن`)
+      if (counts.schedule) parts.push(`${counts.schedule} جدولها`)
+      if (counts.delegate) parts.push(`${counts.delegate} فوّضها`)
+      toast.success(`🧠 أُضيف ${newTasks.length} مهمة (${parts.join(' · ')}) — يمكنك التراجع.`)
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
     } finally {
       setGenerating(false)
     }
+  }
+
+  // ↩️ تراجع عن التوليد الأخير — يحذف فقط الدفعة الأخيرة.
+  function undoLastGenerate() {
+    if (lastGeneratedIds.length === 0) {
+      toast.message('لا توجد دفعة توليد لتراجع عنها.')
+      return
+    }
+    const idsToRemove = new Set(lastGeneratedIds)
+    setData((p) => ({ tasks: p.tasks.filter((t) => !idsToRemove.has(t.id)) }))
+    setLastGeneratedIds([])
+    toast.success('تراجعنا عن آخر توليد.')
+  }
+
+  // 🗑️ مسح كل المهام
+  function clearAll() {
+    if (data.tasks.length === 0) return
+    if (!confirm(`مسح كل ${data.tasks.length} مهمة؟ لا يمكن التراجع.`)) return
+    setData(EMPTY)
+    setLastGeneratedIds([])
+    toast.success('تمّ المسح.')
+  }
+
+  // مسح مهام ربع واحد
+  function clearQuadrant(q: Quadrant) {
+    const count = data.tasks.filter((t) => t.quadrant === q).length
+    if (count === 0) return
+    if (!confirm(`مسح ${count} مهمة من «${QUADRANTS[q].title}»؟`)) return
+    setData((p) => ({ tasks: p.tasks.filter((t) => t.quadrant !== q) }))
   }
 
   const userPains = user?.pains ?? []
@@ -186,7 +223,7 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
-      {/* 🧠 توليد من المبادرات */}
+      {/* 🧠 توليد من المبادرات + أزرار تحكّم */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
         <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
           <div className="flex items-start gap-3">
@@ -194,13 +231,27 @@ function Editor({ companyId }: { companyId: string }) {
             <div>
               <div className="text-sm font-bold">توليد المهام من المبادرات</div>
               <div className="text-xs text-muted-foreground">
-                الأولوية → الربع: حرجة → افعل الآن · عالية → جدولها · متوسطة → فوّضها · منخفضة → احذفها.
+                الأولوية → الربع: <b className="text-foreground">حرجة</b> → افعل الآن ·
+                <b className="text-foreground"> عالية/متوسطة</b> → جدولها · <b className="text-foreground">منخفضة</b> → فوّضها.
+                لا شيء يُوضع في «احذفها» تلقائياً — الحذف قرارك.
               </div>
             </div>
           </div>
-          <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
-            {generating ? 'جاري…' : '✨ ولّد من المبادرات'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {lastGeneratedIds.length > 0 && (
+              <Button variant="outline" onClick={undoLastGenerate} size="sm">
+                ↩️ تراجع عن التوليد
+              </Button>
+            )}
+            {data.tasks.length > 0 && (
+              <Button variant="outline" onClick={clearAll} size="sm">
+                🗑️ مسح الكل
+              </Button>
+            )}
+            <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
+              {generating ? 'جاري…' : '✨ ولّد الآن'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -312,9 +363,19 @@ function Editor({ companyId }: { companyId: string }) {
                   <span aria-hidden>{meta.icon}</span>
                   {meta.title}
                   <span className="text-xs font-normal text-muted-foreground">· {meta.subtitle}</span>
-                  <span className="ml-auto rounded-full bg-card px-2 py-0.5 text-xs tabular-nums">
+                  <span className="mr-auto rounded-full bg-card px-2 py-0.5 text-xs tabular-nums">
                     {tasks.length}
                   </span>
+                  {tasks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => clearQuadrant(q)}
+                      className="rounded-md border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-rose-100 hover:text-rose-700"
+                      title={`مسح ${tasks.length} مهمة من هذا الربع`}
+                    >
+                      🗑️ مسح
+                    </button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5">

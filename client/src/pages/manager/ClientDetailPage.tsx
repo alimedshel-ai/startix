@@ -161,6 +161,16 @@ export function ClientDetailPage() {
         hasDepartment={hasDepartment}
       />
 
+      {/* 🎯 ابدأ من هنا — بطاقة كبيرة موحّدة تُخبر المدير بالخطوة القادمة الفوريّة */}
+      <StartHereBeacon
+        companyId={client.companyId}
+        specialty={specialty}
+        clientQ={clientQ}
+        hasAnyAudit={hasAnyAudit}
+        auditRoute={DEPT_AUDIT_ROUTE[specialty]}
+        healthPct={healthPct}
+      />
+
       {/* ─── المسار الاستراتيجي الموصى به ─────────────────────────
          بطاقة تحدّد لو الوضع يحتاج خطة عاجلة (٩٠ يوم) أو تأسيسية
          (٦ أشهر) أو نموّ (١٢ شهر) أو تميّز (١٨ شهر). المدير الخبير
@@ -554,6 +564,76 @@ function ToolCard({
         فتح ←
       </div>
     </Link>
+  )
+}
+
+// ─── 🎯 «ابدأ من هنا» — بطاقة قائد كبيرة تُخبر المدير بخطوته الفوريّة ─
+function StartHereBeacon({
+  companyId, specialty, clientQ, hasAnyAudit, auditRoute, healthPct,
+}: {
+  companyId: string
+  specialty: DeptCode
+  clientQ: string
+  hasAnyAudit: boolean
+  auditRoute: string
+  healthPct: number | null
+}) {
+  // بلا تدقيق → ابدأ بالتدقيق (أهمّ خطوة).
+  if (!hasAnyAudit) {
+    return (
+      <Card className="border-2 border-primary bg-gradient-to-l from-primary/15 via-primary/5 to-transparent">
+        <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="text-5xl leading-none">🎯</div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-primary">ابدأ من هنا</div>
+              <div className="mt-1 text-lg font-bold">أجرِ التدقيق الأساسي لإدارة {DEPT_LABEL[specialty]}</div>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                ١٢-١٥ سؤالاً على ٤ محاور — يستغرق ١٠-١٥ دقيقة. النتيجة تفتح لك رحلة التحليل الكاملة (SWOT · التوجّه · KPIs · المبادرات · التنفيذ).
+                <b className="text-foreground"> بدون تدقيق، بقيّة الأدوات تعمل لكن بلا سياق حقيقي.</b>
+              </p>
+            </div>
+          </div>
+          <Link
+            to={`${auditRoute}${clientQ}`}
+            className="shrink-0 rounded-lg bg-primary px-6 py-3 text-base font-bold text-primary-foreground shadow-md hover:opacity-90"
+          >
+            📋 ابدأ التدقيق ←
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+  // تدقيق موجود → خطوة تالية بحسب صحّة الإدارة.
+  const isRed = healthPct != null && healthPct < 40
+  const nextLabel = isRed ? '⚠️ افتح خطّة الإنقاذ' : '🧭 استمرّ في الرحلة'
+  const nextDesc = isRed
+    ? `صحّة إدارتك ${healthPct}٪ — تحتاج خطّة عاجلة ٩٠ يوماً قبل أيّ تخطيط طويل.`
+    : 'انتقل إلى التسلسل الاستراتيجي — البيئة → SWOT → التوجّه → المؤشرات → المبادرات → التنفيذ.'
+  const nextTo = isRed ? `/manager/strategic-plan${clientQ}` : `/manager/clients/${companyId}/journey`
+  return (
+    <Card className={`border-2 ${isRed ? 'border-rose-400 bg-gradient-to-l from-rose-500/15 to-transparent' : 'border-emerald-400 bg-gradient-to-l from-emerald-500/15 to-transparent'}`}>
+      <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="text-5xl leading-none">{isRed ? '🚨' : '🎯'}</div>
+          <div>
+            <div className={`text-xs font-bold uppercase tracking-wider ${isRed ? 'text-rose-700' : 'text-emerald-700'}`}>
+              الخطوة التالية لك
+            </div>
+            <div className="mt-1 text-lg font-bold">{nextLabel}</div>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{nextDesc}</p>
+          </div>
+        </div>
+        <Link
+          to={nextTo}
+          className={`shrink-0 rounded-lg px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 ${
+            isRed ? 'bg-rose-600' : 'bg-emerald-600'
+          }`}
+        >
+          افتح ←
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 
