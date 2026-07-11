@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
+import { PlanningJourneyCard } from '@/components/manager/PlanningJourneyCard'
 import { StrategicPathCard } from '@/components/manager/StrategicPathCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/api'
@@ -169,6 +170,12 @@ export function ClientDetailPage() {
         hasAnyAudit={hasAnyAudit}
         auditRoute={DEPT_AUDIT_ROUTE[specialty]}
         healthPct={healthPct}
+      />
+
+      {/* 🗺️ رحلة التخطيط ٥ خطوات — يعرف المدير مسار المنصّة من نظرة واحدة */}
+      <PlanningJourneyCard
+        companyId={client.companyId}
+        deptAuditRoute={DEPT_AUDIT_ROUTE[specialty]}
       />
 
       {/* ─── المسار الاستراتيجي الموصى به ─────────────────────────

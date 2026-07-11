@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
+import { PlanningJourneyCard } from '@/components/manager/PlanningJourneyCard'
 import { Card, CardContent } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/api'
 import { DEPT_ICON, DEPT_LABEL, dangerZoneColor, type DangerZone } from '@/lib/deptApi'
@@ -110,6 +111,8 @@ export function ClientsPage() {
 
   const { specialty, summary, insights, alerts } = data
   const specialtyLabel = DEPT_LABEL[specialty]
+  // مدير جديد بلا تدقيقات → نُظهر «رحلة التخطيط» كدليل تعليمي.
+  const isNewUser = summary.total === 0 || summary.unaudited === summary.total
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,6 +120,11 @@ export function ClientsPage() {
         title="عملائي"
         description={`تشرف على إدارة ${specialtyLabel} عبر ${summary.total} عميلاً.`}
       />
+
+      {/* 🗺️ للمدير الجديد — يشرح رحلة التخطيط قبل ما يشوف الأرقام */}
+      {isNewUser && (
+        <PlanningJourneyCard />
+      )}
 
       <SummaryStrip summary={summary} specialtyLabel={specialtyLabel} />
 
