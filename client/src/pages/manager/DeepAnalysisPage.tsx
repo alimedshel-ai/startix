@@ -37,6 +37,400 @@ const ANALYSIS_TYPE_META: Record<AnalysisType, { labelAr: string; icon: string; 
   other:          { labelAr: 'عام',             icon: '📋', color: 'border-slate-300 bg-slate-50/50 text-slate-900',       descAr: '—' },
 }
 
+// ─── بنك أسئلة تكميليّة جاهزة — لكل تخصّص × كل نوع تحليل ──────
+// المدير كان يحتاج يكتب الأسئلة يدوياً. الآن نقرة واحدة تُضيف سؤالاً
+// جاهزاً من بنك مُعدّ خصّيصاً لتخصّصه، ويبقى خيار الكتابة الحرّة.
+const DEPT_SUPPLEMENTARY_QUESTIONS: Record<DeptCode, Partial<Record<AnalysisType, string[]>>> = {
+  HR: {
+    situational: [
+      'ما نسبة رضا الموظفين الحالي (eNPS) وما اتجاهه خلال العام؟',
+      'كم يبلغ متوسط عمر الفريق ونسبة الاستقالات في آخر ٦ أشهر؟',
+      'ما نسبة السعودة الفعليّة مقارنة بالمستهدف؟',
+    ],
+    technical: [
+      'هل يوجد نظام HRIS متكامل (SuccessFactors/Workday/…) أم Excel؟',
+      'كم نسبة العمليّات اليدويّة (توظيف/رواتب/إجازات) القابلة للأتمتة؟',
+      'ما دقّة بيانات الموظفين في السجلّات (٩٩٪+ / ٧٥-٩٩٪ / أقلّ)؟',
+      'هل تُستخدم أدوات تحليل بيانات موارد بشريّة (People Analytics)؟',
+    ],
+    administrative: [
+      'هل يوجد مخطّط تنظيمي محدَّث ومعتمد ومنشور؟',
+      'ما نسبة الوظائف التي لها وصف وظيفي معتمد؟',
+      'هل يوجد دليل سياسات موارد بشريّة موثَّق ومحدَّث سنوياً؟',
+      'كم عدد المستويات الإداريّة بين الموظف والرئيس التنفيذي؟',
+    ],
+    financial: [
+      'ما تكلفة الدوران السنوي (Turnover Cost) كنسبة من إجمالي الرواتب؟',
+      'ما متوسط تكلفة استقطاب موظف واحد بحسب المستوى؟',
+      'ما نسبة الرواتب من إجمالي مصاريف الشركة؟',
+      'ما ROI برامج التدريب المُنجَزة في العام الماضي؟',
+    ],
+    challenges: [
+      'ما أكبر ٣ فجوات كفاءات في الفريق حالياً؟',
+      'ما أهمّ سبب لاستقالة الكوادر المهمّة؟',
+      'ما نسبة الشواغر المفتوحة أكثر من ٩٠ يوماً؟',
+    ],
+    goals: [
+      'ما مستهدف eNPS للسنة القادمة وخطّة الوصول إليه؟',
+      'ما الكفاءات الحرجة المطلوب بناؤها في العام القادم؟',
+      'ما مستهدف نسبة السعودة وتاريخ التحقيق؟',
+    ],
+  },
+  FINANCE: {
+    situational: [
+      'ما نسبة السيولة الحاليّة ودورات النقد الجاهزة؟',
+      'ما هامش الربح الإجمالي وصافي الربح آخر ١٢ شهر؟',
+      'ما DSO (فترة التحصيل) الحاليّة؟',
+    ],
+    technical: [
+      'ما نظام المحاسبة والـ ERP المُستخدَم؟',
+      'هل التقارير الماليّة تُنتَج آلياً أم يدوياً؟',
+      'ما مستوى أتمتة إغلاق الشهر (Fast Close)؟',
+      'هل توجد لوحة معلومات ماليّة حيّة (BI Dashboard)؟',
+    ],
+    administrative: [
+      'هل يوجد سياسة اعتمادات ماليّة (Approval Matrix) موثَّقة؟',
+      'ما دورة الموازنة السنويّة ومدى الالتزام بها؟',
+      'هل يوجد ميثاق تدقيق داخلي معتمد؟',
+    ],
+    financial: [
+      'ما نسبة الديون قصيرة الأجل من إجمالي التزامات الشركة؟',
+      'ما تكلفة رأس المال المرجّح (WACC)؟',
+      'ما نسبة الإنفاق فوق الميزانية آخر ربع؟',
+    ],
+    challenges: [
+      'ما أكبر مصادر الهدر الماليّ المكتشفة في آخر تدقيق؟',
+      'ما نسبة الديون المشكوك في تحصيلها؟',
+      'كم أشهر السيولة النقديّة المتاحة (Cash Runway)؟',
+    ],
+    goals: [
+      'ما مستهدف الهامش الإجمالي للسنة القادمة؟',
+      'ما خطّة تحسين DSO خلال ٦ أشهر؟',
+      'هل هناك خطّة تمويل أو استحواذ استراتيجي؟',
+    ],
+  },
+  SALES: {
+    situational: [
+      'ما معدّل نمو المبيعات YoY آخر ١٢ شهر؟',
+      'ما تركّز الإيراد في العملاء (نسبة أعلى ٥ عملاء)؟',
+      'ما نسبة الاحتفاظ بالعملاء الحاليّة؟',
+    ],
+    technical: [
+      'ما CRM المُستخدَم ومدى تبنّي الفريق له (٪ Adoption)؟',
+      'هل توجد أتمتة تأهيل العملاء المحتمَلين (Lead Scoring)؟',
+      'ما دقّة توقّعات المبيعات (Sales Forecast Accuracy)؟',
+    ],
+    administrative: [
+      'هل توجد Playbook مبيعات موثَّقة لكل مرحلة بيع؟',
+      'كم نسبة فريق المبيعات المُعتمَد بشهادات مهنيّة؟',
+      'هل توجد مصفوفة عمولات وحوافز واضحة ومنشورة؟',
+    ],
+    financial: [
+      'ما CAC (تكلفة اكتساب العميل) الحاليّة؟',
+      'ما LTV (قيمة العميل مدى الحياة) ونسبة LTV/CAC؟',
+      'ما متوسط قيمة الصفقة (AOV) وقيمة الاشتراك الشهري (MRR)؟',
+    ],
+    challenges: [
+      'ما أطول مرحلة تعطّل صفقات المبيعات؟',
+      'ما أكبر أسباب فقد الصفقات (Win/Loss Analysis)؟',
+      'ما نسبة معدّل التخبّط الشهري (Monthly Churn)؟',
+    ],
+    goals: [
+      'ما مستهدف نمو المبيعات للسنة القادمة؟',
+      'ما القنوات الجديدة المخطَّط دخولها؟',
+      'ما شرائح العملاء الجديدة المستهدفة؟',
+    ],
+  },
+  MARKETING: {
+    situational: [
+      'ما نسبة الوعي بالعلامة في الجمهور المستهدف؟',
+      'ما مصادر حركة الزوّار الحاليّة على الموقع/المتجر؟',
+      'ما ROMI الحالي (العائد على الإنفاق التسويقي)؟',
+    ],
+    technical: [
+      'ما أدوات Marketing Automation المُستخدَمة؟',
+      'هل يُستخدَم Google Analytics 4 + Search Console بشكل فعّال؟',
+      'ما مستوى SEO (Domain Authority) الحالي؟',
+      'هل توجد استراتيجيّة محتوى موثَّقة (Content Pillars)؟',
+    ],
+    administrative: [
+      'هل يوجد Brand Book موحَّد ومحدَّث؟',
+      'ما هيكل فريق التسويق ومسؤوليّاته (Internal/Agency/Hybrid)؟',
+      'ما دورة اعتماد الحملات (Approval Workflow)؟',
+    ],
+    financial: [
+      'ما نسبة إنفاق الميزانية بين قنوات مدفوعة/عضويّة/شراكات؟',
+      'ما CAC حسب القناة؟',
+      'ما تكلفة الوصول الألف (CPM) وتكلفة النقرة (CPC) الحاليّة؟',
+    ],
+    challenges: [
+      'ما أكبر ٣ قنوات تفقد الأداء أو ترتفع تكلفتها؟',
+      'هل توجد فجوة بين رسائل التسويق والمنتج/الخدمة الفعليّة؟',
+      'ما نسبة تراجع التفاعل الاجتماعي في آخر ٦ أشهر؟',
+    ],
+    goals: [
+      'ما مستهدف الوعي بالعلامة للعام القادم؟',
+      'ما القنوات الجديدة المخطَّط اختبارها؟',
+      'هل هناك خطّة إعادة إطلاق للعلامة (Rebrand)؟',
+    ],
+  },
+  OPERATIONS: {
+    situational: [
+      'ما OEE الحالي (كفاءة المعدّات الشاملة)؟',
+      'ما نسبة التسليم في الوقت (On-Time Delivery)؟',
+      'ما نسبة الفاقد (Waste) الحاليّة؟',
+    ],
+    technical: [
+      'ما أنظمة ERP/MES المُستخدَمة؟',
+      'ما مستوى الأتمتة في خطوط الإنتاج (٪)؟',
+      'هل تُستخدَم صيانة تنبّؤيّة (Predictive Maintenance)؟',
+    ],
+    administrative: [
+      'هل توجد SOPs موثَّقة لكل عمليّة رئيسيّة؟',
+      'ما مستوى تطبيق Lean/Six Sigma في الفريق؟',
+      'هل يوجد نظام إدارة الجودة (QMS) معتمد؟',
+    ],
+    financial: [
+      'ما تكلفة الوحدة المُنتَجة (Cost per Unit)؟',
+      'ما نسبة تكلفة الجودة الرديئة (COPQ)؟',
+      'ما دوران المخزون السنوي (Inventory Turnover)؟',
+    ],
+    challenges: [
+      'ما أكبر اختناقات (Bottlenecks) في خطوط الإنتاج؟',
+      'ما نسبة العمل تحت الطاقة القصوى؟',
+      'ما تكرار توقّفات الإنتاج غير المخطَّطة؟',
+    ],
+    goals: [
+      'ما مستهدف OEE للعام القادم؟',
+      'ما خطّة تحسين سلسلة الإمداد؟',
+      'هل هناك خطّة توسّع في القدرة الإنتاجيّة؟',
+    ],
+  },
+  IT: {
+    situational: [
+      'ما Uptime الحالي للأنظمة الحرجة؟',
+      'ما متوسط زمن حلّ الحوادث (MTTR)؟',
+      'ما عدد الحوادث السيبرانيّة في آخر ١٢ شهر؟',
+    ],
+    technical: [
+      'ما نسبة الاعتماد على السحابة مقابل on-prem؟',
+      'هل توجد استراتيجيّة Zero Trust مُطبَّقة؟',
+      'ما مستوى تبنّي DevOps/CI-CD في فرق التطوير؟',
+      'هل توجد نُسَخ احتياطيّة تلقائيّة مع اختبار استعادة دوري؟',
+    ],
+    administrative: [
+      'هل يوجد سجلّ أصول IT محدَّث (CMDB)؟',
+      'ما مستوى تبنّي ITIL/COBIT في الفريق؟',
+      'هل توجد سياسة PDPL/GDPR مطبَّقة وموثَّقة؟',
+    ],
+    financial: [
+      'ما تكلفة IT لكل موظف؟',
+      'ما ROI مشاريع الأتمتة المُنجَزة؟',
+      'ما نسبة الميزانيّة على البنية التحتيّة vs التطوير؟',
+    ],
+    challenges: [
+      'ما أكبر الأنظمة القديمة (Legacy) التي تحتاج تحديثاً؟',
+      'ما فجوة المهارات الحرجة في فريق التقنية؟',
+      'ما أهمّ نقاط الضعف السيبرانيّة المكتشفة؟',
+    ],
+    goals: [
+      'ما خطّة الترحيل إلى السحابة خلال ٣ سنوات؟',
+      'ما استراتيجيّة الذكاء الاصطناعي في التطبيقات؟',
+      'ما شهادات الأمن السيبراني المستهدَفة؟',
+    ],
+  },
+  CUSTOMER_SERVICE: {
+    situational: [
+      'ما CSAT الحالي واتجاهه؟',
+      'ما NPS الحالي؟',
+      'ما زمن الاستجابة الأوّل (First Response Time)؟',
+    ],
+    technical: [
+      'ما نظام Help Desk المُستخدَم (Zendesk/Freshdesk/…)؟',
+      'ما مستوى تبنّي روبوت المحادثة (Chatbot) للأسئلة المتكرّرة؟',
+      'هل توجد قاعدة معرفة ذاتيّة (Self-Service Knowledge Base)؟',
+    ],
+    administrative: [
+      'هل توجد SLAs موثَّقة ومنشورة للعملاء؟',
+      'ما نسبة الوكلاء المُعتمَدين بشهادات دعم؟',
+      'هل يوجد سياسة تصعيد واضحة للحالات المعقّدة؟',
+    ],
+    financial: [
+      'ما تكلفة كل تذكرة دعم؟',
+      'ما نسبة الاسترجاعات/المطالبات وأثرها المالي؟',
+    ],
+    challenges: [
+      'ما أكبر أسباب شكاوى العملاء المتكرّرة؟',
+      'ما نسبة الوكلاء الذين يستقيلون في السنة الأولى؟',
+      'ما نسبة التصعيد إلى المستويات الأعلى؟',
+    ],
+    goals: [
+      'ما مستهدف CSAT/NPS للسنة القادمة؟',
+      'ما خطّة تقليل زمن الحلّ إلى النصف؟',
+    ],
+  },
+  SUPPORT: {
+    situational: [
+      'ما SLA compliance الحالي؟',
+      'ما FCR (Fixed on First Contact) الحالي؟',
+    ],
+    technical: [
+      'ما نظام الدعم الفنّي والمراقبة المُستخدَم؟',
+      'هل يوجد نظام تحليل لسجلّات الدعم (Log Analytics)؟',
+      'ما مستوى تبنّي التحكّم عن بُعد وحلّ آلي؟',
+    ],
+    administrative: [
+      'هل توجد قاعدة معرفة داخليّة للمهندسين؟',
+      'ما مستوى تصنيف مستويات الدعم (L1/L2/L3)؟',
+    ],
+    financial: [
+      'ما تكلفة الدعم لكل عميل؟',
+      'ما ROI برامج SLA المؤسسي المدفوع؟',
+    ],
+    challenges: [
+      'ما نسبة تصعيد التذاكر إلى L2/L3؟',
+      'ما نسبة تكرار المشاكل نفسها؟',
+    ],
+    goals: [
+      'ما مستهدف MTTR للسنة القادمة؟',
+      'ما استراتيجيّة الدعم الاستباقي (Proactive Support)؟',
+    ],
+  },
+  LOGISTICS: {
+    situational: [
+      'ما نسبة التسليم في الوقت والدقّة (OTIF)؟',
+      'ما تكلفة الشحن لكل طلب؟',
+    ],
+    technical: [
+      'ما نظام WMS/TMS المُستخدَم؟',
+      'ما مستوى تتبّع الشحنات في الوقت الحقيقي؟',
+      'هل تُستخدَم أدوات تحسين مسارات (Route Optimization)؟',
+    ],
+    administrative: [
+      'هل توجد سياسات سلامة سائقين موثَّقة؟',
+      'ما مستوى الالتزام باللوائح البلديّة/الجمركيّة؟',
+    ],
+    financial: [
+      'ما دوران المخزون السنوي؟',
+      'ما تكاليف التخزين لكل يوم/متر مكعّب؟',
+      'ما نسبة تكاليف الوقود من إجمالي تكلفة الشحن؟',
+    ],
+    challenges: [
+      'ما أكبر أسباب تأخيرات التسليم؟',
+      'ما نسبة الشحنات التي تصل بأضرار؟',
+    ],
+    goals: [
+      'ما خطّة توسّع شبكة التوزيع؟',
+      'ما استهداف خفض تكاليف الشحن؟',
+    ],
+  },
+  QUALITY: {
+    situational: [
+      'ما معدّل العيوب (Defect Rate) الحاليّة؟',
+      'ما نسبة المنتجات التي تجتاز الفحص من أوّل مرّة؟',
+    ],
+    technical: [
+      'هل تُستخدَم أدوات فحص آليّة/AI في الجودة؟',
+      'ما مستوى تطبيق SPC (Statistical Process Control)؟',
+    ],
+    administrative: [
+      'هل توجد شهادات ISO 9001 ساريّة؟',
+      'ما مستوى تدريب فريق الجودة على Six Sigma؟',
+      'هل يوجد نظام إدارة الشكاوى (CAPA)؟',
+    ],
+    financial: [
+      'ما تكلفة الجودة الرديئة (COPQ) كنسبة من الإيراد؟',
+      'ما تكاليف إعادة العمل والاسترجاعات؟',
+    ],
+    challenges: [
+      'ما أكبر ٣ أسباب رئيسيّة لعيوب الإنتاج؟',
+      'ما نسبة الشكاوى القادمة من العملاء؟',
+    ],
+    goals: [
+      'ما مستهدف تخفيض معدّل العيوب؟',
+      'ما شهادات الجودة الجديدة المستهدَفة؟',
+    ],
+  },
+  PROJECTS: {
+    situational: [
+      'ما نسبة إنجاز المشاريع في الموعد؟',
+      'ما نسبة إنجاز المشاريع ضمن الميزانيّة؟',
+    ],
+    technical: [
+      'ما أدوات إدارة المشاريع (Jira/MSProject/Asana)؟',
+      'ما مستوى تبنّي Agile/Scrum في الفرق؟',
+    ],
+    administrative: [
+      'هل يوجد PMO فاعل بحوكمة موثَّقة؟',
+      'ما نسبة مدراء المشاريع الحاصلين على PMP/PRINCE2؟',
+      'هل توجد قوالب مشاريع موحّدة؟',
+    ],
+    financial: [
+      'ما CPI (Cost Performance Index) المتوسّط؟',
+      'ما نسبة تجاوز الميزانيّة في آخر ١٠ مشاريع؟',
+    ],
+    challenges: [
+      'ما أكبر أسباب Scope Creep؟',
+      'ما نسبة المشاريع المتعثّرة أو المُلغاة؟',
+    ],
+    goals: [
+      'ما مستهدف On-Time Delivery للسنة القادمة؟',
+      'ما خطّة اعتماد ذكاء اصطناعي في إدارة المشاريع؟',
+    ],
+  },
+  COMPLIANCE: {
+    situational: [
+      'ما عدد ملاحظات الجهات الرقابيّة في آخر ١٢ شهر؟',
+      'ما نسبة اجتياز التدقيقات الخارجيّة؟',
+    ],
+    technical: [
+      'هل تُستخدَم أداة GRC متكاملة؟',
+      'ما مستوى أتمتة فحص الامتثال؟',
+    ],
+    administrative: [
+      'هل توجد سياسات امتثال موثَّقة ومحدَّثة سنوياً؟',
+      'ما نسبة الفريق الحاصل على شهادات مهنيّة (CCEP)؟',
+    ],
+    financial: [
+      'ما تكلفة الغرامات المدفوعة السنويّة؟',
+      'ما ROI برنامج الامتثال (تجنّب الغرامات)؟',
+    ],
+    challenges: [
+      'ما أكبر مخاطر عدم الامتثال المكتشفة؟',
+      'ما نسبة التغيّرات التنظيميّة التي لم تُغطَّ بعد؟',
+    ],
+    goals: [
+      'ما شهادات الامتثال الجديدة المستهدَفة؟',
+      'ما خطّة رفع وعي الموظفين بالامتثال؟',
+    ],
+  },
+  GOVERNANCE: {
+    situational: [
+      'ما نسبة حضور اجتماعات مجلس الإدارة؟',
+      'ما نسبة تنفيذ قرارات المجلس في مواعيدها؟',
+    ],
+    technical: [
+      'هل توجد بوّابة إلكترونيّة لاجتماعات المجلس؟',
+      'ما مستوى استخدام أدوات تقييم أعضاء المجلس؟',
+    ],
+    administrative: [
+      'هل يوجد ميثاق حوكمة معتمد ومحدَّث؟',
+      'ما نسبة الأعضاء المستقلّين في المجلس؟',
+    ],
+    financial: [
+      'ما تكلفة أتعاب أعضاء المجلس واستشاراته؟',
+    ],
+    challenges: [
+      'ما أكبر النزاعات الحوكميّة الأخيرة؟',
+      'ما فجوة الشفافيّة في الإفصاح؟',
+    ],
+    goals: [
+      'ما مستهدف رفع تقييم فعاليّة المجلس؟',
+      'ما خطّة تنويع تخصّصات الأعضاء؟',
+    ],
+  },
+}
+
 // نُصنّف كل قسم بمطابقة سياق عنوانه/معرّفه.
 function classifySection(section: { id: string; title?: string; desc?: string }): AnalysisType {
   const text = `${section.id} ${section.title ?? ''} ${section.desc ?? ''}`.toLowerCase()
@@ -457,36 +851,77 @@ export function DeepAnalysisPage() {
         )}
       </Card>
 
-      {/* 📝 نموذج إضافة سؤال مخصّص */}
-      {addingForType && (
+      {/* 📝 نموذج إضافة سؤال مخصّص — يحوي بنك أسئلة جاهزة + كتابة حرّة */}
+      {addingForType && (() => {
+        const bankQuestions = specialty ? (DEPT_SUPPLEMENTARY_QUESTIONS[specialty]?.[addingForType] ?? []) : []
+        const existingLabels = new Set(customQuestions.map((q) => q.label.trim()))
+        const availableBank = bankQuestions.filter((q) => !existingLabels.has(q.trim()))
+        return (
         <Card className="border-2 border-primary/40 bg-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">
-              ＋ أضف سؤال مخصّص في «{ANALYSIS_TYPE_META[addingForType].icon} {ANALYSIS_TYPE_META[addingForType].labelAr}»
+              ＋ أضف سؤال في «{ANALYSIS_TYPE_META[addingForType].icon} {ANALYSIS_TYPE_META[addingForType].labelAr}»
+              {specialty && <span className="text-muted-foreground"> — لإدارة {DEPT_LABEL[specialty]}</span>}
             </CardTitle>
             <CardDescription className="text-xs">
-              نصّه مفتوح — يمكنك كتابة أي سؤال يعمّق التحليل في هذا الجانب.
+              اختر من الأسئلة الجاهزة أدناه لتخصّصك، أو اكتب سؤالاً حرّاً.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Textarea
-              rows={2}
-              value={newQuestionText}
-              onChange={(e) => setNewQuestionText(e.target.value)}
-              placeholder="مثال: كم نسبة العمليّات المؤتمَتة في إدارتك؟"
-              autoFocus
-            />
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setAddingForType(null); setNewQuestionText('') }}>
-                إلغاء
-              </Button>
-              <Button size="sm" onClick={() => addCustomQuestion(addingForType, newQuestionText)} disabled={!newQuestionText.trim()}>
-                إضافة السؤال
-              </Button>
+          <CardContent className="space-y-3">
+            {/* بنك الأسئلة الجاهزة لهذا التخصّص × النوع */}
+            {availableBank.length > 0 ? (
+              <div className="rounded-lg border-2 border-dashed border-primary/30 bg-card p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+                  <span>💡</span>
+                  <span>أسئلة جاهزة لتخصّصك — نقرة تُضيف</span>
+                  <span className="rounded-full border bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{availableBank.length}</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {availableBank.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => addCustomQuestion(addingForType, q)}
+                      className="group flex items-start gap-2 rounded-md border bg-card p-2 text-right text-xs transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
+                    >
+                      <span className="mt-0.5 text-primary opacity-50 group-hover:opacity-100">＋</span>
+                      <span className="flex-1 leading-relaxed">{q}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : bankQuestions.length > 0 ? (
+              <div className="rounded-lg border border-dashed bg-muted/30 p-2 text-center text-[10px] text-muted-foreground">
+                ✓ كلّ أسئلة البنك لهذا النوع مضافة سلفاً — استعمل الكتابة الحرّة أدناه.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed bg-muted/30 p-2 text-center text-[10px] text-muted-foreground">
+                لا يوجد بنك جاهز لهذا النوع في تخصّصك — اكتب سؤالك بحريّة أدناه.
+              </div>
+            )}
+
+            {/* الكتابة الحرّة */}
+            <div>
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">أو اكتب سؤالاً خاصّاً بك:</div>
+              <Textarea
+                rows={2}
+                value={newQuestionText}
+                onChange={(e) => setNewQuestionText(e.target.value)}
+                placeholder="مثال: كم نسبة العمليّات المؤتمَتة في إدارتك؟"
+              />
+              <div className="mt-2 flex flex-wrap justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => { setAddingForType(null); setNewQuestionText('') }}>
+                  إغلاق
+                </Button>
+                <Button size="sm" onClick={() => addCustomQuestion(addingForType, newQuestionText)} disabled={!newQuestionText.trim()}>
+                  إضافة السؤال الحرّ
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
+        )
+      })()}
 
       {loading && <LoadingSpinner label="جاري تحميل إجاباتك…" />}
 
