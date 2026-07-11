@@ -17,6 +17,10 @@ type DeptScopedArtifactType =
   | `THREE_HORIZONS_${DeptCode}`
   | `ANSOFF_${DeptCode}`
   | `BSC_${DeptCode}`
+  // Marketing Hub — يخزّن هوية العلامة + قنواتها + مقاييسها + خططها الثلاث.
+  // مستقلّ عن Ansoff/BSC/PESTEL — لأنه يجمع الجوانب الفنيّة (SEO, socials)
+  // مع الإداريّة (فريق، ميزانية) مع خطط تنفيذيّة (تشغيلي/تكتيكي/استراتيجي).
+  | `MARKETING_HUB_${DeptCode}`
 
 export type ArtifactType =
   | 'PESTEL'

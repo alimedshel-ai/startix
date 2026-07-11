@@ -217,6 +217,7 @@ const managerNav: NavSection[] = [
       { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE',           essential: true },
       { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES',             essential: true },
       { to: '/manager/marketing/audit',      label: 'تدقيق التسويق',          icon: '📢', dept: 'MARKETING',         essential: true },
+      { to: '/manager/marketing/hub',        label: 'مركز التسويق',           icon: '📣', dept: 'MARKETING',         essential: true },
       { to: '/manager/operations/audit',     label: 'تدقيق العمليات',         icon: '⚙️', dept: 'OPERATIONS',        essential: true },
       { to: '/manager/it/audit',             label: 'تدقيق تقنية المعلومات',  icon: '💻', dept: 'IT',                essential: true },
       { to: '/manager/cs/audit',             label: 'تدقيق خدمة العملاء',     icon: '📞', dept: 'CUSTOMER_SERVICE',  essential: true },

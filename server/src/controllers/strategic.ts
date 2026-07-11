@@ -67,6 +67,7 @@ const DEPT_SCOPED_TYPES = DEPT_CODES.flatMap((d) => [
   `THREE_HORIZONS_${d}` as const,
   `ANSOFF_${d}` as const,
   `BSC_${d}` as const,
+  `MARKETING_HUB_${d}` as const,
 ]);
 
 const ARTIFACT_TYPES = [...BASE_ARTIFACT_TYPES, ...DEPT_SCOPED_TYPES] as const;
