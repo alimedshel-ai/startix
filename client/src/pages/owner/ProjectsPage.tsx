@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -9,7 +9,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
-import { createProject, deleteProject, listInitiatives, listProjects, updateProject, type Initiative, type Project } from '@/lib/strategicApi'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { CATEGORY_META, categorize } from '@/lib/directionCategory'
+import {
+  createProject, deleteProject,
+  getArtifact,
+  listInitiatives, listProjects, updateProject,
+  type Initiative, type Project,
+} from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
+import type { StrategyPath } from '@/types/user'
 
 const STATUS = [
   ['active',    'نشط',     'border-sky-300 bg-sky-50/60'],
@@ -18,6 +27,21 @@ const STATUS = [
   ['paused',    'متوقف',    'border-slate-200 bg-slate-50/60'],
   ['cancelled', 'ملغى',     'border-rose-300 bg-rose-50/60'],
 ] as const
+
+// أولوية مأخوذة من المبادرة المرتبطة.
+const PRIORITY_META: Record<string, { labelAr: string; badgeCls: string; rank: number }> = {
+  critical: { labelAr: 'حرجة',    badgeCls: 'border-rose-400 bg-rose-100 text-rose-800',      rank: 3 },
+  high:     { labelAr: 'مرتفعة',  badgeCls: 'border-orange-400 bg-orange-100 text-orange-800', rank: 2 },
+  medium:   { labelAr: 'متوسطة',  badgeCls: 'border-amber-400 bg-amber-100 text-amber-800',   rank: 1 },
+  low:      { labelAr: 'منخفضة',  badgeCls: 'border-emerald-400 bg-emerald-100 text-emerald-800', rank: 0 },
+}
+
+// درجة الخطورة — مُشتقّة من المدّة والأولوية والسياق.
+const RISK_META: Record<'low' | 'medium' | 'high', { labelAr: string; icon: string; badgeCls: string }> = {
+  low:    { labelAr: 'خطورة منخفضة', icon: '🟢', badgeCls: 'border-emerald-300 bg-emerald-50 text-emerald-800' },
+  medium: { labelAr: 'خطورة متوسطة', icon: '🟡', badgeCls: 'border-amber-300 bg-amber-50 text-amber-800' },
+  high:   { labelAr: 'خطورة عالية', icon: '🔴', badgeCls: 'border-rose-300 bg-rose-50 text-rose-800' },
+}
 
 function sTint(s: string): string {
   return STATUS.find((x) => x[0] === s)?.[2] ?? 'border-slate-200 bg-card'
@@ -31,11 +55,54 @@ function fmtDate(iso?: string | null): string {
   return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+function daysBetween(start?: string | null, end?: string | null): number | null {
+  if (!start || !end) return null
+  return Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000))
+}
+
+// مدّة مشروع افتراضية بأيام — بحسب مسار المدير + أولوية المبادرة + أفق H١/H٢/H٣.
+function suggestedDurationDays(
+  path: StrategyPath | null,
+  priority: string,
+  horizon: 'h1' | 'h2' | 'h3' | null,
+): number {
+  let base = path === 'QUICK' ? 60 : path === 'MEDIUM' ? 90 : 180
+  if (horizon === 'h1') base -= 30
+  else if (horizon === 'h3') base += 60
+  if (priority === 'critical') base -= 15
+  else if (priority === 'low') base += 30
+  return Math.max(30, base)
+}
+
+// تقييم خطورة المشروع — مبسّط بحسب المدّة والأولوية والفئة.
+function assessRisk(
+  durationDays: number,
+  priority: string,
+  category: string,
+): 'low' | 'medium' | 'high' {
+  const riskyCats = new Set(['innovation', 'exit', 'defense'])
+  let score = 0
+  if (durationDays > 120) score += 2
+  else if (durationDays > 60) score += 1
+  if (priority === 'critical') score += 1
+  if (riskyCats.has(category)) score += 1
+  if (score >= 3) return 'high'
+  if (score >= 1) return 'medium'
+  return 'low'
+}
+
+interface Sources {
+  initiatives: { total: number; critical: number; high: number; medium: number; low: number }
+  decidedChoice: string | null
+  horizons: { has: boolean; count: number }
+  risks: { has: boolean; count: number }
+}
+
 export function ProjectsPage() {
   return (
     <StrategicShell
       title="المشاريع"
-      description="المشاريع التي تنفّذ المبادرات. تواريخ، حالات، ومهام."
+      description="حوّل مبادراتك إلى مشاريع بتواريخ ومدد وأولويات وخطورة — تلقائياً من تخطيطك السابق."
       actions={
         <Link to="/gantt-chart" className={buttonVariants({ variant: 'outline' })}>
           عرض جانت ←
@@ -48,55 +115,50 @@ export function ProjectsPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const user = useAuthStore((s) => s.user)
+  const specialty = user?.specialtyDeptType ?? null
+  const strategyPath = user?.strategyPath ?? null
+
   const [items, setItems] = useState<Project[]>([])
   const [initiatives, setInitiatives] = useState<Initiative[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [importing, setImporting] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [sources, setSources] = useState<Sources | null>(null)
   const today = new Date().toISOString().slice(0, 10)
   const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 90).toISOString().slice(0, 10)
   const [form, setForm] = useState({ title: '', description: '', startDate: today, endDate: future })
 
   useEffect(() => {
     listProjects(companyId).then(setItems).catch(() => undefined).finally(() => setLoading(false))
-    listInitiatives(companyId).then(setInitiatives).catch(() => undefined)
-  }, [companyId])
-
-  // ─── ترابط: Initiatives → Projects ─────────────────────────────
-  // كل مبادرة بحالة planned/in_progress تُنشئ مشروعاً عملياً بتاريخ
-  // بداية = اليوم، نهاية = بعد 90 يوماً. المدير يعدّل التواريخ لاحقاً
-  // في /gantt-chart.
-  async function importFromInitiatives() {
-    if (initiatives.length === 0) {
-      toast.error('لا مبادرات مسجّلة — افتح /initiatives أوّلاً.')
-      return
-    }
-    setImporting(true)
-    try {
-      const existingTitles = new Set(items.map((p) => p.title))
-      const eligible = initiatives.filter((i) => i.status === 'planned' || i.status === 'in_progress')
-      let added = 0
-      for (const i of eligible) {
-        if (existingTitles.has(i.title)) continue
-        try {
-          const p = await createProject({
-            companyId, initiativeId: i.id,
-            title: i.title,
-            description: i.description ?? undefined,
-            startDate: today, endDate: future,
-          })
-          setItems((prev) => [...prev, p])
-          added++
-        } catch { /* skip */ }
+    listInitiatives(companyId).then((all) => {
+      setInitiatives(all)
+      // احصائيات المبادرات (لكشف الأولوية على شارة السياق)
+      const counts = { total: all.length, critical: 0, high: 0, medium: 0, low: 0 }
+      for (const i of all) {
+        if (i.priority === 'critical') counts.critical++
+        else if (i.priority === 'high') counts.high++
+        else if (i.priority === 'medium') counts.medium++
+        else counts.low++
       }
-      if (added === 0) toast.error('كل المبادرات المؤهّلة مُستوردَة سابقاً.')
-      else toast.success(`أُنشئ ${added} مشروعاً من المبادرات — عدّل التواريخ في /gantt-chart.`)
-    } catch (err) {
-      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من المبادرات'))
-    } finally {
-      setImporting(false)
-    }
-  }
+      // فحص باقي المصادر بالتوازي
+      ;(async () => {
+        const [cho, h3, risk] = await Promise.all([
+          getArtifact<{ decidedTitle: string | null }>(companyId, 'CHOICES').catch(() => null),
+          getArtifact<{ initiatives?: { title: string; horizon: string }[] }>(
+            companyId, specialty ? `THREE_HORIZONS_${specialty}` : 'THREE_HORIZONS',
+          ).catch(() => null),
+          getArtifact<{ risks?: unknown[] }>(companyId, 'RISK_REGISTER').catch(() => null),
+        ])
+        setSources({
+          initiatives: counts,
+          decidedChoice: cho?.data?.decidedTitle ?? null,
+          horizons: { has: (h3?.data?.initiatives?.length ?? 0) > 0, count: h3?.data?.initiatives?.length ?? 0 },
+          risks: { has: (risk?.data?.risks?.length ?? 0) > 0, count: risk?.data?.risks?.length ?? 0 },
+        })
+      })()
+    }).catch(() => undefined)
+  }, [companyId, specialty])
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -140,18 +202,223 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // 🧠 توليد ذكيّ — يحوّل المبادرات المخطّطة إلى مشاريع بتواريخ وأولويات ذكيّة.
+  async function generateFromInitiatives() {
+    if (initiatives.length === 0) {
+      toast.error('لا مبادرات مسجّلة — افتح /initiatives أوّلاً.')
+      return
+    }
+    setGenerating(true)
+    try {
+      // اقرأ الآفاق الثلاثة لمعرفة أفق كل مبادرة.
+      const h3 = await getArtifact<{ initiatives?: { title: string; horizon: 'h1' | 'h2' | 'h3' }[] }>(
+        companyId, specialty ? `THREE_HORIZONS_${specialty}` : 'THREE_HORIZONS',
+      ).catch(() => null)
+      const horizonByTitle = new Map<string, 'h1' | 'h2' | 'h3'>()
+      for (const h of (h3?.data?.initiatives ?? [])) {
+        horizonByTitle.set(h.title.trim(), h.horizon)
+      }
+
+      const existingTitles = new Set(items.map((p) => p.title))
+      const eligible = initiatives.filter((i) => i.status === 'planned' || i.status === 'in_progress')
+      const rankedEligible = [...eligible].sort((a, b) => {
+        const aRank = PRIORITY_META[a.priority]?.rank ?? 0
+        const bRank = PRIORITY_META[b.priority]?.rank ?? 0
+        return bRank - aRank
+      })
+
+      let added = 0
+      const summary = { critical: 0, high: 0, medium: 0, low: 0 }
+      const nowIso = today
+      let cursorDays = 0
+
+      for (const i of rankedEligible) {
+        if (existingTitles.has(i.title)) continue
+        const cleanTitle = i.title.replace(/^\[[A-Z]{2}\]\s*/, '').replace(/^⭐ \[قرار\] /, '⭐ ')
+        const horizon = horizonByTitle.get(i.title.trim()) ?? horizonByTitle.get(cleanTitle) ?? null
+        const durationDays = suggestedDurationDays(strategyPath, i.priority, horizon)
+        // تسلسل المشاريع الحرجة أوّلاً بتواريخ متتابعة (بدء غداً).
+        const start = new Date(nowIso)
+        start.setDate(start.getDate() + cursorDays)
+        const end = new Date(start)
+        end.setDate(end.getDate() + durationDays)
+        // المبادرات الحرجة تبدأ فوراً؛ العالية بعد ٧ أيام؛ إلخ.
+        const gap = i.priority === 'critical' ? 0 : i.priority === 'high' ? 7 : 15
+        cursorDays += gap
+
+        try {
+          const p = await createProject({
+            companyId, initiativeId: i.id,
+            title: cleanTitle,
+            description: i.description ?? undefined,
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+          })
+          setItems((prev) => [...prev, p])
+          added++
+          summary[i.priority as keyof typeof summary] = (summary[i.priority as keyof typeof summary] ?? 0) + 1
+        } catch { /* skip */ }
+      }
+      if (added === 0) {
+        toast.message('كل المبادرات المخطّطة/الجارية موجودة كمشاريع سلفاً.')
+        return
+      }
+      const parts: string[] = []
+      if (summary.critical) parts.push(`${summary.critical} حرجة`)
+      if (summary.high) parts.push(`${summary.high} مرتفعة`)
+      if (summary.medium) parts.push(`${summary.medium} متوسطة`)
+      if (summary.low) parts.push(`${summary.low} منخفضة`)
+      toast.success(`🧠 أُنشئ ${added} مشروع: ${parts.join(' · ')} · مدد بحسب مسارك (${strategyPath ?? 'LONG'}).`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  // ─── إثراء البطاقات بأولوية وخطورة وفئة ─────────────────────
+  const initiativeById = useMemo(() => {
+    const m = new Map<string, Initiative>()
+    for (const i of initiatives) m.set(i.id, i)
+    return m
+  }, [initiatives])
+
+  const enriched = useMemo(() => items.map((p) => {
+    const linked = p.initiativeId ? initiativeById.get(p.initiativeId) : null
+    const priority = linked?.priority ?? 'medium'
+    const cat = categorize(p.title + ' ' + (p.description ?? ''))
+    const duration = daysBetween(p.startDate, p.endDate) ?? 90
+    const risk = assessRisk(duration, priority, cat)
+    return { project: p, priority, category: cat, risk, duration }
+  }), [items, initiativeById])
+
+  const sorted = useMemo(() => [...enriched].sort((a, b) => {
+    const aRank = PRIORITY_META[a.priority]?.rank ?? 0
+    const bRank = PRIORITY_META[b.priority]?.rank ?? 0
+    return bRank - aRank
+  }), [enriched])
+
   return (
     <>
+      {/* بطاقة تعريف */}
+      <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+        <CardContent className="p-4 text-xs leading-relaxed">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl leading-none">📁</div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-foreground">ما هو المشروع؟</div>
+              <p className="mt-1 text-muted-foreground">
+                المبادرة استراتيجية عامّة، لكن التنفيذ يحصل عبر <b className="text-foreground">مشاريع محدّدة</b>
+                بتاريخ بداية ونهاية وفريق ومهام. المشروع = مبادرة + جدول زمني + مسؤول.
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                <b className="text-foreground">🧠 المولّد يحوّل مبادراتك تلقائياً</b> إلى مشاريع بمدد ذكيّة
+                (بحسب مسارك) وأولوية مرتَّبة (الحرجة أوّلاً) وتقييم خطورة (منخفضة/متوسطة/عالية).
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* شارة السياق */}
+      {(specialty || strategyPath) && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
+            {specialty && (
+              <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+                🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
+              </span>
+            )}
+            {strategyPath && (
+              <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
+                {strategyPath === 'QUICK' ? '⚡ سريع — مدد ~٦٠ يوم' : strategyPath === 'MEDIUM' ? '🎯 متوسط — مدد ~٩٠ يوم' : '🔭 طويل — مدد ~١٨٠ يوم'}
+              </span>
+            )}
+            <span className="text-muted-foreground">
+              المدد الافتراضية تُشتقّ من مسارك + أفق المبادرة (H١/H٢/H٣) + أولويتها.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* لوحة مصادر التخطيط */}
+      {sources && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">🔗 مصادر التخطيط المتاحة</CardTitle>
+            <CardDescription className="text-xs">
+              كل مصدر يُغذّي المولّد بمعلومات مختلفة — الأصفر يعني اختياري ينفع لكنه مفقود.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-4">
+            <SourceChip
+              done={sources.initiatives.total > 0}
+              icon="💡"
+              labelAr="المبادرات"
+              hint={sources.initiatives.total > 0
+                ? `${sources.initiatives.total} إجمالاً · ${sources.initiatives.critical + sources.initiatives.high} أولوية مرتفعة`
+                : 'لا مبادرات — المولّد لن يعمل'}
+              to="/initiatives"
+              essential
+            />
+            <SourceChip
+              done={!!sources.decidedChoice}
+              icon="⭐"
+              labelAr="القرار الاستراتيجي"
+              hint={sources.decidedChoice ? sources.decidedChoice : 'لا قرار مُثبَّت — اختياري'}
+              to="/choices"
+            />
+            <SourceChip
+              done={sources.horizons.has}
+              icon="🔭"
+              labelAr="الآفاق الثلاثة"
+              hint={sources.horizons.has
+                ? `${sources.horizons.count} مبادرة على أفق — يوجّه المدد (H١ أقصر، H٣ أطول)`
+                : 'اختياري — يجعل المدد أدقّ'}
+              to="/three-horizons"
+            />
+            <SourceChip
+              done={sources.risks.has}
+              icon="⚠️"
+              labelAr="خريطة المخاطر"
+              hint={sources.risks.has
+                ? `${sources.risks.count} مخاطر مسجّلة — تنعكس على تقييم الخطورة`
+                : 'اختياري — يحسّن تقدير الخطورة'}
+              to="/risk-map"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🧠 مولّد المشاريع */}
+      <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl" aria-hidden>🧠</div>
+            <div>
+              <div className="text-sm font-bold">توليد مشاريع ذكيّ</div>
+              <div className="text-xs text-muted-foreground">
+                يحوّل مبادراتك المخطّطة/الجارية إلى مشاريع — تواريخ متتابعة (الحرجة فوراً، العالية +٧ يوم…)،
+                مدد بحسب مسارك، وتقييم خطورة تلقائي.
+              </div>
+            </div>
+          </div>
+          <Button
+            onClick={generateFromInitiatives}
+            disabled={generating || creating || initiatives.length === 0}
+            size="lg"
+          >
+            {generating ? 'جاري…' : '✨ ولّد الآن'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* نموذج إنشاء يدوي */}
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle>مشروع جديد</CardTitle>
-            <CardDescription>تواريخ البدء والانتهاء تظهر في مخطط جانت.</CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={importFromInitiatives} disabled={importing}>
-            {importing ? 'جاري…' : '💡 استورد من المبادرات'}
-          </Button>
+        <CardHeader>
+          <CardTitle className="text-base">＋ إنشاء مشروع يدوي</CardTitle>
+          <CardDescription>تواريخ البدء والانتهاء تظهر في مخطط جانت.</CardDescription>
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-4">
@@ -180,49 +447,145 @@ function Editor({ companyId }: { companyId: string }) {
 
       {loading && <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((p) => (
-          <Card key={p.id} className={sTint(p.status)}>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base leading-tight">{p.title}</CardTitle>
-                <span className="rounded-md border bg-card px-2 py-0.5 text-xs">{sLabel(p.status)}</span>
-              </div>
-              {p.description && <CardDescription className="leading-relaxed">{p.description}</CardDescription>}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md border bg-card px-2 py-1">
-                  <div className="text-muted-foreground">البدء</div>
-                  <div className="tabular-nums font-medium">{fmtDate(p.startDate)}</div>
+      {items.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between px-2 text-sm">
+            <span className="font-semibold">📁 مشاريعي — {items.length} مشروع (مرتّبة بالأولوية)</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {sorted.map(({ project: p, priority, category, risk, duration }, idx) => {
+              const catMeta = CATEGORY_META[category]
+              const prMeta = PRIORITY_META[priority] ?? PRIORITY_META.medium
+              const rkMeta = RISK_META[risk]
+              return (
+                <Card key={p.id} className={sTint(p.status)}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold tabular-nums text-primary-foreground" title="ترقيم المشروع">
+                        #{idx + 1}
+                      </span>
+                      <span className="mt-0.5 text-xl" title={catMeta.labelAr}>{catMeta.icon}</span>
+                      <CardTitle className="flex-1 text-base leading-tight">{p.title}</CardTitle>
+                      <span className="rounded-md border bg-card px-2 py-0.5 text-[10px]">{sLabel(p.status)}</span>
+                    </div>
+                    {p.description && <CardDescription className="mt-1 leading-relaxed line-clamp-2">{p.description}</CardDescription>}
+                    <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px]">
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${catMeta.bgClass} ${catMeta.colorClass}`}>
+                        <span>{catMeta.icon}</span>
+                        <span>{catMeta.labelAr}</span>
+                      </span>
+                      <span className={`rounded-full border px-1.5 py-0.5 ${prMeta.badgeCls}`}>
+                        أولوية {prMeta.labelAr}
+                      </span>
+                      <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 ${rkMeta.badgeCls}`} title={`مدّة ${duration} يوم`}>
+                        <span>{rkMeta.icon}</span>
+                        <span>{rkMeta.labelAr}</span>
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md border bg-card px-2 py-1">
+                        <div className="text-muted-foreground">البدء</div>
+                        <div className="tabular-nums font-medium">{fmtDate(p.startDate)}</div>
+                      </div>
+                      <div className="rounded-md border bg-card px-2 py-1">
+                        <div className="text-muted-foreground">الانتهاء</div>
+                        <div className="tabular-nums font-medium">{fmtDate(p.endDate)}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="rounded-md border bg-background px-2 py-1 text-xs"
+                        value={p.status}
+                        onChange={(e) => update(p, { status: e.target.value })}
+                      >
+                        {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                      </select>
+                      <span className="text-xs text-muted-foreground tabular-nums">{p.tasks?.length ?? 0} مهمة</span>
+                      <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(p)}>حذف</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!loading && items.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            لا مشاريع بعد — اضغط «✨ ولّد الآن» أعلاه لتحويل مبادراتك، أو أنشئ مشروعاً يدوياً.
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🎯 الخطوة التالية → جانت */}
+      {items.length > 0 && (
+        <Card className="border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">📅</div>
+              <div>
+                <div className="text-sm font-bold text-emerald-900">
+                  الخطوة التالية: راجع جدولك في مخطّط جانت
                 </div>
-                <div className="rounded-md border bg-card px-2 py-1">
-                  <div className="text-muted-foreground">الانتهاء</div>
-                  <div className="tabular-nums font-medium">{fmtDate(p.endDate)}</div>
+                <div className="text-xs text-emerald-800/80">
+                  المشاريع الآن على خطّ زمنيّ متسلسل — افتح جانت للتأكّد من عدم التداخل ومراقبة التنفيذ.
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <select
-                  className="rounded-md border bg-background px-2 py-1 text-xs"
-                  value={p.status}
-                  onChange={(e) => update(p, { status: e.target.value })}
-                >
-                  {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                </select>
-                <span className="text-xs text-muted-foreground tabular-nums">{p.tasks?.length ?? 0} مهمة</span>
-                <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(p)}>حذف</Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {!loading && items.length === 0 && (
-          <Card className="border-dashed md:col-span-2 xl:col-span-3">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              لا توجد مشاريع بعد.
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+            <Link to="/gantt-chart" className={buttonVariants({ variant: 'default' })}>
+              افتح جانت ←
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </>
+  )
+}
+
+// ─── سطر مصدر مضغوط ─────────────────────────────────────────────
+function SourceChip({
+  done, icon, labelAr, hint, to, essential,
+}: {
+  done: boolean
+  icon: string
+  labelAr: string
+  hint: string
+  to: string
+  essential?: boolean
+}) {
+  return (
+    <div className={`rounded-lg border p-2 ${
+      done
+        ? 'border-emerald-300 bg-emerald-50/40'
+        : essential
+          ? 'border-rose-300 bg-rose-50/40'
+          : 'border-amber-300 bg-amber-50/40'
+    }`}>
+      <div className="flex items-center gap-1.5">
+        <span className="text-lg">{icon}</span>
+        <span className="flex-1 text-sm font-semibold">{labelAr}</span>
+        <span
+          className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${
+            done
+              ? 'border-emerald-400 bg-emerald-100 text-emerald-800'
+              : essential
+                ? 'border-rose-400 bg-rose-100 text-rose-800'
+                : 'border-amber-400 bg-amber-100 text-amber-800'
+          }`}
+        >
+          {done ? '✓' : essential ? '✗ ضروري' : '○'}
+        </span>
+      </div>
+      <div className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{hint}</div>
+      {!done && (
+        <Link to={to} className="mt-0.5 inline-block text-[10px] text-primary hover:underline">
+          افتحه ←
+        </Link>
+      )}
+    </div>
   )
 }
