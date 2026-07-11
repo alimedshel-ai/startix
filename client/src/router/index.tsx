@@ -98,6 +98,7 @@ import { AssessmentWizardPage } from '@/pages/owner/AssessmentWizardPage'
 import { SalesAuditPage } from '@/pages/manager/SalesAuditPage'
 import { MarketingAuditPage } from '@/pages/manager/MarketingAuditPage'
 import { MarketingHubPage } from '@/pages/manager/MarketingHubPage'
+import { ManagerJourneyMapPage } from '@/pages/manager/ManagerJourneyMapPage'
 import { OperationsAuditPage } from '@/pages/manager/OperationsAuditPage'
 import { ITAuditPage } from '@/pages/manager/ITAuditPage'
 import { CustomerServiceAuditPage } from '@/pages/manager/CustomerServiceAuditPage'
@@ -192,6 +193,7 @@ export const router = createBrowserRouter([
               { path: '/manager/dept-dashboard', element: <DeptDashboardPage /> },
               { path: '/manager/pro-dashboard', element: <ProDashboardPage /> },
               { path: '/manager/clients', element: <ClientsPage /> },
+              { path: '/manager/journey-map', element: <ManagerJourneyMapPage /> },
               { path: '/manager/clients/:companyId', element: <ClientDetailPage /> },
               { path: '/manager/clients/:companyId/journey', element: <JourneyPage /> },
               { path: '/manager/dept-deep', element: <DeptDeepPage /> },

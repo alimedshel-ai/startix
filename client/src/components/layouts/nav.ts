@@ -375,7 +375,10 @@ const investorNav: NavSection[] = [
 const proClientsSection: NavSection = {
   title: '🤝 العملاء',
   accent: 'amber',
-  items: [{ to: '/manager/clients', label: 'عملائي', icon: '🤝' }],
+  items: [
+    { to: '/manager/clients',    label: 'عملائي',           icon: '🤝' },
+    { to: '/manager/journey-map', label: 'خريطة المسار',    icon: '🗺️' },
+  ],
 }
 
 export function navFor(
