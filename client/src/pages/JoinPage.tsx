@@ -6,11 +6,12 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api, apiErrorMessage } from '@/lib/api'
 import { homeFor } from '@/components/layouts/nav'
+import { SECTORS } from '@/lib/onboardingOptions'
 import { useAuthStore } from '@/store/authStore'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
@@ -39,14 +40,22 @@ const schema = z.object({
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
   managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
   specialtyDeptType: z.enum(SPECIALTY_OPTIONS.map((o) => o.value) as [SpecialtyDeptType, ...SpecialtyDeptType[]]).optional(),
-  // PRO-1 — اسم أوّل عميل يخدمه المدير المستقل (اختياري).
+  // PRO-1 — أوّل عميل يخدمه المدير المستقل: اسم (إلزامي) + قطاع + حجم.
+  // نُنشئ الشركة فوراً في التسجيل ببياناتها الأساسيّة — بدل جمعها لاحقاً في
+  // شريحة onboarding — حتى يبدأ الحساب فاعلاً بلا حالة «مدير بلا عميل».
   firstClientName: z.string().max(120).optional().or(z.literal('')),
+  firstClientSector: z.string().max(80).optional().or(z.literal('')),
+  firstClientSize: z.enum(['MICRO', 'SMALL', 'MEDIUM', 'LARGE']).optional(),
 }).superRefine((data, ctx) => {
   if (data.userType === 'MANAGER' && !data.managerType) {
     ctx.addIssue({ path: ['managerType'], code: 'custom', message: 'اختر نوع المدير' })
   }
   if (data.userType === 'MANAGER' && data.managerType === 'INDEPENDENT_PRO' && !data.specialtyDeptType) {
     ctx.addIssue({ path: ['specialtyDeptType'], code: 'custom', message: 'اختر تخصّصك — الإدارة التي تشرف عليها' })
+  }
+  // اسم أوّل عميل إلزامي للمدير المستقل — الأدوات الاستراتيجيّة تعمل على عميل.
+  if (data.userType === 'MANAGER' && data.managerType === 'INDEPENDENT_PRO' && !data.firstClientName?.trim()) {
+    ctx.addIssue({ path: ['firstClientName'], code: 'custom', message: 'اسم أوّل عميل مطلوب للبدء' })
   }
 })
 
@@ -126,6 +135,14 @@ export function JoinPage() {
           values.managerType === 'INDEPENDENT_PRO' &&
           values.firstClientName?.trim()
             ? values.firstClientName.trim()
+            : undefined,
+        // بيانات أوّل عميل الأساسيّة — القطاع والحجم. OPEX يُجمَع في /onboarding.
+        firstClientMeta:
+          values.userType === 'MANAGER' && values.managerType === 'INDEPENDENT_PRO'
+            ? {
+                sector: values.firstClientSector?.trim() || undefined,
+                size: values.firstClientSize || undefined,
+              }
             : undefined,
         phone: values.phone || undefined,
       })
@@ -334,16 +351,48 @@ export function JoinPage() {
             {userType === 'MANAGER' &&
               (selectedManagerType === 'INDEPENDENT_PRO' || managerType === 'INDEPENDENT_PRO') && (
               <div className="grid gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <Label htmlFor="firstClientName">اسم أوّل عميل تخدمه (اختياري)</Label>
+                <Label htmlFor="firstClientName">اسم أوّل عميل تخدمه</Label>
                 <Input
                   id="firstClientName"
                   autoComplete="organization"
                   placeholder="مثال: شركة رفارف للتقنية"
                   {...register('firstClientName')}
                 />
+                {errors.firstClientName && (
+                  <p className="text-sm text-destructive">{errors.firstClientName.message}</p>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <Label htmlFor="firstClientSector" className="text-xs">القطاع</Label>
+                    <select
+                      id="firstClientSector"
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      {...register('firstClientSector')}
+                    >
+                      <option value="">اختر…</option>
+                      {SECTORS.map((s) => (
+                        <option key={s.code} value={s.code}>{s.labelAr}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="firstClientSize" className="text-xs">حجم المنشأة</Label>
+                    <select
+                      id="firstClientSize"
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      {...register('firstClientSize')}
+                    >
+                      <option value="">اختر…</option>
+                      <option value="MICRO">متناهية الصغر (1-4)</option>
+                      <option value="SMALL">صغيرة (5-49)</option>
+                      <option value="MEDIUM">متوسطة (50-249)</option>
+                      <option value="LARGE">كبيرة (≥ 250)</option>
+                    </select>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   ننشئ هذه الشركة تلقائياً ونربطها بحسابك — كل تحليل تعمله يبدأ بها.
-                  يمكنك تركه فارغاً وإضافة عملاء لاحقاً من صفحة «عملائي».
+                  الأرقام المالية (OPEX) نجمعها في الخطوة التالية.
                 </p>
               </div>
             )}

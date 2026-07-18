@@ -11,6 +11,12 @@ import { PricingPage } from '@/pages/PricingPage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { RoleRoute } from '@/components/RoleRoute'
 import { MainLayout } from '@/components/layouts/MainLayout'
+import {
+  investorPlaceholderRoutes,
+  managerPlaceholderRoutes,
+  ownerPlaceholderRoutes,
+  sharedPlaceholderRoutes,
+} from './placeholderRoutes'
 
 // --- Owner pages ---------------------------------------------------------
 import { DashboardPage } from '@/pages/owner/DashboardPage'
@@ -99,6 +105,18 @@ import { SalesAuditPage } from '@/pages/manager/SalesAuditPage'
 import { MarketingAuditPage } from '@/pages/manager/MarketingAuditPage'
 import { MarketingHubPage } from '@/pages/manager/MarketingHubPage'
 import { ManagerJourneyMapPage } from '@/pages/manager/ManagerJourneyMapPage'
+import { AnalysisWizardPage } from '@/pages/manager/AnalysisWizardPage'
+import { ExecuteHubPage } from '@/pages/manager/ExecuteHubPage'
+import { MeasureHubPage } from '@/pages/manager/MeasureHubPage'
+import { PriorityHubPage } from '@/pages/manager/PriorityHubPage'
+import { ProjectsDashboardPage } from '@/pages/manager/ProjectsDashboardPage'
+import { ProjectDetailPage } from '@/pages/manager/ProjectDetailPage'
+import {
+  OwnerAnalysisHubPage,
+  OwnerDecisionHubPage,
+  OwnerDiagnosticHubPage,
+  OwnerMeasureExecuteHubPage,
+} from '@/pages/owner/OwnerHubs'
 import { OperationsAuditPage } from '@/pages/manager/OperationsAuditPage'
 import { ITAuditPage } from '@/pages/manager/ITAuditPage'
 import { CustomerServiceAuditPage } from '@/pages/manager/CustomerServiceAuditPage'
@@ -118,6 +136,8 @@ import { InvestorDashboardPage } from '@/pages/investor/InvestorDashboardPage'
 import { PortfolioPage } from '@/pages/investor/PortfolioPage'
 import { CompanyDetailPage } from '@/pages/investor/CompanyDetailPage'
 import { DealsPipelinePage } from '@/pages/investor/DealsPipelinePage'
+import { InvestorFinancialPage } from '@/pages/investor/InvestorFinancialPage'
+import { InvestorRecommendationsPage } from '@/pages/investor/InvestorRecommendationsPage'
 
 export const router = createBrowserRouter([
   // Public
@@ -177,6 +197,13 @@ export const router = createBrowserRouter([
               { path: '/ai/pain-screen', element: <PainScreenPage /> },
               { path: '/ai/simulation', element: <SimulationLabPage /> },
               { path: '/analytics-dashboard', element: <AnalyticsDashboardPage /> },
+              // ─── Hub Pages للمالك (٤ مراكز رئيسيّة) ───────────
+              { path: '/owner/diagnostic-hub',       element: <OwnerDiagnosticHubPage /> },
+              { path: '/owner/analysis-hub',        element: <OwnerAnalysisHubPage /> },
+              { path: '/owner/decision-hub',        element: <OwnerDecisionHubPage /> },
+              { path: '/owner/measure-execute-hub', element: <OwnerMeasureExecuteHubPage /> },
+              // ⏳ Placeholder routes للمالك (مثل /owner/strategic-plan)
+              ...ownerPlaceholderRoutes,
             ],
           },
         ],
@@ -193,11 +220,15 @@ export const router = createBrowserRouter([
               { path: '/manager/dept-dashboard', element: <DeptDashboardPage /> },
               { path: '/manager/pro-dashboard', element: <ProDashboardPage /> },
               { path: '/manager/clients', element: <ClientsPage /> },
+              { path: '/manager/clients/add', element: <AddCompanyPage /> },
               { path: '/manager/journey-map', element: <ManagerJourneyMapPage /> },
               { path: '/manager/clients/:companyId', element: <ClientDetailPage /> },
               { path: '/manager/clients/:companyId/journey', element: <JourneyPage /> },
               { path: '/manager/dept-deep', element: <DeptDeepPage /> },
               { path: '/manager/deep-analysis', element: <DeepAnalysisPage /> },
+              { path: '/manager/analysis-wizard', element: <AnalysisWizardPage /> },
+              { path: '/manager/projects-dashboard', element: <ProjectsDashboardPage /> },
+              { path: '/manager/projects/:projectId', element: <ProjectDetailPage /> },
               { path: '/manager/contradictions', element: <ContradictionsPage /> },
               { path: '/manager/strategic-plan', element: <StrategicPlanPage /> },
               { path: '/manager/dept-smart', element: <DeptSmartPage /> },
@@ -221,6 +252,8 @@ export const router = createBrowserRouter([
               { path: '/manager/compliance/audit', element: <ComplianceAuditPage /> },
               { path: '/manager/compliance/audit-pro', element: <ComplianceAuditProPage /> },
               { path: '/manager/compliance/reform', element: <ComplianceReformPage /> },
+              // ⏳ Placeholder routes للمدير
+              ...managerPlaceholderRoutes,
             ],
           },
         ],
@@ -278,6 +311,12 @@ export const router = createBrowserRouter([
               { path: '/bsc', element: <BSCPage /> },
               { path: '/raci', element: <RACIPage /> },
               { path: '/eisenhower', element: <EisenhowerPage /> },
+              // Hub — مركز القياس والأهداف (يجمع ٧ أدوات المرحلة ④ في تبويبات).
+              { path: '/measure', element: <MeasureHubPage /> },
+              // Hub — مركز المبادرات والأولويّات (٥ أدوات المرحلة ⑤).
+              { path: '/priority', element: <PriorityHubPage /> },
+              // Hub — مركز التنفيذ (Projects + Gantt + Tasks) للمرحلة ⑥.
+              { path: '/execute', element: <ExecuteHubPage /> },
             ],
           },
         ],
@@ -294,9 +333,20 @@ export const router = createBrowserRouter([
               { path: '/investor/portfolio', element: <PortfolioPage /> },
               { path: '/investor/company/:id', element: <CompanyDetailPage /> },
               { path: '/investor/deals', element: <DealsPipelinePage /> },
+              // ✅ تحليلات المحفظة — محرّكات مبنيّة أُتيحت للمستثمر (Group B)
+              { path: '/investor/financial/dupont', element: <InvestorFinancialPage tool="dupont" /> },
+              { path: '/investor/financial/monte-carlo', element: <InvestorFinancialPage tool="monte-carlo" /> },
+              { path: '/investor/ai/recommendations', element: <InvestorRecommendationsPage /> },
+              // ⏳ Placeholder routes للمستثمر (المتبقّية المخطّطة)
+              ...investorPlaceholderRoutes,
             ],
           },
         ],
+      },
+      // ⏳ Placeholder routes مشتركة (متاحة لكل الأدوار المصادَقة)
+      {
+        element: <MainLayout />,
+        children: sharedPlaceholderRoutes,
       },
     ],
   },

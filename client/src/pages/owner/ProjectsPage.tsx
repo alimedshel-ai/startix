@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -99,19 +98,14 @@ interface Sources {
 }
 
 export function ProjectsPage() {
-  return (
-    <StrategicShell
-      title="المشاريع"
-      description="حوّل مبادراتك إلى مشاريع بتواريخ ومدد وأولويات وخطورة — تلقائياً من تخطيطك السابق."
-      actions={
-        <Link to="/gantt-chart" className={buttonVariants({ variant: 'outline' })}>
-          عرض جانت ←
-        </Link>
-      }
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/execute?tab=projects${q}`} replace />
+}
+
+export function ProjectsView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 function Editor({ companyId }: { companyId: string }) {
@@ -174,7 +168,7 @@ function Editor({ companyId }: { companyId: string }) {
       })
       setItems((prev) => [...prev, p])
       setForm({ title: '', description: '', startDate: today, endDate: future })
-      toast.success('تم إنشاء المشروع')
+      toast.success('تم إنشاء خطوة التنفيذ')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل الإنشاء'))
     } finally {
@@ -192,7 +186,7 @@ function Editor({ companyId }: { companyId: string }) {
   }
 
   async function remove(p: Project) {
-    if (!confirm(`حذف المشروع "${p.title}"؟`)) return
+    if (!confirm(`حذف خطوة التنفيذ "${p.title}"؟`)) return
     try {
       await deleteProject(p.id)
       setItems((prev) => prev.filter((x) => x.id !== p.id))
@@ -202,7 +196,7 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
-  // 🧠 توليد ذكيّ — يحوّل المبادرات المخطّطة إلى مشاريع بتواريخ وأولويات ذكيّة.
+  // 🧠 توليد ذكيّ — يحوّل المبادرات المخطّطة إلى خطوات تنفيذ بتواريخ وأولويات ذكيّة.
   async function generateFromInitiatives() {
     if (initiatives.length === 0) {
       toast.error('لا مبادرات مسجّلة — افتح /initiatives أوّلاً.')
@@ -260,7 +254,7 @@ function Editor({ companyId }: { companyId: string }) {
         } catch { /* skip */ }
       }
       if (added === 0) {
-        toast.message('كل المبادرات المخطّطة/الجارية موجودة كمشاريع سلفاً.')
+        toast.message('كل المبادرات المخطّطة/الجارية لديها خطوات تنفيذ سلفاً.')
         return
       }
       const parts: string[] = []
@@ -268,7 +262,7 @@ function Editor({ companyId }: { companyId: string }) {
       if (summary.high) parts.push(`${summary.high} مرتفعة`)
       if (summary.medium) parts.push(`${summary.medium} متوسطة`)
       if (summary.low) parts.push(`${summary.low} منخفضة`)
-      toast.success(`🧠 أُنشئ ${added} مشروع: ${parts.join(' · ')} · مدد بحسب مسارك (${strategyPath ?? 'LONG'}).`)
+      toast.success(`🧠 أُنشئت ${added} خطوة تنفيذ: ${parts.join(' · ')} · مدد بحسب مسارك (${strategyPath ?? 'LONG'}).`)
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
     } finally {
@@ -306,13 +300,13 @@ function Editor({ companyId }: { companyId: string }) {
           <div className="flex items-start gap-3">
             <div className="text-2xl leading-none">📁</div>
             <div className="flex-1">
-              <div className="text-sm font-bold text-foreground">ما هو المشروع؟</div>
+              <div className="text-sm font-bold text-foreground">ما هي خطوة التنفيذ؟</div>
               <p className="mt-1 text-muted-foreground">
-                المبادرة استراتيجية عامّة، لكن التنفيذ يحصل عبر <b className="text-foreground">مشاريع محدّدة</b>
-                بتاريخ بداية ونهاية وفريق ومهام. المشروع = مبادرة + جدول زمني + مسؤول.
+                المبادرة اتجاه استراتيجي عام، لكن التنفيذ يحصل عبر <b className="text-foreground">خطوات تنفيذ محدّدة</b>
+                بتاريخ بداية ونهاية وفريق ومهام. خطوة التنفيذ = مبادرة + جدول زمني + مسؤول.
               </p>
               <p className="mt-1 text-muted-foreground">
-                <b className="text-foreground">🧠 المولّد يحوّل مبادراتك تلقائياً</b> إلى مشاريع بمدد ذكيّة
+                <b className="text-foreground">🧠 المولّد يحوّل مبادراتك تلقائياً</b> إلى خطوات تنفيذ بمدد ذكيّة
                 (بحسب مسارك) وأولوية مرتَّبة (الحرجة أوّلاً) وتقييم خطورة (منخفضة/متوسطة/عالية).
               </p>
             </div>
@@ -331,7 +325,7 @@ function Editor({ companyId }: { companyId: string }) {
             )}
             {strategyPath && (
               <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
-                {strategyPath === 'QUICK' ? '⚡ سريع — مدد ~٦٠ يوم' : strategyPath === 'MEDIUM' ? '🎯 متوسط — مدد ~٩٠ يوم' : '🔭 طويل — مدد ~١٨٠ يوم'}
+                {strategyPath === 'QUICK' ? '⚡ تشغيلي (قصير) — مدد ~٦٠ يوم' : strategyPath === 'MEDIUM' ? '🎯 تكتيكي (متوسّط) — مدد ~٩٠ يوم' : '🔭 استراتيجي (طويل) — مدد ~١٨٠ يوم'}
               </span>
             )}
             <span className="text-muted-foreground">
@@ -390,15 +384,15 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
-      {/* 🧠 مولّد المشاريع */}
+      {/* 🧠 مولّد خطوات التنفيذ */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
         <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
           <div className="flex items-start gap-3">
             <div className="text-3xl" aria-hidden>🧠</div>
             <div>
-              <div className="text-sm font-bold">توليد مشاريع ذكيّ</div>
+              <div className="text-sm font-bold">توليد خطوات تنفيذ ذكيّ</div>
               <div className="text-xs text-muted-foreground">
-                يحوّل مبادراتك المخطّطة/الجارية إلى مشاريع — تواريخ متتابعة (الحرجة فوراً، العالية +٧ يوم…)،
+                يحوّل مبادراتك المخطّطة/الجارية إلى خطوات تنفيذ — تواريخ متتابعة (الحرجة فوراً، العالية +٧ يوم…)،
                 مدد بحسب مسارك، وتقييم خطورة تلقائي.
               </div>
             </div>
@@ -417,7 +411,7 @@ function Editor({ companyId }: { companyId: string }) {
       <Card className="overflow-hidden bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
         <CardHeader>
-          <CardTitle className="text-base">＋ إنشاء مشروع يدوي</CardTitle>
+          <CardTitle className="text-base">＋ إنشاء خطوة تنفيذ يدويّة</CardTitle>
           <CardDescription>تواريخ البدء والانتهاء تظهر في مخطط جانت.</CardDescription>
         </CardHeader>
         <form onSubmit={create}>
@@ -439,7 +433,7 @@ function Editor({ companyId }: { companyId: string }) {
               <Textarea id="desc" rows={2} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
             </div>
             <div className="md:col-span-4 flex justify-end">
-              <Button type="submit" disabled={creating || !form.title.trim()}>{creating ? 'جاري الإنشاء…' : '+ إنشاء المشروع'}</Button>
+              <Button type="submit" disabled={creating || !form.title.trim()}>{creating ? 'جاري الإنشاء…' : '+ إنشاء خطوة التنفيذ'}</Button>
             </div>
           </CardContent>
         </form>
@@ -450,7 +444,7 @@ function Editor({ companyId }: { companyId: string }) {
       {items.length > 0 && (
         <div>
           <div className="mb-2 flex items-center justify-between px-2 text-sm">
-            <span className="font-semibold">📁 مشاريعي — {items.length} مشروع (مرتّبة بالأولوية)</span>
+            <span className="font-semibold">📁 خطوات التنفيذ — {items.length} خطوة (مرتّبة بالأولوية)</span>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {sorted.map(({ project: p, priority, category, risk, duration }, idx) => {
@@ -461,7 +455,7 @@ function Editor({ companyId }: { companyId: string }) {
                 <Card key={p.id} className={sTint(p.status)}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start gap-2">
-                      <span className="mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold tabular-nums text-primary-foreground" title="ترقيم المشروع">
+                      <span className="mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold tabular-nums text-primary-foreground" title="ترقيم الخطوة">
                         #{idx + 1}
                       </span>
                       <span className="mt-0.5 text-xl" title={catMeta.labelAr}>{catMeta.icon}</span>
@@ -505,6 +499,12 @@ function Editor({ companyId }: { companyId: string }) {
                       <span className="text-xs text-muted-foreground tabular-nums">{p.tasks?.length ?? 0} مهمة</span>
                       <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(p)}>حذف</Button>
                     </div>
+                    <Link
+                      to={`/manager/projects/${p.id}?client=${p.companyId}`}
+                      className="flex items-center justify-center gap-1 rounded-md border-2 border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+                    >
+                      🔍 تفاصيل هذه الخطوة ←
+                    </Link>
                   </CardContent>
                 </Card>
               )
@@ -516,7 +516,7 @@ function Editor({ companyId }: { companyId: string }) {
       {!loading && items.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            لا مشاريع بعد — اضغط «✨ ولّد الآن» أعلاه لتحويل مبادراتك، أو أنشئ مشروعاً يدوياً.
+            لا خطوات تنفيذ بعد — اضغط «✨ ولّد الآن» أعلاه لتحويل مبادراتك، أو أنشئ خطوة يدويّة.
           </CardContent>
         </Card>
       )}
@@ -532,7 +532,7 @@ function Editor({ companyId }: { companyId: string }) {
                   الخطوة التالية: راجع جدولك في مخطّط جانت
                 </div>
                 <div className="text-xs text-emerald-800/80">
-                  المشاريع الآن على خطّ زمنيّ متسلسل — افتح جانت للتأكّد من عدم التداخل ومراقبة التنفيذ.
+                  خطوات التنفيذ الآن على خطّ زمنيّ متسلسل — افتح جانت للتأكّد من عدم التداخل ومراقبة التنفيذ.
                 </div>
               </div>
             </div>

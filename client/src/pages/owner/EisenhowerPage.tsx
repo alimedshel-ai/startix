@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -40,14 +39,17 @@ const QUADRANTS: Record<Quadrant, { title: string; subtitle: string; icon: strin
 }
 
 export function EisenhowerPage() {
-  return (
-    <StrategicShell
-      title="مصفوفة أيزنهاور"
-      description="٢×٢ عاجل × مهم — لترتيب المهام حسب الأولوية الفعلية."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const from = params.get('from')
+  const parts = ['tab=eisenhower']
+  if (client) parts.push(`client=${client}`)
+  if (from) parts.push(`from=${from}`)
+  return <Navigate to={`/priority?${parts.join('&')}`} replace />
+}
+
+export function EisenhowerView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 function Editor({ companyId }: { companyId: string }) {
@@ -152,6 +154,57 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // 🚨 توليد من خريطة المخاطر — للوضع الطارئ (المخاطر قبل المبادرات)
+  //   • حرج (score >= 16)  → افعل الآن (do)
+  //   • مرتفع (10-15)      → جدولها (schedule)
+  //   • متوسط (5-9)        → فوّضها (delegate)
+  //   • منخفض (< 5)        → لا يُضاف تلقائياً (قرار المدير)
+  async function generateFromRisks() {
+    setGenerating(true)
+    try {
+      const artifact = await getArtifact<{ risks?: Array<{ id: string; name: string; probability: number; impact: number; mitigation?: string }> }>(companyId, 'RISK_REGISTER')
+      const risks = artifact?.data?.risks ?? []
+      if (risks.length === 0) {
+        toast.error('لا مخاطر مسجّلة في السجلّ — افتح خريطة المخاطر أوّلاً (الخطوة ١).')
+        return
+      }
+      const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+      const existing = new Set(data.tasks.map((t) => norm(t.title)))
+      const newTasks: EisenhowerTask[] = []
+      let doCount = 0, schedCount = 0, delegCount = 0
+      for (const r of risks) {
+        if (!r.name?.trim()) continue
+        const score = r.probability * r.impact
+        let quadrant: Quadrant | null = null
+        if (score >= 16) { quadrant = 'do'; doCount++ }
+        else if (score >= 10) { quadrant = 'schedule'; schedCount++ }
+        else if (score >= 5) { quadrant = 'delegate'; delegCount++ }
+        if (!quadrant) continue
+        // عنوان المهمة يبدأ بـ«تخفيف:» أو نصّ التخفيف إن وُجد
+        const title = r.mitigation?.trim()
+          ? `تخفيف: ${r.mitigation.trim().slice(0, 80)}${r.mitigation.length > 80 ? '…' : ''}`
+          : `عالج: ${r.name.trim().slice(0, 80)}${r.name.length > 80 ? '…' : ''}`
+        if (existing.has(norm(title))) continue
+        newTasks.push({ id: crypto.randomUUID(), title, quadrant })
+      }
+      if (newTasks.length === 0) {
+        toast.message('كل المخاطر مضافة سلفاً — لا شيء جديد.')
+        return
+      }
+      setData((p) => ({ tasks: [...p.tasks, ...newTasks] }))
+      setLastGeneratedIds(newTasks.map((t) => t.id))
+      const parts: string[] = []
+      if (doCount > 0)     parts.push(`${doCount} افعل الآن`)
+      if (schedCount > 0)  parts.push(`${schedCount} جدولها`)
+      if (delegCount > 0)  parts.push(`${delegCount} فوّضها`)
+      toast.success(`🚨 أُضيف ${newTasks.length} مهمة من المخاطر (${parts.join(' · ')}).`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من خريطة المخاطر'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   // ↩️ تراجع عن التوليد الأخير — يحذف فقط الدفعة الأخيرة.
   function undoLastGenerate() {
     if (lastGeneratedIds.length === 0) {
@@ -223,24 +276,23 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
-      {/* 🧠 توليد من المبادرات + أزرار تحكّم */}
+      {/* 🧠 توليد المهام — من المبادرات أو من المخاطر (وضع الطوارئ) */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
         <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
           <div className="flex items-start gap-3">
             <div className="text-3xl" aria-hidden>🧠</div>
             <div>
-              <div className="text-sm font-bold">توليد المهام من المبادرات</div>
+              <div className="text-sm font-bold">توليد المهام</div>
               <div className="text-xs text-muted-foreground">
-                الأولوية → الربع: <b className="text-foreground">حرجة</b> → افعل الآن ·
-                <b className="text-foreground"> عالية/متوسطة</b> → جدولها · <b className="text-foreground">منخفضة</b> → فوّضها.
-                لا شيء يُوضع في «احذفها» تلقائياً — الحذف قرارك.
+                من <b className="text-foreground">المبادرات</b> (الأولوية → الربع تلقائياً) — أو من <b className="text-foreground">خريطة المخاطر</b>
+                (score → الربع: حرج → افعل، مرتفع → جدولها، متوسط → فوّضها).
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {lastGeneratedIds.length > 0 && (
               <Button variant="outline" onClick={undoLastGenerate} size="sm">
-                ↩️ تراجع عن التوليد
+                ↩️ تراجع
               </Button>
             )}
             {data.tasks.length > 0 && (
@@ -248,8 +300,11 @@ function Editor({ companyId }: { companyId: string }) {
                 🗑️ مسح الكل
               </Button>
             )}
+            <Button onClick={generateFromRisks} disabled={generating || saving} variant="outline" size="lg" className="border-rose-400 text-rose-800 hover:bg-rose-50">
+              {generating ? 'جاري…' : '🚨 من المخاطر'}
+            </Button>
             <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
-              {generating ? 'جاري…' : '✨ ولّد الآن'}
+              {generating ? 'جاري…' : '✨ من المبادرات'}
             </Button>
           </div>
         </CardContent>

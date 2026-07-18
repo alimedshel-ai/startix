@@ -1,8 +1,10 @@
 import { Outlet } from 'react-router-dom'
 
 import { ClientContextBar } from '@/components/ClientContextBar'
+import { CommandPalette } from '@/components/CommandPalette'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SmartGuide } from '@/components/SmartGuide'
+import { QuickNav } from './QuickNav'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -10,6 +12,7 @@ export function MainLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Topbar />
+      <QuickNav />
       <ClientContextBar />
       <div className="flex flex-1">
         <Sidebar />
@@ -20,6 +23,7 @@ export function MainLayout() {
         </main>
       </div>
       <SmartGuide />
+      <CommandPalette />
     </div>
   )
 }

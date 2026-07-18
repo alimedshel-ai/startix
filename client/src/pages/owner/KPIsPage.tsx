@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { OpexHint } from '@/components/OpexHint'
-import { StrategicShell } from '@/components/strategic/StrategicShell'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +17,7 @@ import {
   findKPIMeta, isKPIInPath,
   type KPICategory, type KPISuggestion,
 } from '@/lib/deptKPIs'
+import { generateSCurve } from '@/lib/sCurve'
 import { createKPI, deleteKPI, listKPIs, listObjectives, updateKPI, type KPI, type Objective } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 
@@ -46,18 +46,119 @@ function statusOf(p: number): { label: string; tint: string } {
 }
 
 export function KPIsPage() {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/measure?tab=kpis${q}`} replace />
+}
+
+export function KPIsView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
+}
+
+// شريط تنقّل — الطريق: الأهداف ↔ OGSM ↔ KPIs ↔ إدخالات ↔ BSC.
+function CrossNavBar() {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const qs = client ? `&client=${client}` : ''
   return (
-    <StrategicShell
-      title="مؤشرات الأداء (KPIs)"
-      description="مكتبة المؤشرات مع الأهداف والقيم الحالية + بنك مؤشرات مقترحة بأسباب واضحة."
-      actions={
-        <Link to="/kpi-entries" className={buttonVariants({ variant: 'outline' })}>
-          إدخالات تاريخية ←
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2 text-xs">
+      <span className="text-muted-foreground">
+        💡 KPIs تُغذّي OGSM و BSC والإدخالات — كلها متّصلة.
+      </span>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to={`/measure?tab=objectives${qs}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          🎯 الأهداف ←
         </Link>
-      }
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
+        <Link
+          to={`/measure?tab=ogsm${qs}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          🧩 OGSM ←
+        </Link>
+        <Link
+          to={`/measure?tab=bsc${qs}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          ⚖️ BSC ←
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// CTA الخطوة التاليّة — تظهر عند وجود KPI واحد على الأقل.
+// إن لم توجد → تحذير: أنشئ KPI قبل الانتقال إلى الإدخالات.
+function NextStepCTA({ kpisCount, hasUnsavedForm }: { kpisCount: number; hasUnsavedForm: boolean }) {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const qs = client ? `&client=${client}` : ''
+
+  function handleNavigate(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (hasUnsavedForm) {
+      const ok = confirm(
+        'لديك حقول لم تحفظ بعد في نموذج «مؤشر جديد».\n\n' +
+        'إن انتقلت الآن ستفقد ما كتبته. متأكّد من الانتقال؟'
+      )
+      if (!ok) e.preventDefault()
+    }
+  }
+
+  if (kpisCount === 0) {
+    return (
+      <Card className="border-2 border-amber-300 bg-amber-50/40">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base text-amber-900">⚠️ أنشئ KPI واحداً على الأقل</CardTitle>
+            <CardDescription>
+              الإدخالات تعتمد على وجود مؤشّرات. أنشئ مؤشراً من الأعلى (يدوي أو ✨ ولّد الآن أو من البنك)،
+              ثم يمكنك الانتقال إلى صفحة الإدخالات لتسجيل القيم الدوريّة.
+            </CardDescription>
+          </div>
+          {/* الأزرار مُعطَّلة بصريّاً */}
+          <div className="flex flex-wrap gap-2">
+            <span
+              className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border bg-muted/50 px-3 py-2 text-sm font-medium text-muted-foreground opacity-60"
+              title="أنشئ KPI أوّلاً"
+            >
+              ✍️ إدخالات KPIs 🔒
+            </span>
+          </div>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="border-2 border-emerald-300 bg-emerald-50/40">
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="text-base text-emerald-900">✓ {kpisCount} مؤشر جاهز — الخطوة التاليّة</CardTitle>
+          <CardDescription>
+            سجّل قيم دوريّة لهذه المؤشّرات لتتبّع الاتجاه عبر الوقت، أو راجع OGSM و BSC.
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/measure?tab=entries${qs}`}
+            onClick={handleNavigate}
+            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            ✍️ إدخالات KPIs ←
+          </Link>
+          <Link
+            to={`/measure?tab=ogsm${qs}`}
+            onClick={handleNavigate}
+            className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-2 text-sm font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+          >
+            🧩 OGSM ←
+          </Link>
+        </div>
+      </CardHeader>
+    </Card>
   )
 }
 
@@ -86,15 +187,20 @@ function Editor({ companyId }: { companyId: string }) {
     : freq === 'weekly'    ? String(Math.round(opexTarget / 52))
     : freq === 'daily'     ? String(Math.round(opexTarget / 365))
     : '100'
-  const [form, setForm] = useState({ name: '', unit: '%', targetValue: '100', frequency: 'monthly' })
+  // Phase 1 — أضِفنا حقل baseline لبدء مسار S-Curve. افتراضياً فارغ.
+  const [form, setForm] = useState({ name: '', unit: '%', targetValue: '100', baselineValue: '', frequency: 'monthly' })
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
+    setFetchError(null)
     Promise.all([
-      listKPIs(companyId).catch(() => []),
+      listKPIs(companyId).catch((err) => { console.error('[KPIs] listKPIs failed:', err); throw err }),
       listObjectives(companyId).catch(() => []),
     ]).then(([ks, obs]) => {
       setKpis(ks)
       setObjectives(obs)
+    }).catch((err) => {
+      setFetchError(apiErrorMessage(err, 'تعذّر جلب المؤشّرات من الخادم'))
     }).finally(() => setLoading(false))
   }, [companyId])
 
@@ -106,6 +212,15 @@ function Editor({ companyId }: { companyId: string }) {
       toast.error('قيمة مستهدفة غير صالحة')
       return
     }
+    // Phase 1 — لو أُدخل baseline صالح، نُولّد منحنى S تلقائياً بمدى ١٢ شهراً
+    // (بحسب frequency: annual=١٢، quarterly=١٢، monthly=١٢، weekly=٣، daily=١).
+    const baselineNum = form.baselineValue.trim() ? Number(form.baselineValue) : NaN
+    const hasBaseline = Number.isFinite(baselineNum) && baselineNum !== target
+    const durationMap: Record<string, number> = { daily: 1, weekly: 3, monthly: 12, quarterly: 12, annual: 12 }
+    const duration = durationMap[form.frequency] ?? 12
+    const expectedPath = hasBaseline
+      ? generateSCurve({ baseline: baselineNum, target, durationMonths: duration })
+      : undefined
     setCreating(true)
     try {
       const k = await createKPI({
@@ -113,11 +228,17 @@ function Editor({ companyId }: { companyId: string }) {
         name: form.name,
         unit: form.unit,
         targetValue: target,
+        currentValue: hasBaseline ? baselineNum : undefined,
         frequency: form.frequency,
+        baselineValue: hasBaseline ? baselineNum : undefined,
+        expectedPath,
+        startedAt: hasBaseline ? new Date().toISOString() : undefined,
       })
       setKpis((p) => [...p, k])
-      setForm({ name: '', unit: '%', targetValue: '100', frequency: form.frequency })
-      toast.success('تم إنشاء المؤشر')
+      setForm({ name: '', unit: '%', targetValue: '100', baselineValue: '', frequency: form.frequency })
+      toast.success(hasBaseline
+        ? `✓ أُنشئ مع منحنى S: ${baselineNum} → ${target} خلال ${duration} شهراً`
+        : 'تم إنشاء المؤشر')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل الإنشاء'))
     } finally {
@@ -264,8 +385,26 @@ function Editor({ companyId }: { companyId: string }) {
     return Array.from(set)
   }, [bank])
 
+  const hasUnsavedForm = form.name.trim().length > 0
+
   return (
     <>
+      {fetchError && (
+        <Card className="border-rose-300 bg-rose-50/60">
+          <CardHeader>
+            <CardTitle className="text-rose-900">⚠️ تعذّر جلب KPIs</CardTitle>
+            <CardDescription className="text-rose-800">
+              {fetchError} — companyId: <code className="rounded bg-white/70 px-1.5 py-0.5 text-[11px]">{companyId}</code>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground">
+            راجع Developer Console (F12) وطلب <code>GET /api/strategic/kpis/{companyId}</code>.
+          </CardContent>
+        </Card>
+      )}
+
+      <CrossNavBar />
+
       {/* شارة السياق للمدير المستقل */}
       {specialty && (
         <Card className="border-primary/30 bg-primary/5">
@@ -275,7 +414,7 @@ function Editor({ companyId }: { companyId: string }) {
             </span>
             {strategyPath && (
               <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
-                {strategyPath === 'QUICK' ? '⚡ مسارك: سريع' : strategyPath === 'MEDIUM' ? '🎯 مسارك: متوسط' : '🔭 مسارك: طويل'}
+                {strategyPath === 'QUICK' ? '⚡ مسارك: تشغيلي (قصير)' : strategyPath === 'MEDIUM' ? '🎯 مسارك: تكتيكي (متوسّط)' : '🔭 مسارك: استراتيجي (طويل)'}
               </span>
             )}
             <span className="text-muted-foreground">
@@ -418,9 +557,25 @@ function Editor({ companyId }: { companyId: string }) {
               <Input id="unit" value={form.unit} onChange={(e) => setForm((p) => ({ ...p, unit: e.target.value }))} />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="baseline">
+                القيمة الحاليّة (اختياريّة)
+                <span className="mr-1 text-[9px] font-normal text-primary" title="لو أُدخلت مع الهدف، نُولّد منحنى S تلقائياً">✨ توليد منحنى</span>
+              </Label>
+              <Input
+                id="baseline"
+                type="number"
+                value={form.baselineValue}
+                onChange={(e) => setForm((p) => ({ ...p, baselineValue: e.target.value }))}
+                placeholder="مثال: ٠٫٨"
+              />
+              <p className="text-[9px] text-muted-foreground">
+                نقطة البدء لمنحنى «متوقّع مقابل واقع».
+              </p>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="target">القيمة المستهدفة</Label>
               <div className="flex gap-1">
-                <Input id="target" type="number" value={form.targetValue} onChange={(e) => setForm((p) => ({ ...p, targetValue: e.target.value }))} />
+                <Input id="target" type="number" value={form.targetValue} onChange={(e) => setForm((p) => ({ ...p, targetValue: e.target.value }))} placeholder="مثال: ١٫٢" />
                 {opexTarget != null && (
                   <button
                     type="button"
@@ -433,7 +588,7 @@ function Editor({ companyId }: { companyId: string }) {
                 )}
               </div>
             </div>
-            <div className="space-y-1 sm:col-span-2">
+            <div className="space-y-1 sm:col-span-1">
               <Label htmlFor="freq">التكرار</Label>
               <select
                 id="freq"
@@ -489,6 +644,8 @@ function Editor({ companyId }: { companyId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {!loading && <NextStepCTA kpisCount={kpis.length} hasUnsavedForm={hasUnsavedForm} />}
     </>
   )
 }
@@ -618,7 +775,7 @@ function KPICard({
                     <div className="flex flex-wrap gap-1">
                       {meta.pathFit.map((p) => (
                         <span key={p} className="rounded-full border bg-card px-1.5 py-0.5 text-[9px]">
-                          {p === 'QUICK' ? '⚡ سريع' : p === 'MEDIUM' ? '🎯 متوسط' : '🔭 طويل'}
+                          {p === 'QUICK' ? '⚡ تشغيلي' : p === 'MEDIUM' ? '🎯 تكتيكي' : '🔭 استراتيجي'}
                         </span>
                       ))}
                     </div>

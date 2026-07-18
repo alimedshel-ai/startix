@@ -432,7 +432,7 @@ const DUPONT_DEFAULTS: DupontDraft = {
   equity: 400_000,
 }
 
-function DupontCard({
+export function DupontCard({
   companyId,
   initial,
   onSaved,
@@ -564,7 +564,7 @@ const MC_DEFAULTS: MonteCarloDraft = {
   iterations: 10_000,
 }
 
-function MonteCarloCard({
+export function MonteCarloCard({
   companyId,
   initial,
   onSaved,

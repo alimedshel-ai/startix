@@ -119,7 +119,18 @@ export function ClientsPage() {
       <PageHeader
         title="عملائي"
         description={`تشرف على إدارة ${specialtyLabel} عبر ${summary.total} عميلاً.`}
+        actions={
+          <Link
+            to="/manager/clients/add"
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
+          >
+            ➕ أضف عميلاً
+          </Link>
+        }
       />
+
+      {/* 🧭 «إلى أين أذهب الآن؟» — بطاقة توجيه ذكيّة أعلى الصفحة */}
+      <NextActionHero data={data} sortedClients={sortedClients} />
 
       {/* 🗺️ للمدير الجديد — يشرح رحلة التخطيط قبل ما يشوف الأرقام */}
       {isNewUser && (
@@ -309,18 +320,76 @@ function SortButton({
   )
 }
 
+// ─── حالة الإنجاز لكل عميل ─────────────────────────────────────
+// جديد: لا تدقيق. في تقدّم: تدقيق + منطقة غير خضراء. منجز: منطقة خضراء.
+type ClientStatus = 'new' | 'inProgress' | 'completed'
+
+function statusOf(c: OverviewClient): ClientStatus {
+  if (!c.hasAnyAudit) return 'new'
+  if (c.dangerZone === 'GREEN' && (c.healthPct ?? 0) >= 70) return 'completed'
+  return 'inProgress'
+}
+
+const STATUS_META: Record<ClientStatus, {
+  labelAr: string
+  emoji: string
+  chipClass: string
+  cardClass: string
+  buttonClass: string
+  buttonLabel: string
+  hintAr: string
+}> = {
+  new: {
+    labelAr: 'ابدأ الرحلة',
+    emoji: '🚀',
+    chipClass: 'border-sky-400 bg-sky-100 text-sky-800',
+    cardClass: 'border-sky-200',
+    buttonClass: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    buttonLabel: '🚀 ابدأ الرحلة',
+    hintAr: 'عميل جديد — يحتاج تدقيقاً أوّلياً لتبدأ خطته.',
+  },
+  inProgress: {
+    labelAr: 'قيد العمل',
+    emoji: '▶',
+    chipClass: 'border-amber-400 bg-amber-100 text-amber-800',
+    cardClass: 'border-amber-200',
+    buttonClass: 'border bg-card hover:bg-accent',
+    buttonLabel: '▶ متابعة',
+    hintAr: 'العمل جارٍ — أكمِل مراحل الخطّة أو حسّن الصحّة.',
+  },
+  completed: {
+    labelAr: 'منجز',
+    emoji: '✅',
+    chipClass: 'border-emerald-500 bg-emerald-100 text-emerald-900',
+    cardClass: 'border-emerald-300 bg-emerald-50/30',
+    buttonClass: 'border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50',
+    buttonLabel: '📝 عرض / تحرير',
+    hintAr: 'الإدارة في المنطقة الخضراء — الخطّة منجزة. تُفتَح للتحرير فقط.',
+  },
+}
+
 function ClientCard({ client }: { client: OverviewClient }) {
   const zoneClass = client.dangerZone ? dangerZoneColor(client.dangerZone) : 'text-muted-foreground bg-muted border-border'
+  const status = statusOf(client)
+  const sm = STATUS_META[status]
   return (
     <Card
-      className={`transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`transition hover:-translate-y-0.5 hover:shadow-md ${sm.cardClass} ${
         client.dangerZone === 'RED' ? 'border-rose-300 shadow-rose-100/60' : ''
       }`}
     >
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold">{client.companyName}</h3>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${sm.chipClass}`}>
+                {sm.emoji} {sm.labelAr}
+              </span>
+              {status === 'completed' && (
+                <span className="text-[10px] text-emerald-700">لا حاجة لإجراء</span>
+              )}
+            </div>
+            <h3 className="mt-1 truncate text-base font-semibold">{client.companyName}</h3>
             <p className="text-xs text-muted-foreground">
               {client.sector ?? 'قطاع غير محدّد'} · {sizeLabel(client.size)}
               {client.stage ? ` · ${client.stage}` : ''}
@@ -358,13 +427,17 @@ function ClientCard({ client }: { client: OverviewClient }) {
           </div>
         )}
 
+        <div className="rounded-md border border-dashed bg-card/40 px-2 py-1 text-[10px] text-muted-foreground">
+          {sm.hintAr}
+        </div>
+
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">{DEPT_LABEL[client.specialty]}</span>
           <Link
             to={`/manager/clients/${client.companyId}`}
-            className="rounded-md border bg-card px-2.5 py-1.5 transition hover:bg-accent"
+            className={`rounded-md px-2.5 py-1.5 font-medium transition ${sm.buttonClass}`}
           >
-            فتح العميل ←
+            {sm.buttonLabel}
           </Link>
         </div>
       </CardContent>
@@ -387,5 +460,134 @@ function zoneLabel(zone: DangerZone): string {
     case 'YELLOW': return 'أصفر'
     case 'ORANGE': return 'برتقالي'
     case 'RED':    return 'أحمر'
+  }
+}
+
+// ─── NextActionHero — «إلى أين أذهب الآن؟» ───────────────────────
+// بطاقة توجيه ذكيّة أعلى الصفحة. تقرأ حالة كل العملاء وتقترح
+// خطوة *واحدة* واضحة — بدلاً من ترك المدير أمام قائمة بلا سياق.
+//
+// المنطق (بالأولويّة):
+//   1. لا عملاء       → أضف أوّل عميل (البداية)
+//   2. منطقة حمراء    → تدخّل عاجل على العميل الأخطر
+//   3. بلا تدقيق      → ابدأ رحلة العميل الأوّل بلا تدقيق
+//   4. تدقيق قديم     → راجع أقدم عميل مُدقَّق
+//   5. الكل بخير      → مراجعة أسبوعيّة أو إضافة عميل جديد
+
+function NextActionHero({
+  data, sortedClients,
+}: { data: ProOverviewResponse; sortedClients: OverviewClient[] }) {
+  const suggestion = deriveNextAction(data, sortedClients)
+  return (
+    <Card className={`overflow-hidden border-2 ${suggestion.borderClass} ${suggestion.bgClass}`}>
+      <CardContent className="flex flex-wrap items-center gap-4 p-4">
+        <div className="text-4xl">{suggestion.icon}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            🧭 إلى أين أذهب الآن؟
+          </div>
+          <div className="mt-0.5 text-base font-bold">{suggestion.title}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            {suggestion.reason}
+          </div>
+        </div>
+        <Link
+          to={suggestion.to}
+          className={`inline-flex shrink-0 items-center gap-1 rounded-md px-4 py-2 text-sm font-medium shadow-sm transition ${suggestion.buttonClass}`}
+        >
+          {suggestion.cta} ←
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
+
+interface NextAction {
+  icon: string
+  title: string
+  reason: string
+  to: string
+  cta: string
+  borderClass: string
+  bgClass: string
+  buttonClass: string
+}
+
+function deriveNextAction(data: ProOverviewResponse, sortedClients: OverviewClient[]): NextAction {
+  const { summary } = data
+
+  // ١) لا عملاء
+  if (summary.total === 0) {
+    return {
+      icon: '🚀',
+      title: 'ابدأ بإضافة عميلك الأوّل',
+      reason: 'المنصّة مصمّمة لتُدير عدّة عملاء. لكن قبل كل شيء — عميل واحد ابتداءً يفتح كل الأدوات.',
+      to: '/manager/clients/add',
+      cta: 'أضف عميلاً',
+      borderClass: 'border-sky-400',
+      bgClass: 'bg-gradient-to-l from-sky-100 to-sky-50/40',
+      buttonClass: 'bg-sky-600 text-white hover:bg-sky-700',
+    }
+  }
+
+  // ٢) منطقة حمراء — الأولويّة القصوى
+  const redClient = sortedClients.find((c) => c.dangerZone === 'RED')
+  if (redClient) {
+    return {
+      icon: '🔴',
+      title: `تدخّل عاجل: ${redClient.companyName}`,
+      reason: `صحّة الإدارة ${redClient.healthPct}٪ — المنطقة الحمراء تستلزم خطّة إنقاذ فوريّة. لا تؤجّل.`,
+      to: `/manager/clients/${redClient.companyId}`,
+      cta: 'افتح لوحة العميل',
+      borderClass: 'border-rose-500',
+      bgClass: 'bg-gradient-to-l from-rose-100 to-rose-50/40',
+      buttonClass: 'bg-rose-600 text-white hover:bg-rose-700',
+    }
+  }
+
+  // ٣) بلا تدقيق
+  if (summary.unaudited > 0) {
+    const noAudit = sortedClients.find((c) => !c.hasAnyAudit)
+    if (noAudit) {
+      return {
+        icon: '🎯',
+        title: `ابدأ رحلة ${noAudit.companyName}`,
+        reason: `${summary.unaudited} عميل بلا تدقيق. عميل غير مُدقَّق = بيانات مفقودة = قرارات ضبابيّة.`,
+        to: `/manager/clients/${noAudit.companyId}`,
+        cta: 'ابدأ التدقيق',
+        borderClass: 'border-amber-400',
+        bgClass: 'bg-gradient-to-l from-amber-100 to-amber-50/40',
+        buttonClass: 'bg-amber-600 text-white hover:bg-amber-700',
+      }
+    }
+  }
+
+  // ٤) تدقيق قديم
+  if (summary.staleCount > 0) {
+    const stale = sortedClients.find((c) => c.daysSinceLastAudit != null && c.daysSinceLastAudit > 30)
+    if (stale) {
+      return {
+        icon: '⏰',
+        title: `تدقيق قديم: ${stale.companyName}`,
+        reason: `آخر تدقيق قبل ${stale.daysSinceLastAudit} يوم. ${summary.staleCount} عملاء بحاجة إعادة تدقيق دوري.`,
+        to: `/manager/clients/${stale.companyId}`,
+        cta: 'أعد التدقيق',
+        borderClass: 'border-orange-400',
+        bgClass: 'bg-gradient-to-l from-orange-100 to-orange-50/40',
+        buttonClass: 'bg-orange-600 text-white hover:bg-orange-700',
+      }
+    }
+  }
+
+  // ٥) الكل بخير — تابع تنفيذ المبادرات
+  return {
+    icon: '✅',
+    title: 'كل عملائك في وضع جيّد',
+    reason: `صحّة متوسّطة ${summary.avgHealth ?? '—'}٪ عبر ${summary.total} عميلاً. الوقت مناسب لمتابعة تنفيذ المبادرات الجارية.`,
+    to: '/execute',
+    cta: 'متابعة المبادرات',
+    borderClass: 'border-emerald-400',
+    bgClass: 'bg-gradient-to-l from-emerald-100 to-emerald-50/40',
+    buttonClass: 'bg-emerald-600 text-white hover:bg-emerald-700',
   }
 }

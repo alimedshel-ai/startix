@@ -21,7 +21,10 @@ export const listObjectives: RequestHandler = async (req, res, next) => {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
-    const rows = await prisma.objective.findMany({ where: { companyId }, include: { okrs: true } });
+    const rows = await prisma.objective.findMany({
+      where: { companyId },
+      include: { okrs: true, initiatives: true },
+    });
     res.json(rows);
   } catch (err) { next(err); }
 };
@@ -120,6 +123,11 @@ export const deleteOKR: RequestHandler = async (req, res, next) => {
 };
 
 // ─── KPIs ───────────────────────────────────────────────────────────────────
+// Phase 1 — عمود القياس:
+//   baselineValue: نقطة انطلاق منحنى S (اختياريّة، افتراضياً = currentValue).
+//   expectedPath:  مصفوفة نقاط شهريّة { month, value } مولّدة آليّاً بمنحنى S،
+//                  قابلة للتعديل يدوياً محطّةً بمحطّة.
+//   startedAt:     تاريخ بدء المسار — يحدّد الشهر «الحالي» على المنحنى.
 const kpiCreate = z.object({
   companyId: z.string().uuid(),
   departmentId: z.string().uuid().optional(),
@@ -129,6 +137,9 @@ const kpiCreate = z.object({
   targetValue: z.number(),
   currentValue: z.number().optional(),
   frequency: z.string().min(1).max(40),
+  baselineValue: z.number().optional(),
+  expectedPath: z.array(z.object({ month: z.number().int().min(0), value: z.number() })).optional(),
+  startedAt: z.string().datetime().optional(),
 });
 const kpiUpdate = kpiCreate.partial().omit({ companyId: true });
 
@@ -147,7 +158,15 @@ export const createKPI: RequestHandler = async (req, res, next) => {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const body = kpiCreate.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
-    const row = await prisma.kPI.create({ data: { ...body, currentValue: body.currentValue ?? 0 } });
+    const row = await prisma.kPI.create({
+      data: {
+        ...body,
+        currentValue: body.currentValue ?? 0,
+        // JSON column يحتاج صياغة خاصّة للـ null vs undefined.
+        expectedPath: body.expectedPath ?? undefined,
+        startedAt: body.startedAt ? new Date(body.startedAt) : undefined,
+      },
+    });
     res.status(201).json(row);
   } catch (err) { next(err); }
 };
@@ -160,7 +179,14 @@ export const updateKPI: RequestHandler = async (req, res, next) => {
     const found = await prisma.kPI.findUnique({ where: { id } });
     if (!found) throw new HttpError(404, 'مؤشر الأداء غير موجود');
     await assertCompanyAccess(req.auth.sub, found.companyId);
-    const row = await prisma.kPI.update({ where: { id }, data: body });
+    const row = await prisma.kPI.update({
+      where: { id },
+      data: {
+        ...body,
+        expectedPath: body.expectedPath ?? undefined,
+        startedAt: body.startedAt ? new Date(body.startedAt) : undefined,
+      },
+    });
     res.json(row);
   } catch (err) { next(err); }
 };
@@ -214,19 +240,35 @@ export const createKPIEntry: RequestHandler = async (req, res, next) => {
 // ─── Initiatives ────────────────────────────────────────────────────────────
 const initiativeCreate = z.object({
   companyId: z.string().uuid(),
+  // الجسر الاستراتيجي: ربط المبادرة بهدف علوي (اختياري — nullable لفكّ الربط).
+  objectiveId: z.string().uuid().nullable().optional(),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   status: z.string().optional(),
   priority: z.string().min(1).max(40),
+  // المستوى (من يخطّط) والتكلفة المقدّرة (SAR) — اختياريان.
+  level: z.enum(['operational', 'tactical', 'strategic']).nullish(),
+  cost: z.number().min(0).max(1e12).nullish(),
 });
 const initiativeUpdate = initiativeCreate.partial().omit({ companyId: true });
+
+// يتحقّق أنّ الهدف المُراد ربطه موجود ويخصّ نفس الشركة (منع ربط هدف شركة أخرى).
+async function assertObjectiveInCompany(objectiveId: string, companyId: string) {
+  const obj = await prisma.objective.findUnique({ where: { id: objectiveId } });
+  if (!obj || obj.companyId !== companyId) {
+    throw new HttpError(400, 'الهدف المُختار غير موجود في هذه الشركة.');
+  }
+}
 
 export const listInitiatives: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
-    const rows = await prisma.initiative.findMany({ where: { companyId }, include: { projects: true } });
+    const rows = await prisma.initiative.findMany({
+      where: { companyId },
+      include: { projects: true, objective: true },
+    });
     res.json(rows);
   } catch (err) { next(err); }
 };
@@ -236,7 +278,8 @@ export const createInitiative: RequestHandler = async (req, res, next) => {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const body = initiativeCreate.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
-    const row = await prisma.initiative.create({ data: body });
+    if (body.objectiveId) await assertObjectiveInCompany(body.objectiveId, body.companyId);
+    const row = await prisma.initiative.create({ data: body, include: { objective: true } });
     res.status(201).json(row);
   } catch (err) { next(err); }
 };
@@ -249,7 +292,8 @@ export const updateInitiative: RequestHandler = async (req, res, next) => {
     const found = await prisma.initiative.findUnique({ where: { id } });
     if (!found) throw new HttpError(404, 'المبادرة غير موجودة');
     await assertCompanyAccess(req.auth.sub, found.companyId);
-    const row = await prisma.initiative.update({ where: { id }, data: body });
+    if (body.objectiveId) await assertObjectiveInCompany(body.objectiveId, found.companyId);
+    const row = await prisma.initiative.update({ where: { id }, data: body, include: { objective: true } });
     res.json(row);
   } catch (err) { next(err); }
 };
@@ -341,11 +385,16 @@ const taskCreate = z.object({
   companyId: z.string().uuid(),
   projectId: z.string().uuid().optional(),
   assigneeId: z.string().uuid().optional(),
+  // الجهة المنفّذة (نصّ حرّ) — nullable ليُمكن مسحها في التحديث.
+  owner: z.string().max(120).nullish(),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   status: z.string().optional(),
   priority: z.string().optional(),
   dueDate: z.string().datetime().nullish(),
+  // المستوى والتكلفة المقدّرة (SAR) — اختياريان.
+  level: z.enum(['operational', 'tactical', 'strategic']).nullish(),
+  cost: z.number().min(0).max(1e12).nullish(),
 });
 const taskUpdate = taskCreate.partial().omit({ companyId: true });
 

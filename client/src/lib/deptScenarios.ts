@@ -199,9 +199,9 @@ export const DEPT_SCENARIO_BANK: Record<DeptCode, DeptScenarioBank> = {
 
 // المسار يحدّد أفق الإسقاط.
 export function pathHorizon(path: StrategyPath | null): { years: number; label: string; icon: string } {
-  if (path === 'QUICK')  return { years: 1, label: 'سريع ٠-١٢ شهر', icon: '⚡' }
-  if (path === 'MEDIUM') return { years: 3, label: 'متوسّط ١-٣ سنوات', icon: '🎯' }
-  return { years: 5, label: 'طويل ٣-٥+ سنوات', icon: '🔭' }
+  if (path === 'QUICK')  return { years: 1, label: 'تشغيلي (قصير) ٠-١٢ شهر', icon: '⚡' }
+  if (path === 'MEDIUM') return { years: 3, label: 'تكتيكي (متوسّط) ١-٣ سنوات', icon: '🎯' }
+  return { years: 5, label: 'استراتيجي (طويل) ٣-٥+ سنوات', icon: '🔭' }
 }
 
 // ترتيب البريستات (رقم الأولوية) حسب المسار.

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+
+import { NextStepCard } from '@/components/strategic/NextStepCard'
 
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -566,8 +568,12 @@ function normalize(raw: unknown): Record<string, QAValue> {
   return out
 }
 
-export function DeepAnalysisPage() {
+// embedded=true عند تضمينها داخل DeptDeepPage — نُخفي بطاقة «الخطوة التالية»
+// تفادياً لتكرارها (الحاوية تعرض بطاقتها الخاصّة).
+export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
   const user = useAuthStore((s) => s.user)
+  const [sp] = useSearchParams()
+  const clientQuery = sp.get('client') ? `?client=${sp.get('client')}` : ''
   const scope = useClientScopedCompany()
   const company = scope.company
   const specialty = (user?.specialtyDeptType ?? null) as DeptCode | null
@@ -1099,6 +1105,9 @@ export function DeepAnalysisPage() {
           {saving ? 'جاري الحفظ…' : `حفظ الآن (${answered} إجابة${customQuestions.length > 0 ? ` + ${customQuestions.length} مخصّص` : ''})`}
         </Button>
       </div>
+
+      {/* بطاقة «① التحليل — عدسات اختياريّة». تُخفى عند التضمين في DeptDeepPage. */}
+      {!embedded && <NextStepCard clientQuery={clientQuery} companyId={company.id} />}
     </div>
   )
 }

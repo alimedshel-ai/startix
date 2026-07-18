@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { OpexHint } from '@/components/OpexHint'
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -46,6 +46,13 @@ const CLASSIC_PERSPECTIVES: {
 ]
 
 export function BSCPage() {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/measure?tab=bsc${q}`} replace />
+}
+
+export function BSCView({ companyId }: { companyId: string }) {
   const user = useAuthStore((s) => s.user)
   const isDeptScoped =
     user?.userType === 'MANAGER' &&
@@ -53,20 +60,36 @@ export function BSCPage() {
     user?.specialtyDeptType != null &&
     DEPT_BSC_BANK[user.specialtyDeptType] != null
   const specialty = user?.specialtyDeptType ?? null
-  const title = isDeptScoped
-    ? `Balanced Scorecard — ${DEPT_LABEL[specialty as DeptCode]}`
-    : 'Balanced Scorecard (BSC)'
-  const description = isDeptScoped
-    ? '٤ أبعاد مُعاد تفسيرها لإدارتك: مالي (وفر) · عملاء (مستفيدو خدمتك) · داخلي (عملياتك) · تعلّم (فريقك).'
-    : '٤ أبعاد مترابطة لتحويل الاستراتيجية إلى قياس متوازن.'
+  return isDeptScoped
+    ? <DeptEditor companyId={companyId} specialty={specialty as DeptCode} />
+    : <ClassicEditor companyId={companyId} />
+}
+
+// شريط تنقّل صغير أعلى المحتوى — الطريق الطبيعي: BSC ← → الأهداف الاستراتيجيّة.
+function CrossNavBar() {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const qs = client ? `&client=${client}` : ''
   return (
-    <StrategicShell title={title} description={description}>
-      {(companyId) =>
-        isDeptScoped
-          ? <DeptEditor companyId={companyId} specialty={specialty as DeptCode} />
-          : <ClassicEditor companyId={companyId} />
-      }
-    </StrategicShell>
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2 text-xs">
+      <span className="text-muted-foreground">
+        💡 BSC يُغذّي الأهداف الاستراتيجيّة — يمكنك الاستيراد من هناك.
+      </span>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to={`/measure?tab=objectives${qs}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+        >
+          🎯 الأهداف الاستراتيجيّة ←
+        </Link>
+        <Link
+          to={`/measure?tab=kpis${qs}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-2.5 py-1 font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          📊 KPIs ←
+        </Link>
+      </div>
+    </div>
   )
 }
 
@@ -111,6 +134,7 @@ function ClassicEditor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <CrossNavBar />
       <OpexHint opex={company?.opex} focus={['target', 'budget']} title="OPEX يُغذّي البُعد المالي" />
 
       <Card>
@@ -141,6 +165,8 @@ function ClassicEditor({ companyId }: { companyId: string }) {
           />
         ))}
       </div>
+
+      <NextStepCTA />
     </>
   )
 }
@@ -308,6 +334,7 @@ function DeptEditor({ companyId, specialty }: { companyId: string; specialty: De
 
   return (
     <>
+      <CrossNavBar />
       {/* شارة السياق — يوضّح إعادة التفسير */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex flex-wrap items-center gap-3 p-3 text-xs">
@@ -316,7 +343,7 @@ function DeptEditor({ companyId, specialty }: { companyId: string; specialty: De
           </span>
           {strategyPath && (
             <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
-              {strategyPath === 'QUICK' ? '⚡ مسارك: سريع' : strategyPath === 'MEDIUM' ? '🎯 مسارك: متوسط' : '🔭 مسارك: طويل'}
+              {strategyPath === 'QUICK' ? '⚡ مسارك: تشغيلي (قصير)' : strategyPath === 'MEDIUM' ? '🎯 مسارك: تكتيكي (متوسّط)' : '🔭 مسارك: استراتيجي (طويل)'}
             </span>
           )}
           <span className="text-muted-foreground">
@@ -384,13 +411,41 @@ function DeptEditor({ companyId, specialty }: { companyId: string; specialty: De
           )
         })}
       </div>
+
+      {/* الخطوة التاليّة — CTA لنقل البُعد ‎objectives‎ إلى صفحة الأهداف. */}
+      <NextStepCTA />
     </>
+  )
+}
+
+// بطاقة CTA خضراء في نهاية BSC — تدفع المستخدم للخطوة التاليّة (الأهداف).
+function NextStepCTA() {
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const qs = client ? `&client=${client}` : ''
+  return (
+    <Card className="border-2 border-emerald-300 bg-emerald-50/40">
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="text-base text-emerald-900">✓ حفظت BSC — الخطوة التاليّة</CardTitle>
+          <CardDescription>
+            انتقل إلى تبويب «الأهداف الاستراتيجيّة» — يوجد زر «⚖️ استورد من BSC» يجلب كل ما كتبته هنا كأهداف SMART.
+          </CardDescription>
+        </div>
+        <Link
+          to={`/measure?tab=objectives${qs}`}
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+        >
+          🎯 الأهداف الاستراتيجيّة ←
+        </Link>
+      </CardHeader>
+    </Card>
   )
 }
 
 // ─── بطاقة بُعد (تشترك بين Classic و Dept) ──────────────────────
 function PerspectiveCard({
-  k, labelAr, icon, descAr, accent, data, onField, suggestions, rank,
+  labelAr, icon, descAr, accent, data, onField, suggestions, rank,
 }: {
   k: PerspectiveKey
   labelAr: string

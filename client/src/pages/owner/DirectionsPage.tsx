@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { OutsideRescueBanner } from '@/components/manager/OutsideRescueBanner'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,6 +55,8 @@ export function DirectionsPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const [searchParams] = useSearchParams()
+  const isRescueMode = searchParams.get('from') === 'emergency'
   const [data, setData] = useState<DirectionsData>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -153,6 +156,14 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {/* 🚨 تحذير: خارج مسار الإنقاذ الرباعيّ */}
+      {isRescueMode && (
+        <OutsideRescueBanner
+          companyId={companyId}
+          toolName="التوجّه الاستراتيجي"
+          whyOutside="اختيار اتّجاه استراتيجيّ يفترض الاستقرار. في المنطقة الحمراء، الإنقاذ أوّلاً قبل قرار الاتّجاه."
+        />
+      )}
       <div className="grid gap-3 md:grid-cols-2">
         {data.directions.map((d) => {
           const s = score(d)

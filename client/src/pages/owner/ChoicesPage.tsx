@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { OutsideRescueBanner } from '@/components/manager/OutsideRescueBanner'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -81,6 +82,8 @@ export function ChoicesPage() {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const [searchParams] = useSearchParams()
+  const isRescueMode = searchParams.get('from') === 'emergency'
   const [directions, setDirections] = useState<DirectionLite[]>([])
   const [choice, setChoice] = useState<ChoiceData>(EMPTY)
   const [swot, setSwot] = useState<SWOT | null>(null)
@@ -326,6 +329,14 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {/* 🚨 تحذير: خارج مسار الإنقاذ الرباعيّ */}
+      {isRescueMode && (
+        <OutsideRescueBanner
+          companyId={companyId}
+          toolName="القرار الاستراتيجي"
+          whyOutside="اختيار قرار استراتيجيّ ملزم في المنطقة الحمراء = مقامرة. أوقف النزيف واستقرّ ثم قرّر."
+        />
+      )}
       {/* شريط علوي مضغوط: خطوات + جاهزية + فلترة */}
       <StepStrip
         currentStep={currentStep}
@@ -1207,9 +1218,9 @@ function scoreDirection(
   else if (quadrant === 'ST') reasons.push('في الربع الدفاعي — يوظّف القوّة ضدّ تهديد.')
   else if (quadrant === 'WT') reasons.push('في الربع التقليصي — قرار حماية عند مواجهة تهديد وضعف معاً.')
   if (path && pathPreference[path].includes(category)) {
-    reasons.push(`فئته «${CATEGORY_META[category].labelAr}» تناسب مسارك ${path === 'QUICK' ? 'السريع (٠-٣ شهر)' : path === 'MEDIUM' ? 'المتوسط (٣-١٢ شهر)' : 'الطويل (١٢-٣٦+ شهر)'}.`)
+    reasons.push(`فئته «${CATEGORY_META[category].labelAr}» تناسب مسارك ${path === 'QUICK' ? 'التشغيلي (٠-٣ شهر)' : path === 'MEDIUM' ? 'التكتيكي (٣-١٢ شهر)' : 'الاستراتيجي (١٢-٣٦+ شهر)'}.`)
   }
-  if (riskCount > supportCount) reasons.push(`⚠️ عدد المخاطر (${riskCount}) أكبر من الدعم — يحتاج خطة تنفيذ حذرة.`)
+  if (riskCount > supportCount) reasons.push(`⚠️ عدد المخاطر (${riskCount}) أكبر من الدعم — يحتاج خطوة تنفيذ حذرة.`)
   if (reasons.length === 0) reasons.push('تقييم متوسط — مراجعة يدوية مستحسنة.')
 
   return {

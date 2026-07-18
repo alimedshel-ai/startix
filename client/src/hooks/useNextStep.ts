@@ -101,8 +101,8 @@ export function useNextStep(): { loading: boolean; step: NextStep | null } {
         loading: false,
         step: {
           label: 'أنشئ مبادرات فورية',
-          to: `/initiatives${clientQS}`,
-          reason: 'مسارك السريع يتجاوز التوجّه/المؤشرات ويقفز للتنفيذ.',
+          to: `/priority${clientQS}`,
+          reason: 'مسارك التشغيلي (قصير الأمد) يتجاوز التوجّه/المؤشرات ويقفز للتنفيذ.',
           icon: '💡',
           stageId: 'initiatives',
         },
@@ -132,8 +132,8 @@ export function useNextStep(): { loading: boolean; step: NextStep | null } {
         loading: false,
         step: {
           label: 'حوّل القرار إلى مبادرات',
-          to: `/initiatives${clientQS}`,
-          reason: 'مسارك المتوسّط يتجاوز المؤشرات ويربط القرار بالتنفيذ.',
+          to: `/priority${clientQS}`,
+          reason: 'مسارك التكتيكي (متوسّط الأمد) يتجاوز المؤشرات ويربط القرار بالتنفيذ.',
           icon: '💡',
           stageId: 'initiatives',
         },
@@ -148,7 +148,7 @@ export function useNextStep(): { loading: boolean; step: NextStep | null } {
       loading: false,
       step: {
         label: 'حدّد الأهداف والمؤشرات',
-        to: `/objectives${clientQS}`,
+        to: `/measure${clientQS}`,
         reason: 'المرحلة ④ — ترجم الاستراتيجية إلى أهداف قابلة للقياس.',
         icon: '📊',
         stageId: 'indicators',
@@ -162,7 +162,7 @@ export function useNextStep(): { loading: boolean; step: NextStep | null } {
       loading: false,
       step: {
         label: 'أطلق المبادرات',
-        to: `/initiatives${clientQS}`,
+        to: `/priority${clientQS}`,
         reason: 'المرحلة ⑤ — حوّل الأهداف إلى مبادرات مرتّبة بالأولوية.',
         icon: '💡',
         stageId: 'initiatives',
@@ -179,8 +179,8 @@ function finalExecutionStep(clientQS: string): { loading: boolean; step: NextSte
     loading: false,
     step: {
       label: 'راجع التنفيذ',
-      to: `/gantt-chart${clientQS}`,
-      reason: 'المرحلة ⑥ — تابع التنفيذ عبر مخطط جانت والمهام.',
+      to: `/execute${clientQS}`,
+      reason: 'المرحلة ⑥ — تابع التنفيذ عبر المشاريع ومخطّط جانت والمهام.',
       icon: '🚀',
       stageId: 'execution',
     },

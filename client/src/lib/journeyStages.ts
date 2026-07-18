@@ -60,9 +60,16 @@ export const JOURNEY_STAGES: JourneyStage[] = [
       '/manager/dept-deep',
       '/manager/deep-analysis',
     ],
+    // ⚠️ الترتيب = خطّ التحليل الخطّي (لا يلفّ):
+    //   البيئة الداخلية → PESTEL → التحليل العميق → سلسلة القيمة → [②SWOT]
+    // سلسلة القيمة آخر أداة تحليل عمداً: بعدها يتقدّم المدير لمرحلة التوليف
+    // (SWOT) بدل التنقّل بين أدوات موازية. والتحليل العميق يسبق سلسلة القيمة
+    // مباشرةً لأنه يغذّيها (deepAnalysisToVC).
     starredPaths: [
-      '/internal-environment', '/value-chain',
-      '/pestel', '/manager/dept-pestel', '/manager/deep-analysis',
+      '/internal-environment',
+      '/pestel', '/manager/dept-pestel',
+      '/manager/deep-analysis',
+      '/value-chain',
     ],
     completionArtifacts: [
       'INTERNAL_ENV',
@@ -126,9 +133,10 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     descAr: 'الأهداف الاستراتيجية، OKRs، KPIs، OGSM، الخريطة السببية.',
     icon: '📊',
     accent: 'emerald',
-    toolPaths: ['/objectives', '/okrs', '/ogsm', '/kpis', '/kpi-entries', '/annual-plan', '/bsc'],
-    starredPaths: ['/kpis', '/objectives', '/bsc'],
-    // Objectives/OKRs/KPIs موديلات مستقلة — R5.3 يفحصها بشكل خاص.
+    // Hub `/measure` يحوي ٧ أدوات في تبويبات: Objectives, OKRs, OGSM,
+    // KPIs, BSC, KPI Entries, Annual Plan. الاكتمال يُقاس بالـ artifacts.
+    toolPaths: ['/measure'],
+    starredPaths: ['/measure'],
     completionArtifacts: ['OGSM', 'ANNUAL_PLAN', 'BSC'],
   },
   {
@@ -139,15 +147,10 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     descAr: 'مبادرات مرتّبة بالأولوية + مصفوفة مخاطر + محاكاة سيناريوهات.',
     icon: '💡',
     accent: 'violet',
-    toolPaths: [
-      '/initiatives', '/priority-matrix', '/risk-map',
-      // R6 — أيزنهاور و RACI ينتميان للمرحلة ٥ (المبادرات والمسؤوليات).
-      '/eisenhower', '/raci', '/projects',
-      // مختبر المحاكاة يحتاج Claude API (PROFESSIONAL) — نُبقيه في نهاية
-      // المرحلة كأداة اختيارية بدل عرقلة المسار بأداة قد لا تعمل بالحدّ الأدنى.
-      '/ai/simulation',
-    ],
-    starredPaths: ['/initiatives', '/raci', '/eisenhower'],
+    // Hub `/priority` يحوي Initiatives + Priority Matrix + Eisenhower +
+    // Risk Map + RACI في تبويبات. مختبر المحاكاة مساند خارج التبويب.
+    toolPaths: ['/priority', '/ai/simulation'],
+    starredPaths: ['/priority'],
     completionArtifacts: ['PRIORITY_MATRIX', 'RISK_REGISTER', 'EISENHOWER', 'RACI'],
   },
   {
@@ -155,11 +158,12 @@ export const JOURNEY_STAGES: JourneyStage[] = [
     order: 6,
     locked: false,
     labelAr: '⑥ التنفيذ والمتابعة',
-    descAr: 'مخطط جانت، المهام، لوحة حية، تقارير ذكية.',
+    descAr: 'المشاريع، مخطط جانت، المهام — كلها في مركز واحد.',
     icon: '🚀',
     accent: 'orange',
-    toolPaths: ['/gantt-chart', '/tasks', '/ai-center'],
-    starredPaths: ['/gantt-chart'],
+    // Hub `/execute` يحوي Projects + Gantt + Tasks في تبويبات.
+    toolPaths: ['/execute'],
+    starredPaths: ['/execute'],
     completionArtifacts: [],
   },
 ]
@@ -199,10 +203,20 @@ export function canOpenStage(
 }
 
 /**
- * ما التقدّم الكلّي؟ نسبة مئوية = عدد المكتَمِلة ÷ عدد المقفلة.
+ * ما التقدّم الكلّي؟ نسبة مئوية = المكتَمِلة ÷ المقفلة **داخل مسار المستخدم**.
+ *
+ * ⚠️ إصلاح «الرقم الكاذب»: بلا وعي بالمسار كان المقام دائماً ٤ مراحل مقفلة،
+ * فمستخدم QUICK (مرحلتان مقفلتان في مساره) لا يبلغ ١٠٠٪ أبداً — يعلق تحته
+ * مهما أكمل، بينما useNextStep واعٍ بالمسار ويقفز فوق الزائدتين. تمرير `path`
+ * يجعل المقام = المراحل المقفلة داخل المسار فقط، فيتّسق الرقمان.
+ *
+ * `path` اختياري: null/غياب → تُحسب كل المراحل المقفلة (سلوك قديم، للتوافق).
  */
-export function overallProgressPct(completions: Record<StageId, boolean>): number {
-  const locked = JOURNEY_STAGES.filter((s) => s.locked)
+export function overallProgressPct(
+  completions: Record<StageId, boolean>,
+  path?: StrategyPath | null,
+): number {
+  const locked = JOURNEY_STAGES.filter((s) => s.locked && isStageInPath(s.id, path))
   const done = locked.filter((s) => completions[s.id]).length
   return locked.length ? Math.round((done / locked.length) * 100) : 0
 }
@@ -259,4 +273,23 @@ export function isStageInPath(stageId: StageId, path: StrategyPath | null | unde
 export function stagesForPath(path: StrategyPath | null | undefined): StageId[] {
   if (!path) return JOURNEY_STAGES.map((s) => s.id)
   return PATH_STAGES[path]
+}
+
+// ─── مستوى الأداة — هويّة مشتقّة، بلا بيانات جديدة ────────────────
+// مستوى أي مرحلة = أدنى مسار يشملها في PATH_STAGES:
+//   directions موجودة في MEDIUM/LONG فقط → «تكتيكي».
+//   indicators في LONG وحده → «استراتيجي».
+//   الباقي في الجميع → «تشغيلي».
+// يُستعمل لوسم الأدوات فوق مستوى خطة المستخدم بهويّتها (لا مجرّد «خارج مسارك»).
+
+export function stageLevel(stageId: StageId): StrategyPath {
+  if (PATH_STAGES.QUICK.includes(stageId)) return 'QUICK'
+  if (PATH_STAGES.MEDIUM.includes(stageId)) return 'MEDIUM'
+  return 'LONG'
+}
+
+export const STAGE_LEVEL_LABEL: Record<StrategyPath, string> = {
+  QUICK:  'تشغيلي',
+  MEDIUM: 'تكتيكي',
+  LONG:   'استراتيجي',
 }

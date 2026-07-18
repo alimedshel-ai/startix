@@ -8,8 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { homeFor } from '@/components/layouts/nav'
 import { api, apiErrorMessage } from '@/lib/api'
-import { ENTITY_TYPES, ONBOARDING_GOALS, ONBOARDING_PAINS, SECTORS } from '@/lib/onboardingOptions'
+import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { EXPERIENCE_OPTIONS, TEAM_SIZE_OPTIONS, TOOLING_OPTIONS } from '@/lib/managerInvestorQuestions'
+import { ONBOARDING_GOALS, ONBOARDING_PAINS } from '@/lib/onboardingOptions'
+import type { GoalCode, PainCode } from '@/types/user'
 import { useAuthStore } from '@/store/authStore'
+import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { OpexData, StrategyPath, User } from '@/types/user'
 
 // ─── R1.3 — /onboarding: 4 شرائح بعد التسجيل ────────────────────────
@@ -37,6 +41,40 @@ interface FormState {
 
 const EMPTY: FormState = { opex: {}, pains: [], goals: [] }
 
+// ─── خريطة الآلام الشائعة لكل تخصّص (top 3) ─────────────────────
+const SPECIALTY_TOP_PAINS: Record<DeptCode, PainCode[]> = {
+  HR:               ['team_lost', 'no_alignment', 'no_time'],
+  FINANCE:          ['no_data', 'no_budget', 'no_kpis'],
+  SALES:            ['no_kpis', 'no_data', 'no_alignment'],
+  MARKETING:        ['no_data', 'no_kpis', 'no_budget'],
+  OPERATIONS:       ['no_alignment', 'no_time', 'no_data'],
+  IT:               ['no_data', 'no_time', 'no_budget'],
+  CUSTOMER_SERVICE: ['team_lost', 'no_alignment', 'no_kpis'],
+  SUPPORT:          ['no_time', 'team_lost', 'no_kpis'],
+  LOGISTICS:        ['no_alignment', 'no_data', 'no_time'],
+  QUALITY:          ['no_kpis', 'no_data', 'no_alignment'],
+  PROJECTS:         ['no_alignment', 'no_time', 'team_lost'],
+  GOVERNANCE:       ['no_alignment', 'no_data', 'no_kpis'],
+  COMPLIANCE:       ['no_data', 'no_time', 'no_kpis'],
+}
+
+// ─── خريطة الأهداف الشائعة لكل تخصّص (top 3) ────────────────────
+const SPECIALTY_TOP_GOALS: Record<DeptCode, GoalCode[]> = {
+  HR:               ['team', 'alignment', 'kpis'],
+  FINANCE:          ['kpis', 'reports', 'improve'],
+  SALES:            ['kpis', 'plan', 'improve'],
+  MARKETING:        ['kpis', 'plan', 'improve'],
+  OPERATIONS:       ['kpis', 'alignment', 'improve'],
+  IT:               ['kpis', 'reports', 'improve'],
+  CUSTOMER_SERVICE: ['kpis', 'team', 'improve'],
+  SUPPORT:          ['kpis', 'team', 'improve'],
+  LOGISTICS:        ['kpis', 'alignment', 'improve'],
+  QUALITY:          ['kpis', 'reports', 'improve'],
+  PROJECTS:         ['plan', 'alignment', 'kpis'],
+  GOVERNANCE:       ['reports', 'alignment', 'swot'],
+  COMPLIANCE:       ['reports', 'kpis', 'alignment'],
+}
+
 // شريحة ٤: خيارات المسار الاستراتيجي.
 const PATH_OPTIONS: {
   code: StrategyPath
@@ -51,9 +89,9 @@ const PATH_OPTIONS: {
   {
     code: 'QUICK',
     icon: '⚡',
-    labelAr: 'سريع',
+    labelAr: 'تشغيلي (قصير الأمد)',
     timeAr: '٠–٣ شهور',
-    focusAr: 'تشخيص + مبادرات فورية',
+    focusAr: 'تشخيص + مبادرات فورية — تنفيذ يومي',
     stagesAr: 'المراحل: ① ② ⑤ ⑥',
     toolsAr: '~٣ أدوات أساسية',
     colorClass: 'border-amber-400 hover:border-amber-500 bg-amber-50/40',
@@ -61,9 +99,9 @@ const PATH_OPTIONS: {
   {
     code: 'MEDIUM',
     icon: '🎯',
-    labelAr: 'متوسط',
+    labelAr: 'تكتيكي (متوسّط الأمد)',
     timeAr: '٣–١٢ شهر',
-    focusAr: 'تشخيص + توليف + توجّه + مبادرات',
+    focusAr: 'تشخيص + توليف + توجّه + مبادرات — قرارات ربعيّة',
     stagesAr: 'المراحل: ① ② ③ ⑤ ⑥',
     toolsAr: '~٦ أدوات أساسية',
     colorClass: 'border-sky-400 hover:border-sky-500 bg-sky-50/40',
@@ -71,9 +109,9 @@ const PATH_OPTIONS: {
   {
     code: 'LONG',
     icon: '🔭',
-    labelAr: 'طويل',
+    labelAr: 'استراتيجي (طويل الأمد)',
     timeAr: '١٢–٣٦+ شهر',
-    focusAr: 'الرحلة الاستراتيجية الكاملة',
+    focusAr: 'الرحلة الاستراتيجيّة الكاملة — رؤية متعدّدة السنوات',
     stagesAr: 'المراحل: كلها ①→⑥',
     toolsAr: 'كل الأدوات',
     colorClass: 'border-purple-400 hover:border-purple-500 bg-purple-50/40',
@@ -86,17 +124,64 @@ export function OnboardingPage() {
   const setUser = useAuthStore((s) => s.setUser)
   const clearDraft = useAuthStore((s) => s.clearOnboardingDraft)
   const draft = useAuthStore((s) => s.onboardingDraft)
+  // 📥 قراءة بيانات التشخيص السابق (guest) — نستعملها لتخصيص الأسئلة
+  const diagnosticManagerDraft = useDiagnosticStore((s) => s.managerDraft)
+  const diagnosticRole = useDiagnosticStore((s) => s.role)
+
+  // Pre-select آلام/أهداف حسب التخصّص إن لم يكن هناك تحديد سابق
+  const specialty = user?.specialtyDeptType ?? null
+  const topPainsForSpecialty = specialty ? SPECIALTY_TOP_PAINS[specialty] : []
+  const topGoalsForSpecialty = specialty ? SPECIALTY_TOP_GOALS[specialty] : []
+
+  // ─── تخطّي التكرار: حجم المنشأة + عدد الفريق من التشخيص السابق ───
+  // teamSize في التشخيص (micro/small/medium/large) يُطابق size في Onboarding
+  // (MICRO/SMALL/MEDIUM/LARGE) — نقلب الحالة تلقائياً بدل سؤالها مرّة أخرى.
+  const teamSizeFromDx = diagnosticManagerDraft.teamSize
+  const sizeFromDx: FormState['size'] | undefined =
+    teamSizeFromDx === 'micro'  ? 'MICRO'
+    : teamSizeFromDx === 'small'  ? 'SMALL'
+    : teamSizeFromDx === 'medium' ? 'MEDIUM'
+    : teamSizeFromDx === 'large'  ? 'LARGE'
+    : undefined
+  // متوسّط عدد الفريق من نطاق التشخيص (تقدير لبدء KPIs — يعدّله المستخدم لو أراد)
+  const teamCountFromDx: number | undefined =
+    teamSizeFromDx === 'micro'  ? 3
+    : teamSizeFromDx === 'small'  ? 15
+    : teamSizeFromDx === 'medium' ? 60
+    : teamSizeFromDx === 'large'  ? 150
+    : undefined
 
   const [state, setState] = useState<FormState>(() => ({
     ...EMPTY,
     ...draft.firstClientMeta,
-    opex: { ...(draft.firstClientMeta?.opex ?? {}) },
-    pains: draft.pains ?? [],
-    goals: draft.goals ?? [],
+    size: draft.firstClientMeta?.size ?? sizeFromDx, // من التشخيص إن وُجد
+    opex: {
+      ...(draft.firstClientMeta?.opex ?? {}),
+      team: draft.firstClientMeta?.opex?.team ?? teamCountFromDx, // متوسّط من التشخيص
+    },
+    pains: draft.pains && draft.pains.length > 0
+      ? draft.pains
+      : topPainsForSpecialty.slice(0, 2),
+    goals: draft.goals && draft.goals.length > 0
+      ? draft.goals
+      : topGoalsForSpecialty.slice(0, 2),
   }))
   const [saving, setSaving] = useState(false)
 
   const showIdentity = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+
+  // بيانات التشخيص المطابِقة لدور المستخدم الحاليّ
+  const hasDiagnosticData = diagnosticRole === user?.userType && (
+    (user?.userType === 'MANAGER' && Object.keys(diagnosticManagerDraft).length > 0) ||
+    diagnosticRole === user?.userType
+  )
+  const specialtyLabel = user?.specialtyDeptType ? DEPT_LABEL[user.specialtyDeptType] : null
+  const managerTypeLabel = user?.managerType === 'INDEPENDENT_PRO'
+    ? 'مدير مستقلّ (Independent Pro)'
+    : user?.managerType === 'INTERNAL' ? 'مدير داخليّ' : null
+  const teamSizeLabel = TEAM_SIZE_OPTIONS.find((o) => o.value === diagnosticManagerDraft.teamSize)?.label
+  const experienceLabel = EXPERIENCE_OPTIONS.find((o) => o.value === diagnosticManagerDraft.experienceLevel)?.label
+  const toolingLabel = TOOLING_OPTIONS.find((o) => o.value === diagnosticManagerDraft.toolingMaturity)?.label
   // شريحة «path» تظهر لكل الأدوار — كلٌّ منهم يختار طموحه الاستراتيجي.
   const slides = useMemo<SlideId[]>(
     () => (showIdentity ? ['identity', 'pains', 'goals', 'path'] : ['pains', 'goals', 'path']),
@@ -143,15 +228,9 @@ export function OnboardingPage() {
         pains: state.pains,
         goals: state.goals,
         strategyPath: state.strategyPath,
-        firstCompany: showIdentity
-          ? {
-              sector: state.sector || undefined,
-              subsector: state.subsector || undefined,
-              entityType: state.entityType || undefined,
-              size: state.size,
-              opex: state.opex,
-            }
-          : undefined,
+        // القطاع والحجم أُدخِلا في التسجيل — هنا نُثري OPEX فقط (Prisma يتجاهل
+        // الحقول المحذوفة فلا يُمسح القطاع/الحجم القادمان من التسجيل).
+        firstCompany: showIdentity ? { opex: state.opex } : undefined,
       }
       const { data } = await api.post<{ user: User }>('/api/auth/onboarding', payload)
       setUser(data.user)
@@ -172,6 +251,51 @@ export function OnboardingPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
+      {/* 📥 ملخّص بيانات التشخيص — يظهر عند وجود بيانات مسبقة */}
+      {hasDiagnosticData && (specialtyLabel || managerTypeLabel || teamSizeLabel) && (
+        <Card className="mb-4 overflow-hidden border-2 border-sky-300 bg-gradient-to-l from-sky-50 to-transparent shadow-sm">
+          <div className="h-1 bg-gradient-to-l from-sky-500 via-sky-400 to-transparent" />
+          <CardContent className="p-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-lg">📥</span>
+              <span className="text-xs font-bold text-sky-900">
+                استخدمنا بياناتك من التشخيص السابق لتخصيص الأسئلة
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              {managerTypeLabel && (
+                <span className="rounded-full border border-sky-400 bg-white px-2 py-0.5 font-medium text-sky-900">
+                  👤 {managerTypeLabel}
+                </span>
+              )}
+              {specialtyLabel && (
+                <span className="rounded-full border border-emerald-400 bg-emerald-50 px-2 py-0.5 font-medium text-emerald-900">
+                  🎯 التخصّص: {specialtyLabel}
+                </span>
+              )}
+              {teamSizeLabel && (
+                <span className="rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 font-medium text-amber-900">
+                  👥 الفريق: {teamSizeLabel}
+                </span>
+              )}
+              {experienceLabel && (
+                <span className="rounded-full border border-violet-400 bg-violet-50 px-2 py-0.5 font-medium text-violet-900">
+                  🎓 خبرة: {experienceLabel}
+                </span>
+              )}
+              {toolingLabel && (
+                <span className="rounded-full border border-slate-400 bg-slate-50 px-2 py-0.5 font-medium text-slate-800">
+                  🛠️ الأدوات: {toolingLabel}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-sky-800/80">
+              💡 الأسئلة أدناه <b>مبنيّة</b> على تخصّصك ونوعك — لا تكرار للأسئلة التي أجبتها مسبقاً.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="shadow-sm">
         <CardHeader>
           <div className="mb-2 flex items-center gap-2">
@@ -183,15 +307,39 @@ export function OnboardingPage() {
             ))}
           </div>
           <CardTitle>
-            {currentSlide === 'identity' && 'بيانات أوّل عميل — الهوية والميزانية'}
-            {currentSlide === 'pains'    && 'ما التحديات الأكبر حالياً؟'}
-            {currentSlide === 'goals'    && 'ما الأهداف الأولى بالنسبة لك؟'}
+            {currentSlide === 'identity' && 'أرقام أوّل عميل التشغيليّة (OPEX)'}
+            {currentSlide === 'pains'    && (
+              specialtyLabel
+                ? `ما التحديات الأكبر في إدارة ${specialtyLabel}؟`
+                : 'ما التحديات الأكبر حالياً؟'
+            )}
+            {currentSlide === 'goals'    && (
+              specialtyLabel
+                ? `ما الأهداف الأولى لإدارة ${specialtyLabel}؟`
+                : 'ما الأهداف الأولى بالنسبة لك؟'
+            )}
             {currentSlide === 'path'     && '🎯 اختر مسارك الاستراتيجي'}
           </CardTitle>
           <CardDescription>
-            {currentSlide === 'identity' && 'تُستخدم في KPIs / تحليل الفجوة / أنسوف / RACI بلا سؤالك مرّة أخرى.'}
-            {currentSlide === 'pains'    && 'اختيار متعدّد — يُحدّد ترتيب أدواتك (مصفوفة الأولوية / أيزنهاور).'}
-            {currentSlide === 'goals'    && 'اختيار متعدّد — يُشغّل الأدوات المرتبطة بأهدافك تلقائياً.'}
+            {currentSlide === 'identity' && (
+              user?.managerType === 'INDEPENDENT_PRO'
+                ? 'بياناتك تُستخدم في KPIs / تحليل الفجوة / أنسوف / RACI بلا سؤالك مرّة أخرى — لكل عميل جديد.'
+                : 'تُستخدم في KPIs / تحليل الفجوة / أنسوف / RACI بلا سؤالك مرّة أخرى.'
+            )}
+            {currentSlide === 'pains'    && (
+              user?.managerType === 'INDEPENDENT_PRO'
+                ? 'اختيار متعدّد — يُحدّد أولويّة الأدوات لكل عميل تديره (مصفوفة الأولويّة / أيزنهاور).'
+                : specialtyLabel
+                  ? `اختيار متعدّد — التحدّيات الشائعة في إدارة ${specialtyLabel} (تُحدّد ترتيب أدواتك).`
+                  : 'اختيار متعدّد — يُحدّد ترتيب أدواتك (مصفوفة الأولوية / أيزنهاور).'
+            )}
+            {currentSlide === 'goals'    && (
+              user?.managerType === 'INDEPENDENT_PRO'
+                ? 'اختيار متعدّد — الأهداف تنطبق على كل العملاء (KPIs / مبادرات).'
+                : specialtyLabel
+                  ? `اختيار متعدّد — الأهداف الشائعة في إدارة ${specialtyLabel} (تُشغّل الأدوات المرتبطة).`
+                  : 'اختيار متعدّد — يُشغّل الأدوات المرتبطة بأهدافك تلقائياً.'
+            )}
             {currentSlide === 'path'     && 'اختر عمق الرحلة الاستراتيجية — يمكن تغييره لاحقاً من /settings/path.'}
           </CardDescription>
         </CardHeader>
@@ -199,68 +347,21 @@ export function OnboardingPage() {
         <CardContent className="grid gap-6">
           {currentSlide === 'identity' && (
             <div className="grid gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="sector">القطاع</Label>
-                  <select
-                    id="sector"
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                    value={state.sector ?? ''}
-                    onChange={(e) => setState((p) => ({ ...p, sector: e.target.value }))}
-                  >
-                    <option value="">اختر…</option>
-                    {SECTORS.map((s) => (
-                      <option key={s.code} value={s.code}>{s.labelAr}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="subsector">النشاط الفرعي</Label>
-                  <Input
-                    id="subsector"
-                    placeholder="مثال: تجارة تجزئة إلكترونية"
-                    value={state.subsector ?? ''}
-                    onChange={(e) => setState((p) => ({ ...p, subsector: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="entityType">نوع الكيان</Label>
-                  <select
-                    id="entityType"
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                    value={state.entityType ?? ''}
-                    onChange={(e) => setState((p) => ({ ...p, entityType: e.target.value }))}
-                  >
-                    <option value="">اختر…</option>
-                    {ENTITY_TYPES.map((e) => (
-                      <option key={e.code} value={e.code}>{e.labelAr}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="size">حجم المنشأة</Label>
-                  <select
-                    id="size"
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                    value={state.size ?? ''}
-                    onChange={(e) => setState((p) => ({ ...p, size: (e.target.value || undefined) as FormState['size'] }))}
-                  >
-                    <option value="">اختر…</option>
-                    <option value="MICRO">متناهية الصغر (1-4 موظفين)</option>
-                    <option value="SMALL">صغيرة (5-49)</option>
-                    <option value="MEDIUM">متوسطة (50-249)</option>
-                    <option value="LARGE">كبيرة (≥ 250)</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="rounded-lg border bg-primary/5 p-4">
-                <div className="mb-3 text-sm font-semibold">OPEX — أرقام تشغيلية سنوية</div>
+                <div className="mb-1 flex items-center gap-2">
+                  <div className="text-sm font-semibold">OPEX — أرقام تشغيلية سنوية</div>
+                  {teamCountFromDx && (
+                    <span className="rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[9px] font-medium text-sky-700">
+                      📥 عدد الفريق مقدَّر من تشخيصك — عدّله إن أردت
+                    </span>
+                  )}
+                </div>
+                <div className="mb-3 text-[10px] text-muted-foreground">
+                  هذه أرقام تشغيليّة مالية (ميزانية/مستهدف) — <b>ليست تكرار</b> لحقل «حجم المنشأة» أعلاه.
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-1">
-                    <Label htmlFor="team" className="text-xs">عدد الفريق</Label>
+                    <Label htmlFor="team" className="text-xs">عدد الفريق (رقم دقيق)</Label>
                     <Input
                       id="team" type="number" min={0}
                       value={state.opex.team ?? ''}
@@ -297,57 +398,99 @@ export function OnboardingPage() {
           )}
 
           {currentSlide === 'pains' && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ONBOARDING_PAINS.map((p) => {
-                const selected = state.pains.includes(p.code)
-                return (
-                  <button
-                    key={p.code}
-                    type="button"
-                    onClick={() => togglePain(p.code)}
-                    className={`flex items-start gap-3 rounded-lg border p-3 text-right transition ${
-                      selected
-                        ? 'border-primary bg-primary/10 shadow-sm'
-                        : 'bg-card hover:bg-accent'
-                    }`}
-                  >
-                    <span className="text-2xl" aria-hidden>{p.icon}</span>
-                    <span className="flex-1">
-                      <span className="block text-sm font-medium">{p.labelAr}</span>
-                      {p.desc && <span className="mt-0.5 block text-xs text-muted-foreground">{p.desc}</span>}
-                    </span>
-                    {selected && <span className="text-primary" aria-hidden>✓</span>}
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              {topPainsForSpecialty.length > 0 && (
+                <div className="mb-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2 text-[11px] text-muted-foreground">
+                  ⭐ <b className="text-foreground">الأشيع لدى إدارة {specialtyLabel}:</b> أوّل ٣ عناصر أدناه (اخترنا لك ٢ افتراضياً — عدّل بحرّية).
+                </div>
+              )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[...ONBOARDING_PAINS].sort((a, b) => {
+                  const ai = topPainsForSpecialty.indexOf(a.code)
+                  const bi = topPainsForSpecialty.indexOf(b.code)
+                  const av = ai === -1 ? 99 : ai
+                  const bv = bi === -1 ? 99 : bi
+                  return av - bv
+                }).map((p) => {
+                  const selected = state.pains.includes(p.code)
+                  const isTop = topPainsForSpecialty.includes(p.code)
+                  return (
+                    <button
+                      key={p.code}
+                      type="button"
+                      onClick={() => togglePain(p.code)}
+                      className={`relative flex items-start gap-3 rounded-lg border p-3 text-right transition ${
+                        selected
+                          ? 'border-primary bg-primary/10 shadow-sm'
+                          : isTop
+                            ? 'border-primary/40 bg-primary/[0.03] hover:bg-accent'
+                            : 'bg-card hover:bg-accent'
+                      }`}
+                    >
+                      {isTop && !selected && (
+                        <span className="absolute -top-2 right-2 rounded-full border border-primary/40 bg-white px-1.5 py-0.5 text-[9px] font-bold text-primary shadow-sm">
+                          ⭐ شائع
+                        </span>
+                      )}
+                      <span className="text-2xl" aria-hidden>{p.icon}</span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-medium">{p.labelAr}</span>
+                        {p.desc && <span className="mt-0.5 block text-xs text-muted-foreground">{p.desc}</span>}
+                      </span>
+                      {selected && <span className="text-primary" aria-hidden>✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
 
           {currentSlide === 'goals' && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ONBOARDING_GOALS.map((g) => {
-                const selected = state.goals.includes(g.code)
-                return (
-                  <button
-                    key={g.code}
-                    type="button"
-                    onClick={() => toggleGoal(g.code)}
-                    className={`flex items-start gap-3 rounded-lg border p-3 text-right transition ${
-                      selected
-                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                        : 'bg-card hover:bg-accent'
-                    }`}
-                  >
-                    <span className="text-2xl" aria-hidden>{g.icon}</span>
-                    <span className="flex-1">
-                      <span className="block text-sm font-medium">{g.labelAr}</span>
-                      {g.desc && <span className="mt-0.5 block text-xs text-muted-foreground">{g.desc}</span>}
-                    </span>
-                    {selected && <span className="text-emerald-600" aria-hidden>✓</span>}
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              {topGoalsForSpecialty.length > 0 && (
+                <div className="mb-2 rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-2 text-[11px] text-muted-foreground">
+                  ⭐ <b className="text-foreground">الأهمّ لدى إدارة {specialtyLabel}:</b> أوّل ٣ عناصر أدناه (اخترنا لك ٢ افتراضياً — عدّل بحرّية).
+                </div>
+              )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[...ONBOARDING_GOALS].sort((a, b) => {
+                  const ai = topGoalsForSpecialty.indexOf(a.code)
+                  const bi = topGoalsForSpecialty.indexOf(b.code)
+                  const av = ai === -1 ? 99 : ai
+                  const bv = bi === -1 ? 99 : bi
+                  return av - bv
+                }).map((g) => {
+                  const selected = state.goals.includes(g.code)
+                  const isTop = topGoalsForSpecialty.includes(g.code)
+                  return (
+                    <button
+                      key={g.code}
+                      type="button"
+                      onClick={() => toggleGoal(g.code)}
+                      className={`relative flex items-start gap-3 rounded-lg border p-3 text-right transition ${
+                        selected
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : isTop
+                            ? 'border-emerald-400/50 bg-emerald-50/40 hover:bg-accent'
+                            : 'bg-card hover:bg-accent'
+                      }`}
+                    >
+                      {isTop && !selected && (
+                        <span className="absolute -top-2 right-2 rounded-full border border-emerald-400 bg-white px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 shadow-sm">
+                          ⭐ أهمّ
+                        </span>
+                      )}
+                      <span className="text-2xl" aria-hidden>{g.icon}</span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-medium">{g.labelAr}</span>
+                        {g.desc && <span className="mt-0.5 block text-xs text-muted-foreground">{g.desc}</span>}
+                      </span>
+                      {selected && <span className="text-emerald-600" aria-hidden>✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
 
           {currentSlide === 'path' && (

@@ -72,6 +72,14 @@ enum ManagerType {
   INDEPENDENT_PRO
 }
 
+// مستوى العمل (من يخطّط/ينفّذ) — منفصل عن الأفق الزمني (strategyPath).
+// يطابق PlanLevel في العميل (DeptAuditPage) وdecisionAuthority في التشخيص.
+enum PlanLevel {
+  operational
+  tactical
+  strategic
+}
+
 enum PlanTier {
   BASIC
   PROFESSIONAL
@@ -266,9 +274,10 @@ model Objective {
   status      String    @default("active")
   dueDate     DateTime?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  okrs    OKR[]
-  kpis    KPI[]
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  okrs        OKR[]
+  kpis        KPI[]
+  initiatives Initiative[]
 
   @@index([companyId])
 }
@@ -298,6 +307,15 @@ model KPI {
   currentValue Float   @default(0)
   frequency    String
 
+  // ─── حقول القياس المتوقّع (Phase 1) ─────────────────────────────
+  // baselineValue: القيمة عند البدء — نقطة انطلاق منحنى S.
+  // expectedPath: مسارٌ متوقّع مولّد آليّاً بمنحنى S، قابل للتعديل اليدوي.
+  //   شكله: [{ month: 0, value: 0.8 }, { month: 1, value: 0.85 }, ...]
+  // startedAt: تاريخ بدء المسار — تحسب منه المدّة المنقضية.
+  baselineValue Float?
+  expectedPath  Json?
+  startedAt     DateTime?
+
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   objective  Objective?  @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
@@ -325,15 +343,21 @@ model KPIEntry {
 model Initiative {
   id          String  @id @default(uuid())
   companyId   String
+  objectiveId String?
   title       String
   description String?
   status      String  @default("planned")
   priority    String
+  // المستوى (تشغيلي/تكتيكي/استراتيجي) والتكلفة المقدّرة (SAR). كلاهما اختياري.
+  level       PlanLevel?
+  cost        Decimal?  @db.Decimal(14, 2)
 
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  projects Project[]
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  projects  Project[]
 
   @@index([companyId])
+  @@index([objectiveId])
 }
 
 model Project {
@@ -359,10 +383,15 @@ model Task {
   companyId   String
   projectId   String?
   assigneeId  String?
+  // الجهة المنفّذة (نصّ حرّ): شركة/إدارة/شخص يشرف عليه المدير — بلا حساب مستخدم.
+  owner       String?
   title       String
   description String?
   status      String    @default("todo")
   priority    String    @default("medium")
+  // المستوى والتكلفة المقدّرة (SAR) — اختياريان.
+  level       PlanLevel?
+  cost        Decimal?  @db.Decimal(14, 2)
   dueDate     DateTime?
   completedAt DateTime?
   createdAt   DateTime  @default(now())

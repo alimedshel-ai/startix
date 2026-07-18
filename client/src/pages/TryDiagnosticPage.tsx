@@ -82,6 +82,10 @@ export function TryDiagnosticPage() {
   const role = useDiagnosticStore((s) => s.role)
   const setRole = useDiagnosticStore((s) => s.setRole)
   const reset = useDiagnosticStore((s) => s.reset)
+  const ownerResult = useDiagnosticStore((s) => s.ownerResult)
+  const managerResult = useDiagnosticStore((s) => s.managerResult)
+  const investorResult = useDiagnosticStore((s) => s.investorResult)
+  const hasPreviousResult = ownerResult != null || managerResult != null || investorResult != null
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -91,21 +95,47 @@ export function TryDiagnosticPage() {
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-bold">س</div>
             <span className="text-lg font-semibold tracking-tight">ستارتكس</span>
           </Link>
-          <Link to="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-            لديك حساب؟ تسجيل الدخول
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* زرّ «بدء تشخيص جديد» — يظهر دائماً عند وجود جلسة سابقة */}
+            {role !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('سيُمسح تشخيصك الحالي (الإجابات + النتيجة). المتابعة؟')) reset()
+                }}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                🔄 بدء تشخيص جديد
+              </button>
+            )}
+            <Link to="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+              لديك حساب؟ تسجيل الدخول
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="flex-1">
         {role === null ? (
           <RolePicker onPick={setRole} />
-        ) : role === 'OWNER' ? (
-          <OwnerFlow onChangeRole={() => { reset() }} />
-        ) : role === 'MANAGER' ? (
-          <ManagerFlow onChangeRole={() => { reset() }} />
         ) : (
-          <InvestorFlow onChangeRole={() => { reset() }} />
+          <>
+            {/* شارة إعادة الاختيار — تظهر أعلى المسار عند العودة لجلسة قائمة */}
+            <ResumeBar
+              role={role}
+              hasResult={hasPreviousResult}
+              onReset={() => {
+                if (confirm('سيُمسح تشخيصك الحالي والنتيجة. المتابعة؟')) reset()
+              }}
+            />
+            {role === 'OWNER' ? (
+              <OwnerFlow onChangeRole={() => { reset() }} />
+            ) : role === 'MANAGER' ? (
+              <ManagerFlow onChangeRole={() => { reset() }} />
+            ) : (
+              <InvestorFlow onChangeRole={() => { reset() }} />
+            )}
+          </>
         )}
       </main>
 
@@ -115,6 +145,35 @@ export function TryDiagnosticPage() {
           <Link to="/" className="hover:text-foreground">العودة للرئيسية</Link>
         </div>
       </footer>
+    </div>
+  )
+}
+
+// ─── شريط استئناف — يظهر أعلى المسار عند وجود جلسة سابقة ───────
+function ResumeBar({
+  role, hasResult, onReset,
+}: { role: DiagnosticRole; hasResult: boolean; onReset: () => void }) {
+  const roleLabel = role === 'OWNER' ? 'صاحب أعمال' : role === 'MANAGER' ? 'مدير' : 'مستثمر'
+  return (
+    <div className="border-b bg-gradient-to-l from-sky-50 to-transparent">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 px-6 py-2 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-sky-300 bg-sky-100 px-2 py-0.5 font-bold text-sky-800">
+            {hasResult ? '✓ لديك تشخيص محفوظ' : '⏳ لديك جلسة قيد التقدّم'}
+          </span>
+          <span className="text-muted-foreground">
+            النشاط الحاليّ: <b className="text-foreground">{roleLabel}</b>
+            {hasResult ? ' — النتيجة جاهزة أدناه.' : ' — استمرّ من حيث توقّفت أو ابدأ من جديد.'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-md border border-sky-400 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-700 transition hover:bg-sky-50"
+        >
+          🔄 اختر نشاطاً آخر
+        </button>
+      </div>
     </div>
   )
 }

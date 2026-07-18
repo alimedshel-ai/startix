@@ -17,6 +17,8 @@ import {
   type AuditScore,
   type DeptCode,
 } from '@/lib/deptApi'
+import { budgetStatus } from '@/lib/budgetGuard'
+import { getTaggedSWOT, listInitiatives, type Initiative } from '@/lib/strategicApi'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useAuthStore } from '@/store/authStore'
 
@@ -172,6 +174,8 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
           />
           {/* بعد اكتمال التدقيق: بطاقة "الأدوات التي فُتِحت الآن" */}
           <UnlockedToolsCard deptCode={deptCode} clientQuery={company ? `?client=${company.id}` : ''} />
+          {/* اللقطة الاستراتيجيّة: تجمع SWOT + المبادرات (level/cost) + الميزانيّة */}
+          {company && <StrategicSnapshotCard companyId={company.id} budget={company.opex?.budget ?? null} />}
           {afterResult ? afterResult(deptId) : null}
           <NextStepCard clientQuery={company ? `?client=${company.id}` : ''} />
         </>
@@ -323,6 +327,104 @@ function pathToPlanLevel(path: string | null | undefined): PlanLevel | null {
   if (path === 'MEDIUM') return 'tactical'
   if (path === 'LONG')   return 'strategic'
   return null
+}
+
+// ─── اللقطة الاستراتيجيّة — تجمّع المبنيّ في مكان واحد ──────────────
+// عرض فقط (لا goalSource ولا ربط جديد): حالة SWOT + المبادرات مع
+// المستوى والتكلفة + بانر الميزانيّة. يُخرِج ما بُنِي من صفحاته المتفرّقة
+// إلى صفحة التدقيق ليراه المدير مجمّعاً.
+function StrategicSnapshotCard({ companyId, budget }: { companyId: string; budget: number | null }) {
+  const [swot, setSwot] = useState<{ s: number; w: number; o: number; t: number } | null>(null)
+  const [inits, setInits] = useState<Initiative[]>([])
+  const [loading, setLoading] = useState(true)
+  const clientQ = `?client=${companyId}`
+
+  useEffect(() => {
+    let alive = true
+    Promise.allSettled([getTaggedSWOT(companyId), listInitiatives(companyId)]).then(([sw, ini]) => {
+      if (!alive) return
+      if (sw.status === 'fulfilled') {
+        const v = sw.value
+        setSwot({ s: v.strengths?.length ?? 0, w: v.weaknesses?.length ?? 0, o: v.opportunities?.length ?? 0, t: v.threats?.length ?? 0 })
+      }
+      if (ini.status === 'fulfilled') setInits(ini.value)
+      setLoading(false)
+    })
+    return () => { alive = false }
+  }, [companyId])
+
+  if (loading) return null
+
+  const swotTotal = swot ? swot.s + swot.w + swot.o + swot.t : 0
+  const bs = budgetStatus(inits.map((i) => i.cost), budget)
+  const fmt = (n: number) => n.toLocaleString('en-US')
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">🧩 اللقطة الاستراتيجيّة</CardTitle>
+        <CardDescription className="text-xs">مخرجاتك المبنيّة مجمّعة: SWOT · المبادرات (المستوى/التكلفة) · الميزانيّة.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {/* حالة SWOT */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">SWOT:</span>
+          {swotTotal > 0 ? (
+            <>
+              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800">✓ {swotTotal} بند</span>
+              <span className="text-[10px] tabular-nums text-muted-foreground">💪{swot!.s} · 🔻{swot!.w} · 🌱{swot!.o} · ⚠️{swot!.t}</span>
+            </>
+          ) : (
+            <span className="rounded-full border bg-card px-2 py-0.5 text-[10px] text-muted-foreground">لم يبدأ</span>
+          )}
+          <Link to={`/swot${clientQ}`} className="text-[10px] text-primary underline-offset-2 hover:underline">فتح ←</Link>
+        </div>
+
+        {/* بانر الميزانيّة */}
+        {(bs.budget != null || bs.spent > 0) && (
+          <div className={`rounded-lg border p-3 ${bs.overBudget ? 'border-rose-400 bg-rose-50/50' : 'border-emerald-300 bg-emerald-50/40'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+              <span className="font-medium">💰 ميزانيّة المبادرات</span>
+              {bs.budget != null ? (
+                <span className={`font-bold tabular-nums ${bs.overBudget ? 'text-rose-700' : 'text-emerald-700'}`}>
+                  {fmt(bs.spent)} / {fmt(bs.budget)} SAR ({bs.pct}٪)
+                </span>
+              ) : (
+                <span className="text-muted-foreground tabular-nums">التكاليف: {fmt(bs.spent)} SAR · بلا ميزانيّة</span>
+              )}
+            </div>
+            {bs.overBudget && <p className="mt-1 text-[11px] font-medium text-rose-700">⚠️ تجاوزٌ بـ{fmt(-(bs.remaining ?? 0))} SAR — تحذير لا حظر.</p>}
+          </div>
+        )}
+
+        {/* المبادرات مع المستوى والتكلفة */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">المبادرات ({inits.length})</span>
+            <Link to={`/priority?tab=initiatives&client=${companyId}`} className="text-[10px] text-primary underline-offset-2 hover:underline">إدارة ←</Link>
+          </div>
+          {inits.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">لا مبادرات بعد — أنشئها من مركز المبادرات.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {inits.slice(0, 6).map((i) => {
+                const lvl = i.level ? PLAN_LEVEL_META[i.level as PlanLevel] : null
+                const cost = i.cost != null ? Number(i.cost) : 0
+                return (
+                  <li key={i.id} className="flex items-center gap-2 rounded-md border bg-card/60 px-2 py-1 text-[11px]">
+                    <span className="min-w-0 flex-1 truncate">{i.title}</span>
+                    {lvl && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] ${lvl.color}`}>{lvl.icon} {lvl.labelAr}</span>}
+                    {cost > 0 && <span className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] tabular-nums text-amber-800">💰 {fmt(cost)}</span>}
+                  </li>
+                )
+              })}
+              {inits.length > 6 && <li className="text-[10px] text-muted-foreground">+{inits.length - 6} أخرى…</li>}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 function UnlockedToolsCard({ deptCode, clientQuery }: { deptCode: DeptCode; clientQuery: string }) {

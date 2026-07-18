@@ -59,7 +59,6 @@ export function QSPMPage() {
 function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<QSPMData>(EMPTY)
   const [saving, setSaving] = useState(false)
-  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     getArtifact<QSPMData>(companyId, 'QSPM').then((row) => {
@@ -68,23 +67,20 @@ function Editor({ companyId }: { companyId: string }) {
           factors: row.data.factors ?? [],
           alternatives: row.data.alternatives ?? [],
         })
+      } else {
+        // لا بيانات محفوظة — ابذر الافتراضات مرّة واحدة ضمن نفس تدفّق التحميل
+        // (بدل effect ثانٍ يستدعي setState تزامنيّاً ويسبّب إعادة رسم متتالية).
+        const alts: QSPMAlternative[] = DEFAULT_ALTS.map((n) => ({ id: crypto.randomUUID(), name: n }))
+        const factors: QSPMFactor[] = DEFAULT_FACTORS.map((label) => ({
+          id: crypto.randomUUID(),
+          label,
+          weight: 0.2,
+          scoresByAlternative: Object.fromEntries(alts.map((a) => [a.id, 2])),
+        }))
+        setData({ factors, alternatives: alts })
       }
-      setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => { /* تجاهل: نُبقي الحالة الفارغة عند فشل التحميل */ })
   }, [companyId])
-
-  useEffect(() => {
-    if (loaded && data.factors.length === 0 && data.alternatives.length === 0) {
-      const alts: QSPMAlternative[] = DEFAULT_ALTS.map((n) => ({ id: crypto.randomUUID(), name: n }))
-      const factors: QSPMFactor[] = DEFAULT_FACTORS.map((label) => ({
-        id: crypto.randomUUID(),
-        label,
-        weight: 0.2,
-        scoresByAlternative: Object.fromEntries(alts.map((a) => [a.id, 2])),
-      }))
-      setData({ factors, alternatives: alts })
-    }
-  }, [loaded, data.factors.length, data.alternatives.length])
 
   function addFactor() {
     setData((p) => ({
@@ -134,7 +130,8 @@ function Editor({ companyId }: { companyId: string }) {
     setData((p) => ({
       alternatives: p.alternatives.filter((a) => a.id !== id),
       factors: p.factors.map((f) => {
-        const { [id]: _omit, ...rest } = f.scoresByAlternative
+        const rest = { ...f.scoresByAlternative }
+        delete rest[id]
         return { ...f, scoresByAlternative: rest }
       }),
     }))

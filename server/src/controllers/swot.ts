@@ -5,19 +5,30 @@ import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
 
-const itemArray = z.array(z.string().min(1).max(500));
+// حقل SWOT مخزَّن كـJson مرن. يقبل شكلين:
+//   • قديم: string[] (نصوص فقط) — توافق خلفي.
+//   • جديد: TaggedListStorage { values, meta } — يحمل الأصل (auto/user:<id>)
+//     والمصدر والسبب لكل بند (يُشتقّ منه شارة 🤖 عند العرض).
+// كلاهما يُخزَّن كما هو في نفس عمود الـJson — بلا migration.
+const taggedListStorage = z.object({
+  values: z.array(z.string().max(2000)),
+  meta: z.record(z.string(), z.any()).optional(),
+});
+const swotField = z.union([z.array(z.string().max(2000)), taggedListStorage]);
 const swotSchema = z.object({
-  strengths: itemArray,
-  weaknesses: itemArray,
-  opportunities: itemArray,
-  threats: itemArray,
+  strengths: swotField,
+  weaknesses: swotField,
+  opportunities: swotField,
+  threats: swotField,
 });
 
+// كل ربع TOWS يقبل string[] (قديم) أو {values,meta} (TaggedListStorage الجديد) —
+// نفس مرونة حقول SWOT، مخزَّن في نفس عمود tows الـJson بلا migration.
 const towsSchema = z.object({
-  so: z.array(z.string()).optional(),
-  wo: z.array(z.string()).optional(),
-  st: z.array(z.string()).optional(),
-  wt: z.array(z.string()).optional(),
+  so: swotField.optional(),
+  wo: swotField.optional(),
+  st: swotField.optional(),
+  wt: swotField.optional(),
 });
 
 async function getOrCreateSWOT(companyId: string) {
@@ -142,10 +153,18 @@ function extractStrengthsFromRadar(raw: unknown, threshold = 70): string[] {
   return out;
 }
 
+// يقرأ حقل SWOT من الشكلين: string[] (قديم) أو {values,meta} (TaggedListStorage
+// الجديد) → نصوص نظيفة. ضروري لأن الكلاينت صار يحفظ {values,meta}، ودوال
+// السيرفر (suggestTOWS/الدمج) كانت تفترض string[] فتنكسر (.flatMap على كائن).
+function swotList(field: unknown): string[] {
+  if (Array.isArray(field)) return field.filter((x): x is string => typeof x === 'string');
+  const values = (field as { values?: unknown })?.values;
+  if (Array.isArray(values)) return values.filter((x): x is string => typeof x === 'string');
+  return [];
+}
+
 function mergeUnique(existing: unknown, incoming: string[]): string[] {
-  const current = Array.isArray(existing)
-    ? (existing.filter((x) => typeof x === 'string') as string[])
-    : [];
+  const current = swotList(existing);
   const seen = new Set(current.map((x) => x.trim()));
   const merged = [...current];
   for (const item of incoming) {
@@ -264,10 +283,10 @@ export const suggestTOWS: RequestHandler = async (req, res, next) => {
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
     const swot = await getOrCreateSWOT(companyId);
-    const strengths = (swot.strengths as unknown as string[]) ?? [];
-    const weaknesses = (swot.weaknesses as unknown as string[]) ?? [];
-    const opportunities = (swot.opportunities as unknown as string[]) ?? [];
-    const threats = (swot.threats as unknown as string[]) ?? [];
+    const strengths = swotList(swot.strengths);
+    const weaknesses = swotList(swot.weaknesses);
+    const opportunities = swotList(swot.opportunities);
+    const threats = swotList(swot.threats);
     const cross = (a: string[], b: string[], joiner: string) =>
       a.flatMap((x) => b.map((y) => `${x} — ${joiner} — ${y}`));
     const suggestion = {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { analyzeDeepAnswers, type DeepAnswers, type VCSuggestion } from '@/lib/deepAnalysisToVC'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { DEPT_VALUE_CHAIN, type ActivityDef } from '@/lib/deptValueChain'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
@@ -149,6 +151,9 @@ export function ValueChainPage() {
 function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<ValueChainData>(EMPTY)
   const [saving, setSaving] = useState(false)
+  // Phase — قراءة التحليل العميق لتوليد ترجيحات ذكيّة.
+  const [deepAnswers, setDeepAnswers] = useState<DeepAnswers | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     getArtifact<ValueChainData>(companyId, 'VALUE_CHAIN').then((row) => {
@@ -159,13 +164,47 @@ function Editor({ companyId }: { companyId: string }) {
         })
       }
     })
+    // ← نقرأ إجابات التحليل العميق (٤ أسئلة multi-choice) لتوليد VC ذكي.
+    getArtifact<DeepAnswers>(companyId, 'DEPT_DEEP_ANSWERS').then((row) => {
+      if (row?.data) setDeepAnswers(row.data)
+    }).catch(() => undefined)
   }, [companyId])
+
+  const suggestions = useMemo(() => analyzeDeepAnswers(deepAnswers), [deepAnswers])
+  const hasSuggestions = suggestions.length > 0
+  const hasDeepAnswers = deepAnswers !== null
 
   function update(group: 'primary' | 'support', key: string, patch: Partial<Activity>) {
     setData((p) => ({
       ...p,
       [group]: { ...p[group], [key]: { ...(p[group][key] ?? emptyActivity()), ...patch } },
     }))
+  }
+
+  // تطبيق كل الترجيحات دفعة واحدة — يحوّل التحليل العميق إلى VC مكتمل.
+  function generateFromDeepAnalysis() {
+    if (!suggestions.length) return
+    setGenerating(true)
+    const nextPrimary = { ...data.primary }
+    const nextSupport = { ...data.support }
+    let applied = 0
+    for (const sug of suggestions) {
+      const isPrimary = (PRIMARY_KEYS as readonly string[]).includes(sug.activityKey)
+      const target = isPrimary ? nextPrimary : nextSupport
+      // نطبّق فقط إن كان النشاط فارغاً أو ذي rating افتراضي — نحترم التعديل اليدوي.
+      const current = target[sug.activityKey] ?? emptyActivity()
+      if (current.text.trim() === '') {
+        target[sug.activityKey] = { text: sug.suggestedText, rating: sug.suggestedRating }
+        applied++
+      }
+    }
+    setData({ primary: nextPrimary, support: nextSupport })
+    setGenerating(false)
+    if (applied === 0) {
+      toast.message('كل الأنشطة مُعبّأة يدوياً — التوليد لم يستبدل شيئاً.')
+    } else {
+      toast.success(`✨ ولّدنا ${applied} نشاطاً من التحليل العميق — راجع وعدّل ثم احفظ`)
+    }
   }
 
   async function save() {
@@ -188,6 +227,16 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {/* ← ربط ورائي: التحليل العميق يُغذّي سلسلة القيمة */}
+      <DeepAnalysisSourceCard
+        hasDeepAnswers={hasDeepAnswers}
+        hasSuggestions={hasSuggestions}
+        suggestionsCount={suggestions.length}
+        onGenerate={generateFromDeepAnalysis}
+        generating={generating}
+        suggestions={suggestions}
+      />
+
       <Card className="overflow-hidden border-emerald-200 bg-gradient-to-bl from-emerald-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-emerald-500 via-teal-500 to-sky-500" />
         <CardHeader>
@@ -265,6 +314,112 @@ function Editor({ companyId }: { companyId: string }) {
       </div>
     </>
   )
+}
+
+// ─── بطاقة الربط الورائي: التحليل العميق → سلسلة القيمة ────────
+// تُعرض أعلى الصفحة. ٣ حالات:
+//   • لا تحليل عميق → دعوة لتعبئته أوّلاً
+//   • تحليل عميق موجود + توصيات → زر «✨ ولّد من التحليل العميق»
+//   • تحليل عميق فارغ → إشعار
+function DeepAnalysisSourceCard({
+  hasDeepAnswers, hasSuggestions, suggestionsCount, onGenerate, generating, suggestions,
+}: {
+  hasDeepAnswers: boolean
+  hasSuggestions: boolean
+  suggestionsCount: number
+  onGenerate: () => void
+  generating: boolean
+  suggestions: VCSuggestion[]
+}) {
+  if (!hasDeepAnswers) {
+    return (
+      <Card className="border-2 border-dashed border-amber-300 bg-amber-50/40">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🔬</span>
+            <div>
+              <div className="text-sm font-bold text-amber-900">لا يوجد تحليل عميق بعد</div>
+              <p className="mt-0.5 text-amber-800">
+                لو عبّأت التحليل العميق (٤ أسئلة قيود/هشاشة/أتمتة/ممارسات جيّدة)،
+                نُوَلِّد لك سلسلة القيمة تلقائياً بناءً على إجاباتك.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/manager/dept-deep"
+            className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700"
+          >
+            🔬 افتح التحليل العميق ←
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+  if (!hasSuggestions) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="p-3 text-xs text-muted-foreground">
+          التحليل العميق موجود لكن بلا إجابات كافية لتوليد ترجيحات — أكمل التحليل العميق أوّلاً.
+        </CardContent>
+      </Card>
+    )
+  }
+  return (
+    <Card className="border-2 border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl">🔬</div>
+            <div>
+              <div className="text-sm font-bold">توليد ذكي من التحليل العميق</div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                لدينا <b className="text-foreground">{suggestionsCount}</b> ترجيح مستنبَط من إجاباتك في التحليل العميق
+                (قيود · هشاشة · أتمتة · ممارسات جيّدة). سنُعبّئ الأنشطة الفارغة فقط — لن نستبدل ما كتبته يدويّاً.
+              </p>
+            </div>
+          </div>
+          <Button onClick={onGenerate} disabled={generating} size="lg">
+            {generating ? 'جاري…' : '✨ ولّد الآن'}
+          </Button>
+        </div>
+        {/* استعراض التوصيات المحسوبة قبل التطبيق */}
+        <details className="mt-3">
+          <summary className="cursor-pointer text-[11px] font-medium text-primary hover:underline">
+            ▼ استعرض التوصيات المحسوبة ({suggestionsCount})
+          </summary>
+          <ul className="mt-2 grid gap-1 text-[11px]">
+            {suggestions.map((sug) => (
+              <li key={sug.activityKey} className="rounded-md border bg-white/70 p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">{activityLabelAr(sug.activityKey)}</span>
+                  <span className="tabular-nums text-muted-foreground">النضج المقترح: <b className="text-foreground">{sug.suggestedRating}★</b></span>
+                </div>
+                <div className="mt-0.5 text-muted-foreground">
+                  {sug.suggestedText}
+                </div>
+                <div className="mt-1 text-[10px] italic text-muted-foreground/80">💡 {sug.reason}</div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </CardContent>
+    </Card>
+  )
+}
+
+function activityLabelAr(key: string): string {
+  const labels: Record<string, string> = {
+    inboundLogistics: '📥 الإمداد الداخلي',
+    operations: '⚙️ العمليات',
+    outboundLogistics: '📦 الإمداد الخارجي',
+    marketingSales: '📣 التسويق والمبيعات',
+    service: '🛠️ الخدمات بعد البيع',
+    firmInfrastructure: '🏢 البنية المؤسّسيّة',
+    hrManagement: '👥 الموارد البشريّة',
+    tech: '💻 التقنية',
+    procurement: '🛒 المشتريات',
+  }
+  return labels[key] ?? key
 }
 
 function ActivityCard({

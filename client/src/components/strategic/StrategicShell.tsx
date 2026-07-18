@@ -57,7 +57,7 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
       {company && !loading && !error && children(company.id)}
 
       {/* S3 — بطاقة «الأداة التالية» في نهاية الصفحة. */}
-      {company && !loading && !error && <NextStepCard clientQuery={clientQuery} />}
+      {company && !loading && !error && <NextStepCard clientQuery={clientQuery} companyId={company.id} />}
     </div>
   )
 }

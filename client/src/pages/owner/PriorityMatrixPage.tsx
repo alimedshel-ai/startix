@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -35,14 +34,14 @@ const QUADRANTS: Record<Quadrant, { title: string; subtitle: string; icon: strin
 }
 
 export function PriorityMatrixPage() {
-  return (
-    <StrategicShell
-      title="مصفوفة الأولوية"
-      description="مصفوفة الأثر × الجهد. ضع كل مبادرة في الربع المناسب لتقرر ما تنفّذه أولاً."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/priority?tab=matrix${q}`} replace />
+}
+
+export function PriorityMatrixView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 function Editor({ companyId }: { companyId: string }) {

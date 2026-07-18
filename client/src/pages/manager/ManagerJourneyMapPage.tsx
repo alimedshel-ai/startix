@@ -138,7 +138,7 @@ function clientSteps(companyId: string, specialty: DeptCode): Omit<JourneyStep, 
     },
     {
       icon: '🚀', labelAr: 'التنفيذ والمتابعة',
-      hintAr: 'حوّل المبادرات إلى مشاريع بتواريخ ومسؤولين + جانت + متابعة KPIs + تحليل مالي.',
+      hintAr: 'حوّل كل مبادرة إلى ٢-٤ خطوات تنفيذ بتواريخ ومسؤولين + جانت + متابعة KPIs + تحليل مالي.',
       inputs: ['المبادرات الجاهزة', 'الجدول الزمني', 'قدرات الفريق'],
       outputs: ['PROJECTS + TASKS + Gantt', 'إدخالات KPIs الدوريّة', 'التحليل المالي + المحاكاة'],
       to: `/projects${q}`,
@@ -323,7 +323,7 @@ export function ManagerJourneyMapPage() {
                 {' '}<b className="text-foreground">{selectedClient.companyName}</b>
                 {strategyPath && (
                   <> · المسار: <b className="text-foreground">
-                    {strategyPath === 'QUICK' ? 'سريع' : strategyPath === 'MEDIUM' ? 'متوسّط' : 'طويل'}
+                    {strategyPath === 'QUICK' ? 'تشغيلي (قصير)' : strategyPath === 'MEDIUM' ? 'تكتيكي (متوسّط)' : 'استراتيجي (طويل)'}
                   </b></>
                 )}
               </div>

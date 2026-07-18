@@ -1,12 +1,42 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
 
+import { openCommandPalette } from '@/components/CommandPalette'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useNextStep } from '@/hooks/useNextStep'
-import { canOpenStage, isStageInPath, type StageId } from '@/lib/journeyStages'
+import { canOpenStage, isStageInPath, overallProgressPct, stageLevel, STAGE_LEVEL_LABEL, type StageId } from '@/lib/journeyStages'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { ACCENT_CLASSES, navFor, type NavItem, type NavSection } from './nav'
+
+// ─── وضع الجلسة (Session Mode) ──────────────────────────────────────
+// يفلتر السايدبار بحسب نيّة المستخدم في الجلسة الحالية. الأقسام غير
+// المرتبطة بمرحلة (العملاء، الخطة الاستراتيجيّة، المالي) تظهر دائماً.
+// يُحفظ في localStorage ليدوم بين الجلسات.
+type SessionMode = 'all' | 'analysis' | 'planning' | 'execution'
+
+const SESSION_MODES: { key: SessionMode; icon: string; label: string; stages: StageId[]; descAr: string }[] = [
+  { key: 'all',       icon: '📚', label: 'الكل',   stages: [],                                              descAr: 'كل الأدوات' },
+  { key: 'analysis',  icon: '🔬', label: 'تحليل',  stages: ['environment', 'synthesis'],                    descAr: 'التحليل الشامل — ① التشخيص + ② التوليف فقط' },
+  { key: 'planning',  icon: '🎯', label: 'تخطيط', stages: ['directions', 'indicators'],                    descAr: 'التخطيط — ③ التوجّه + ④ القياس فقط' },
+  { key: 'execution', icon: '🚀', label: 'تنفيذ', stages: ['initiatives', 'execution'],                    descAr: 'التنفيذ — ⑤ المبادرات + ⑥ التنفيذ فقط' },
+]
+
+const SESSION_MODE_KEY = 'startix.sessionMode'
+
+function useSessionMode(): [SessionMode, (m: SessionMode) => void] {
+  const [mode, setMode] = useState<SessionMode>(() => {
+    try {
+      const stored = localStorage.getItem(SESSION_MODE_KEY) as SessionMode | null
+      if (stored && SESSION_MODES.some((m) => m.key === stored)) return stored
+    } catch { /* SSR/private mode */ }
+    return 'all'
+  })
+  useEffect(() => {
+    try { localStorage.setItem(SESSION_MODE_KEY, mode) } catch { /* ignore */ }
+  }, [mode])
+  return [mode, setMode]
+}
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: 'صاحب أعمال',
@@ -15,9 +45,9 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 const PATH_LABEL: Record<'QUICK' | 'MEDIUM' | 'LONG', { icon: string; ar: string }> = {
-  QUICK:  { icon: '⚡', ar: 'مسار سريع' },
-  MEDIUM: { icon: '🎯', ar: 'مسار متوسط' },
-  LONG:   { icon: '🔭', ar: 'مسار طويل' },
+  QUICK:  { icon: '⚡', ar: 'مسار تشغيلي (قصير)' },
+  MEDIUM: { icon: '🎯', ar: 'مسار تكتيكي (متوسّط)' },
+  LONG:   { icon: '🔭', ar: 'مسار استراتيجي (طويل)' },
 }
 
 // حالة قسم مرتبط بمرحلة استراتيجية.
@@ -80,6 +110,7 @@ export function Sidebar() {
 
   const mode = getSidebarMode(location.pathname, !!activeClientId, isPro)
   const strategyPath = user?.strategyPath ?? null
+  const [sessionMode, setSessionMode] = useSessionMode()
 
   // فلترة: adminOnly لغير المسؤولين + proOnly لغير المستقل + إسقاط الفارغ.
   let sections = navFor(userType, user?.managerType, user?.specialtyDeptType)
@@ -99,9 +130,17 @@ export function Sidebar() {
     sections = sections.filter((s) => !s.stageId)
   }
 
+  // 🎬 وضع الجلسة — يفلتر أقسام المراحل بحسب نيّة المستخدم في الجلسة.
+  // الأقسام بلا stageId (العملاء، الخطة الاستراتيجيّة، البداية، المالي) تظهر دائماً.
+  if (mode !== 'portfolio' && sessionMode !== 'all') {
+    const activeStages = SESSION_MODES.find((m) => m.key === sessionMode)?.stages ?? []
+    sections = sections.filter((s) => !s.stageId || activeStages.includes(s.stageId))
+  }
+
   return (
     <aside className="w-72 shrink-0 border-l bg-card/40">
-      <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col overflow-y-auto">
+      {/* top-[5.75rem] = ارتفاع Topbar (3.5rem) + QuickNav (~2.25rem) */}
+      <div className="sticky top-[5.75rem] flex h-[calc(100vh-5.75rem)] flex-col overflow-y-auto">
         {/* User block at top */}
         {user && (
           <div className="border-b bg-gradient-to-bl from-primary/10 to-transparent p-4">
@@ -137,6 +176,53 @@ export function Sidebar() {
           </div>
         )}
 
+        {/* 🎬 وضع الجلسة — يفلتر السايدبار بحسب نيّة المستخدم */}
+        {mode !== 'portfolio' && sections.some((s) => s.stageId) && (
+          <div className="border-b bg-card/40 p-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                🎬 وضع الجلسة
+              </span>
+              {sessionMode !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setSessionMode('all')}
+                  className="rounded px-1 text-[10px] text-muted-foreground hover:bg-muted"
+                >
+                  ↻ أظهر الكل
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {SESSION_MODES.map((m) => {
+                const active = m.key === sessionMode
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setSessionMode(m.key)}
+                    title={m.descAr}
+                    className={cn(
+                      'flex flex-col items-center gap-0.5 rounded-md border p-1.5 text-[10px] transition',
+                      active
+                        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                        : 'border-transparent bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <span className="text-sm leading-none">{m.icon}</span>
+                    <span className="font-medium">{m.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {sessionMode !== 'all' && (
+              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                {SESSION_MODES.find((m) => m.key === sessionMode)?.descAr}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* 🎯 التالي لك الآن — بطاقة ديناميكية أعلى السايدبار */}
         {nextStep.step && (
           <div className="border-b bg-gradient-to-l from-amber-500/10 to-rose-500/10 p-3">
@@ -161,32 +247,81 @@ export function Sidebar() {
           </div>
         )}
 
-        <nav className="flex flex-1 flex-col gap-5 p-3">
-          {sections.map((section) => {
-            const accent = ACCENT_CLASSES[section.accent]
-            const status: StageStatus | null =
-              isPro && effectiveClientId && section.stageId
-                ? stageStatus(section.stageId, completions)
+        <nav className="flex flex-1 flex-col gap-4 p-3">
+          {(() => {
+            // ─── تجميع الأقسام بحسب الطبقة (SIDEBAR-STRUCTURE.md) ─
+            const mainSections    = sections.filter((s) => (s.layer ?? 'main') === 'main')
+            const contextSections = sections.filter((s) => s.layer === 'context')
+            const pinnedSections  = sections.filter((s) => s.layer === 'pinned')
+
+            function renderSection(section: NavSection) {
+              const accent = ACCENT_CLASSES[section.accent]
+              const status: StageStatus | null =
+                isPro && effectiveClientId && section.stageId
+                  ? stageStatus(section.stageId, completions)
+                  : null
+              const stageIcon = status ? STATUS_ICON[status] : ''
+              const stageTitle = status ? STATUS_TITLE[status] : undefined
+              const isLocked = status === 'locked'
+              const inPath = section.stageId ? isStageInPath(section.stageId, strategyPath) : true
+              // هويّة القسم فوق مستوى الخطة: يُوسَم بمستواه (تكتيكي/استراتيجي)
+              // بدل مجرّد «خارج مسارك» — فيعرف المستخدم ماهيّته لا غيابه فقط.
+              const levelLabel = section.stageId && !inPath
+                ? STAGE_LEVEL_LABEL[stageLevel(section.stageId)]
                 : null
-            const stageIcon = status ? STATUS_ICON[status] : ''
-            const stageTitle = status ? STATUS_TITLE[status] : undefined
-            const isLocked = status === 'locked'
-            // فلترة المسار: هل هذه المرحلة داخل مسار المستخدم؟
-            const inPath = section.stageId ? isStageInPath(section.stageId, strategyPath) : true
+              const isStrategicPlanSection = section.title === '📖 الخطة الاستراتيجيّة'
+                || section.title === '📖 الخطة الاستراتيجية'
+              const progressPct = isStrategicPlanSection && effectiveClientId
+                ? overallProgressPct(completions, strategyPath)
+                : null
+              return (
+                <SidebarSection
+                  key={section.title}
+                  section={section}
+                  accent={accent}
+                  stageIcon={stageIcon}
+                  stageTitle={stageTitle}
+                  isLocked={isLocked}
+                  statusComplete={status === 'complete'}
+                  inPath={inPath}
+                  pathLabel={strategyPath ? PATH_LABEL[strategyPath].ar : null}
+                  levelLabel={levelLabel}
+                  progressPct={progressPct}
+                  isProminent={isStrategicPlanSection}
+                />
+              )
+            }
+
             return (
-              <SidebarSection
-                key={section.title}
-                section={section}
-                accent={accent}
-                stageIcon={stageIcon}
-                stageTitle={stageTitle}
-                isLocked={isLocked}
-                statusComplete={status === 'complete'}
-                inPath={inPath}
-                pathLabel={strategyPath ? PATH_LABEL[strategyPath].ar : null}
-              />
+              <>
+                {/* ── الطبقة ١: مسار العمل الأساسي ── */}
+                <div className="flex flex-col gap-5">
+                  {mainSections.map(renderSection)}
+                </div>
+
+                {/* ── فاصل + الطبقة ٢: السياق ── */}
+                {contextSections.length > 0 && (
+                  <>
+                    <LayerDivider label="الإدارة والسياق" />
+                    <div className="flex flex-col gap-4">
+                      {contextSections.map(renderSection)}
+                    </div>
+                  </>
+                )}
+
+                {/* ── فاصل + الطبقة ٣: مُثبَّت ── */}
+                {pinnedSections.length > 0 && (
+                  <>
+                    <LayerDivider label="مثبَّت" />
+                    <div className="flex flex-col gap-3">
+                      {pinnedSections.map(renderSection)}
+                    </div>
+                  </>
+                )}
+              </>
             )
-          })}
+          })()}
+
           {/* Legend at the bottom — يشرح الشارات */}
           {isPro && effectiveClientId && sections.some((s) => s.stageId) && (
             <div className="mt-2 rounded-md border border-dashed bg-card/40 p-2 text-[10px] text-muted-foreground">
@@ -195,6 +330,7 @@ export function Sidebar() {
                 <span>🔒 مقفلة</span>
                 <span>● قيد العمل</span>
                 <span className="text-emerald-600">✓ مكتَملة</span>
+                <span className="text-indigo-600">⏳ قريباً</span>
               </div>
             </div>
           )}
@@ -223,6 +359,9 @@ function SidebarSection({
   statusComplete,
   inPath,
   pathLabel,
+  levelLabel,
+  progressPct,
+  isProminent,
 }: {
   section: NavSection
   accent: { dot: string; bgSoft: string; text: string }
@@ -232,21 +371,56 @@ function SidebarSection({
   statusComplete: boolean
   inPath: boolean
   pathLabel: string | null
+  levelLabel?: string | null
+  progressPct?: number | null
+  isProminent?: boolean
 }) {
   // خارج المسار → مطويّة مبدئياً مع تلميح (لا حذف — يمكن الفتح يدوياً).
   const [outOfPathExpanded, setOutOfPathExpanded] = useState(false)
   const collapsedByPath = !inPath && !outOfPathExpanded
 
   return (
-    <div className={cn('flex flex-col gap-1', isLocked && 'opacity-50')}>
-      <div className="flex items-center gap-2 px-2 pb-1">
-        <span className={cn('inline-block size-1.5 rounded-full', accent.dot)} />
-        <span className="flex-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+    <div
+      className={cn(
+        'flex flex-col gap-1',
+        isLocked && 'opacity-50',
+        isProminent && 'rounded-xl border-2 border-indigo-200 bg-gradient-to-l from-indigo-500/10 to-transparent p-2 shadow-sm'
+      )}
+    >
+      <div className="group/section flex items-center gap-2 px-2 pb-1">
+        {/* نقطة ملوّنة نابضة بلطف — يُعطي إحساساً حياً */}
+        <span className={cn(
+          'inline-block size-1.5 rounded-full transition-transform group-hover/section:scale-150',
+          accent.dot,
+        )} />
+        <span className={cn(
+          'flex-1 text-[11px] font-bold uppercase tracking-wider transition-colors',
+          isProminent ? 'text-indigo-700' : 'text-muted-foreground group-hover/section:text-foreground',
+        )}>
           {section.title}
         </span>
+        {levelLabel && (
+          <span
+            className="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700"
+            title="مستوى هذه الأدوات — فوق مستوى خطتك الحاليّة"
+          >
+            {levelLabel}
+          </span>
+        )}
+        {progressPct != null && (
+          <span
+            className="rounded-full bg-gradient-to-l from-indigo-100 to-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200/50"
+            title="نسبة اكتمال مراحل الخطة الاستراتيجيّة"
+          >
+            {progressPct}٪
+          </span>
+        )}
         {stageIcon && (
           <span
-            className={cn('text-[11px]', statusComplete && 'text-emerald-600')}
+            className={cn(
+              'text-[11px] transition-transform group-hover/section:scale-110',
+              statusComplete && 'text-emerald-600',
+            )}
             title={stageTitle}
           >
             {stageIcon}
@@ -310,6 +484,31 @@ function SectionItems({ section, accent }: { section: NavSection; accent: { bgSo
 }
 
 function NavItemRow({ item, accent }: { item: NavItem; accent: { bgSoft: string; text: string } }) {
+  // ⌘K — نتحوّل من رابط PlaceholderPage إلى زر يفتح palette فوري.
+  if (item.to === '/search') {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className={cn(
+            'group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-all hover:bg-gradient-to-l hover:from-sky-50 hover:to-transparent hover:text-foreground hover:shadow-sm',
+          )}
+          title="افتح البحث السريع (⌘K)"
+        >
+          {item.icon && <span className="text-base leading-none transition-transform group-hover:scale-110">{item.icon}</span>}
+          <span className="flex-1 truncate text-right">{item.label}</span>
+          <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 transition group-hover:border-sky-400 group-hover:bg-sky-50 group-hover:text-sky-700">⌘K</kbd>
+        </button>
+      </li>
+    )
+  }
+
+  const tooltipTitle = item.placeholder
+    ? 'مخطّط عن قصد — قريباً'
+    : item.optional
+      ? 'أداة مساندة — لا تُحسب في اكتمال المرحلة'
+      : undefined
   return (
     <li>
       <NavLink
@@ -317,19 +516,52 @@ function NavItemRow({ item, accent }: { item: NavItem; accent: { bgSoft: string;
         end
         className={({ isActive }) =>
           cn(
-            'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors',
+            // انسيابيّة + hover مع gradient خفيف + ظلّ ناعم
+            'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-200',
             isActive
-              ? `${accent.bgSoft} ${accent.text} font-medium`
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            item.optional && 'opacity-70'
+              // 🌟 الحالة النشطة — accent bg + بولد + ظلّ صغير + شريط جانبي عبر ring-offset
+              ? `${accent.bgSoft} ${accent.text} font-semibold shadow-sm`
+              : 'text-muted-foreground hover:bg-gradient-to-l hover:from-muted hover:to-transparent hover:text-foreground hover:shadow-sm',
+            item.optional && 'opacity-70',
+            item.placeholder && 'italic'
           )
         }
-        title={item.optional ? 'أداة مساندة — لا تُحسب في اكتمال المرحلة' : undefined}
+        title={tooltipTitle}
       >
-        {item.icon && <span className="text-base leading-none">{item.icon}</span>}
+        {item.icon && (
+          <span className="text-base leading-none transition-transform duration-200 group-hover:scale-110">
+            {item.icon}
+          </span>
+        )}
         <span className="flex-1 truncate text-right">{item.label}</span>
-        {item.optional && <span className="text-[9px] text-muted-foreground/70" title="مساندة">◇</span>}
+        {item.placeholder && (
+          <span
+            className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700"
+            title="مخطّط عن قصد — قريباً"
+          >
+            ⏳
+          </span>
+        )}
+        {item.optional && !item.placeholder && (
+          <span className="text-[9px] text-muted-foreground/70" title="مساندة">◇</span>
+        )}
+        {/* سهم الوصول عند hover — يظهر لطيفاً */}
+        <span className="text-[10px] opacity-0 transition-opacity group-hover:opacity-60">←</span>
       </NavLink>
     </li>
+  )
+}
+
+// ─── فاصل بين طبقات السايدبار (SIDEBAR-STRUCTURE.md) ─────────────
+function LayerDivider({ label }: { label: string }) {
+  return (
+    <div className="my-2 flex items-center gap-2 px-2">
+      {/* خطّ متدرّج ساحر — يبدأ شفافاً وينتهي شفافاً */}
+      <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border to-border/40" />
+      <span className="rounded-full border border-border/30 bg-card/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 shadow-sm backdrop-blur-sm">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-border/40" />
+    </div>
   )
 }

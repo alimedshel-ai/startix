@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
-import { listProjects, listTasks, type Project, type Task } from '@/lib/strategicApi'
+import { createProject, getArtifact, listProjects, listTasks, type Project, type Task } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 
 const MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
@@ -62,14 +63,17 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export function GanttChartPage() {
-  return (
-    <StrategicShell
-      title="مخطط جانت"
-      description="عرض زمني تفاعلي للمشاريع والمهام. أشرطة ملوّنة حسب الحالة."
-    >
-      {(companyId) => <Chart companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const from = params.get('from')
+  const parts = ['tab=gantt']
+  if (client) parts.push(`client=${client}`)
+  if (from) parts.push(`from=${from}`)
+  return <Navigate to={`/execute?${parts.join('&')}`} replace />
+}
+
+export function GanttChartView({ companyId }: { companyId: string }) {
+  return <Chart companyId={companyId} />
 }
 
 function IntroCard() {
@@ -81,7 +85,7 @@ function IntroCard() {
           <div className="flex-1">
             <div className="text-sm font-bold text-foreground">ما هو مخطّط جانت؟</div>
             <p className="mt-1 text-muted-foreground">
-              عرض زمني لكل مشاريعك ومهامك على خطّ الوقت — لتعرف <b className="text-foreground">من متى إلى متى</b> يجري كل شيء،
+              عرض زمني لكل خطوات تنفيذ مبادراتك ومهامها على خطّ الوقت — لتعرف <b className="text-foreground">من متى إلى متى</b> يجري كل شيء،
               أين تتداخل الجداول، وماذا يتخلّف عن الموعد.
             </p>
             <p className="mt-1 text-muted-foreground">
@@ -98,9 +102,13 @@ function IntroCard() {
 function Chart({ companyId }: { companyId: string }) {
   const user = useAuthStore((s) => s.user)
   const specialty = user?.specialtyDeptType ?? null
+  const [params] = useSearchParams()
+  const isRescueMode = params.get('from') === 'emergency'
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
 
   useEffect(() => {
     Promise.all([listProjects(companyId), listTasks(companyId)])
@@ -108,6 +116,49 @@ function Chart({ companyId }: { companyId: string }) {
       .catch(() => undefined)
       .finally(() => setLoading(false))
   }, [companyId])
+
+  // 🚨 توليد جدول إنقاذ ٩٠ يوم — من مهام «افعل الآن» في أيزنهاور
+  //    ينشئ ٤-٦ خطوات تنفيذ متتابعة (كل ٢ أسبوع) لإطلاق التنفيذ فوراً.
+  async function generateRescueTimeline() {
+    setGenerating(true)
+    try {
+      const artifact = await getArtifact<{ tasks?: Array<{ id: string; title: string; quadrant: string }> }>(companyId, 'EISENHOWER')
+      const doTasks = (artifact?.data?.tasks ?? []).filter((t) => t.quadrant === 'do' && t.title?.trim())
+      if (doTasks.length === 0) {
+        toast.error('لا مهام في «افعل الآن» بأيزنهاور — ولّدها من المخاطر أوّلاً.')
+        return
+      }
+      const now = new Date()
+      const created: Project[] = []
+      // كل خطوة ٢ أسبوعان، متتابعة (١-٢، ٣-٤، ٥-٦، ...)
+      for (let i = 0; i < Math.min(6, doTasks.length); i++) {
+        const start = new Date(now)
+        start.setDate(now.getDate() + i * 14)
+        const end = new Date(start)
+        end.setDate(start.getDate() + 14)
+        try {
+          const p = await createProject({
+            companyId,
+            title: `[إنقاذ ${i + 1}] ${doTasks[i].title.slice(0, 60)}${doTasks[i].title.length > 60 ? '…' : ''}`,
+            description: `خطوة تنفيذ عاجلة (٢ أسابيع) — من مصفوفة أيزنهاور «افعل الآن».`,
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+          })
+          created.push(p)
+        } catch { /* skip */ }
+      }
+      if (created.length === 0) {
+        toast.error('تعذّر إنشاء الخطوات.')
+        return
+      }
+      setProjects((prev) => [...prev, ...created])
+      toast.success(`🚨 أُنشئت ${created.length} خطوات إنقاذ متتابعة — ابدأ بالأولى الآن.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد التلقائي'))
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   const range = useMemo(() => {
     const items = [
@@ -132,22 +183,63 @@ function Chart({ companyId }: { companyId: string }) {
             </CardContent>
           </Card>
         )}
-        <Card className="border-2 border-dashed border-amber-300 bg-amber-50/40">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div className="flex items-start gap-3">
-              <div className="text-3xl">🗓️</div>
-              <div>
-                <div className="text-sm font-bold text-amber-900">لا توجد مشاريع أو مهام بتواريخ بعد</div>
-                <div className="mt-0.5 text-xs text-amber-800/80">
-                  أنشئ مشروعاً بتاريخ بداية ونهاية من صفحة المشاريع لتراه على المخطّط.
+        {/* 🚨 في وضع الطوارئ: زرّ توليد جدول إنقاذ ٩٠ يوم فوريّ */}
+        {isRescueMode ? (
+          <Card className="overflow-hidden border-2 border-rose-500 bg-gradient-to-l from-rose-50 via-rose-50/50 to-transparent shadow-md">
+            <div className="h-1.5 bg-gradient-to-l from-rose-600 via-rose-500 to-rose-400" />
+            <CardContent className="p-5">
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="text-5xl">🚨</div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-rose-400 bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-900">
+                      الخطوة ٤ من ٤ · جدول إنقاذ ٩٠ يوم
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-bold text-rose-900">ولّد جدولاً زمنياً فورياً من مهام أيزنهاور</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-rose-800/80">
+                    بدل إنشاء كل خطوة تنفيذ يدوياً، اضغط الزرّ لتوليد <b>٤-٦ خطوات إنقاذ متتابعة</b> (كلّ خطوة ٢ أسبوعان)
+                    من مهام «افعل الآن» في أيزنهاور. النتيجة: جدول جاهز مع تواريخ سترى المخطّط فوراً.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={generateRescueTimeline}
+                      disabled={generating}
+                      size="lg"
+                      className="bg-rose-600 hover:bg-rose-700"
+                    >
+                      {generating ? 'جاري التوليد…' : '🚨 ولّد جدول الإنقاذ الآن'}
+                    </Button>
+                    <Link to="/execute?tab=projects&from=emergency" className="text-xs text-rose-700 underline-offset-4 hover:underline">
+                      أو أنشئ خطوة يدوياً ←
+                    </Link>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-rose-300 bg-rose-100/60 p-2 text-[11px] text-rose-900">
+                    <b>💡 كيف يعمل؟</b> يقرأ artifact `EISENHOWER` → يأخذ أوّل ٦ مهام «افعل الآن» → ينشئ لكل واحدة خطوة تنفيذ بمدّة ٢ أسبوعان،
+                    مع تواريخ متتابعة (١-٢، ٣-٤، ٥-٦…). يمكنك تعديل التواريخ بعد التوليد.
+                  </div>
                 </div>
               </div>
-            </div>
-            <Link to="/projects" className={buttonVariants({ variant: 'default' })}>
-              افتح المشاريع ←
-            </Link>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-2 border-dashed border-amber-300 bg-amber-50/40">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-3xl">🗓️</div>
+                <div>
+                  <div className="text-sm font-bold text-amber-900">لا توجد خطوات تنفيذ بتواريخ بعد</div>
+                  <div className="mt-0.5 text-xs text-amber-800/80">
+                    أنشئ خطوة تنفيذ لمبادرة (تاريخ بداية + نهاية + مسؤول) من «متابعة المبادرات» لتظهر على المخطّط.
+                  </div>
+                </div>
+              </div>
+              <Link to="/execute?tab=projects" className={buttonVariants({ variant: 'default' })}>
+                افتح متابعة المبادرات ←
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </>
     )
   }
@@ -166,7 +258,7 @@ function Chart({ companyId }: { companyId: string }) {
               🎯 السياق: إدارة {DEPT_LABEL[specialty as DeptCode]}
             </span>
             <span className="text-muted-foreground">
-              مشاريعك ومهامك لهذا العميل — مخطّط جانت يعرضها كلها معاً على خطّ الوقت.
+              خطوات تنفيذ مبادراتك ومهامها لهذا العميل — جانت يعرضها كلها معاً على خطّ الوقت.
             </span>
           </CardContent>
         </Card>
@@ -177,15 +269,20 @@ function Chart({ companyId }: { companyId: string }) {
           <CardTitle>الفترة الزمنية</CardTitle>
           <CardDescription>
             من {range.start.toLocaleDateString('ar-SA')} إلى {range.end.toLocaleDateString('ar-SA')} ·{' '}
-            {projects.length} مشروع · {tasks.filter((t) => t.dueDate).length} مهمة بتاريخ.
+            {projects.length} خطوة تنفيذ · {tasks.filter((t) => t.dueDate).length} مهمة بتاريخ.
           </CardDescription>
         </CardHeader>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>المشاريع</CardTitle>
-          <CardDescription>كل سطر يمثّل مشروعاً، عرض الشريط = مدة المشروع. الخط الأحمر = اليوم.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle>خطوات تنفيذ المبادرات</CardTitle>
+            <CardDescription>كل سطر يمثّل خطوة تنفيذ لمبادرة، عرض الشريط = مدّة الخطوة. الخطّ الأحمر = اليوم.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setFullscreen(true)} className="shrink-0">
+            ⛶ عرض كامل
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -216,7 +313,7 @@ function Chart({ companyId }: { companyId: string }) {
 
               {projects.length === 0 && (
                 <div className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-                  لا توجد مشاريع.
+                  لا توجد خطوات تنفيذ.
                 </div>
               )}
             </div>
@@ -248,7 +345,7 @@ function Chart({ companyId }: { companyId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>مهام عامة</CardTitle>
-            <CardDescription>مهام بدون مشروع، مرتبة بتاريخ الاستحقاق.</CardDescription>
+            <CardDescription>مهام بدون خطوة تنفيذ، مرتّبة بتاريخ الاستحقاق.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
@@ -262,21 +359,74 @@ function Chart({ companyId }: { companyId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* ─── العرض الكامل — صفحة كاملة بتفاصيل أوضح (صفوف أكبر + تواريخ) ─── */}
+      {fullscreen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-card px-4 py-3">
+            <div>
+              <div className="text-base font-bold">📅 مخطّط جانت — العرض الكامل</div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                من {range.start.toLocaleDateString('ar-SA')} إلى {range.end.toLocaleDateString('ar-SA')} ·{' '}
+                {projects.length} خطوة تنفيذ · {tasks.filter((t) => t.dueDate).length} مهمة بتاريخ
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => setFullscreen(false)} className="shrink-0">
+              ✕ إغلاق العرض الكامل
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <div className="min-w-[1200px]">
+              <div className="relative mb-2 h-6 border-b">
+                {markers.map((m, i) => (
+                  <div
+                    key={i}
+                    className="absolute top-0 text-xs text-muted-foreground"
+                    style={{ insetInlineStart: `${m.left}%` }}
+                  >
+                    <span className="-translate-x-1/2 px-1">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="relative">
+                {projects.map((p) => (
+                  <ProjectRow
+                    key={p.id}
+                    project={p}
+                    tasks={tasks.filter((t) => t.projectId === p.id)}
+                    range={range}
+                    todayPct={todayPct}
+                    detailed
+                  />
+                ))}
+                {projects.length === 0 && (
+                  <div className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+                    لا توجد خطوات تنفيذ.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
 
 function ProjectRow({
-  project, tasks, range, todayPct,
+  project, tasks, range, todayPct, detailed = false,
 }: {
   project: Project
   tasks: Task[]
   range: DateRange
   todayPct: number
+  /** الوضع التفصيلي (العرض الكامل): صفوف أكبر + عرض تواريخ الخطوة. */
+  detailed?: boolean
 }) {
+  const gridCols = detailed ? 'grid-cols-[240px_1fr]' : 'grid-cols-[180px_1fr]'
   if (!project.startDate || !project.endDate) {
     return (
-      <div className="my-2 grid grid-cols-[180px_1fr] items-center gap-2">
+      <div className={`my-2 grid ${gridCols} items-center gap-2`}>
         <div className="text-xs font-medium">{project.title}</div>
         <div className="rounded-md border border-dashed bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground">بدون تواريخ</div>
       </div>
@@ -286,20 +436,29 @@ function ProjectRow({
   const endPct   = pctOffset(project.endDate, range)
   const widthPct = Math.max(2, endPct - startPct)
   const color = STATUS_COLOR[project.status] ?? 'bg-primary'
+  const trackH = detailed ? 'h-12' : 'h-8'
+  const barPos = detailed ? 'top-1.5 h-9' : 'top-1 h-6'
 
   return (
-    <div className="my-2 grid grid-cols-[180px_1fr] items-center gap-2">
-      <div className="truncate text-xs font-medium" title={project.title}>{project.title}</div>
-      <div className="relative h-8 rounded-md bg-muted/30">
+    <div className={`my-2 grid ${gridCols} items-center gap-2`}>
+      <div className="min-w-0">
+        <div className="truncate text-xs font-medium" title={project.title}>{project.title}</div>
+        {detailed && (
+          <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
+            {new Date(project.startDate).toLocaleDateString('ar-SA')} ← {new Date(project.endDate).toLocaleDateString('ar-SA')}
+          </div>
+        )}
+      </div>
+      <div className={`relative ${trackH} rounded-md bg-muted/30`}>
         <div
           className="absolute top-0 h-full w-px bg-rose-500/70"
           style={{ insetInlineStart: `${todayPct}%` }}
         />
         <div
-          className={`absolute top-1 h-6 rounded ${color} shadow-sm flex items-center px-1 text-[10px] font-medium text-white`}
+          className={`absolute ${barPos} rounded ${color} shadow-sm flex items-center px-1 text-[10px] font-medium text-white`}
           style={{ insetInlineStart: `${startPct}%`, width: `${widthPct}%` }}
         >
-          {widthPct >= 20 && <span className="truncate">{project.title}</span>}
+          {widthPct >= (detailed ? 12 : 20) && <span className="truncate">{project.title}</span>}
         </div>
         {tasks.filter((t) => t.dueDate).map((t) => {
           const left = pctOffset(t.dueDate!, range)

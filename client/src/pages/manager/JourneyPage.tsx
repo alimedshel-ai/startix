@@ -9,7 +9,7 @@ import { apiErrorMessage } from '@/lib/api'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { buildJourneyPayload, type JourneyPayload } from '@/lib/journeyPayload'
 import {
-  JOURNEY_STAGES, canOpenStage, overallProgressPct,
+  JOURNEY_STAGES, canOpenStage, overallProgressPct, isStageInPath,
   type StageId, type JourneyStage,
 } from '@/lib/journeyStages'
 import { getSWOT } from '@/lib/strategicApi'
@@ -133,8 +133,8 @@ export function JourneyPage() {
     const map: Record<StageId, boolean> = Object.fromEntries(
       stageStatuses.map((s) => [s.stage.id, s.complete]),
     ) as Record<StageId, boolean>
-    return overallProgressPct(map)
-  }, [stageStatuses])
+    return overallProgressPct(map, user?.strategyPath ?? null)
+  }, [stageStatuses, user?.strategyPath])
 
   // ─── حالات فشل ─────────────────────────────────────────────────
   if (!isPro) {
@@ -224,7 +224,12 @@ export function JourneyPage() {
       {/* المراحل الست */}
       <div className="grid gap-4">
         {stageStatuses.map((st) => (
-          <StageCard key={st.stage.id} status={st} clientQ={clientQ} />
+          <StageCard
+            key={st.stage.id}
+            status={st}
+            clientQ={clientQ}
+            inPath={isStageInPath(st.stage.id, user?.strategyPath ?? null)}
+          />
         ))}
       </div>
     </div>
@@ -242,15 +247,57 @@ function Pill({ icon, label }: { icon: string; label: string }) {
   )
 }
 
-function StageCard({ status, clientQ }: { status: StageStatus; clientQ: string }) {
+function StageCard({ status, clientQ, inPath }: { status: StageStatus; clientQ: string; inPath: boolean }) {
   const { stage, complete, canOpen, matched } = status
+  // قفلان مختلفان:
+  //   • قفل التسلسل (داخل المسار، لم تكتمل السابقة) → يُفتَح تلقائياً.
+  //   • قفل المسار (خارج مسارك، غير مطلوبة) → مقفل اختيارياً مع فتح يدوي.
+  const [unlocked, setUnlocked] = useState(false)
+  const pathLocked = !inPath && !unlocked
+
+  // ─── بطاقة «غير مطلوبة لمسارك» — مطويّة مع خيار فتح القفل ─────────
+  if (pathLocked) {
+    return (
+      <Card className="overflow-hidden border-dashed opacity-70">
+        <div className={`h-1 bg-gradient-to-l from-${stage.accent}-500 to-transparent`} />
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+              <span aria-hidden>{stage.icon}</span>
+              {stage.labelAr}
+            </CardTitle>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              🔒 غير مطلوبة لمسارك
+            </span>
+          </div>
+          <CardDescription>خارج مسارك المُختار — لا تحتاجها لإكمال خطتك.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={() => setUnlocked(true)}
+            className="rounded-md border border-dashed bg-card px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            🔓 افتحها إن احتجتها
+          </button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const stateLabel =
-    complete   ? { text: '✓ مكتَملة', class: 'bg-emerald-100 text-emerald-800' }
+    complete   ? { text: '✓ مكتَملة', class: 'bg-emerald-500 text-white' }
+  : !inPath    ? { text: '🔓 مفتوحة يدوياً', class: 'bg-amber-100 text-amber-800' }
   : canOpen    ? { text: 'متاحة',      class: 'bg-sky-100 text-sky-800' }
   : { text: '🔒 مقفلة',    class: 'bg-muted text-muted-foreground' }
 
+  // المكتملة تبرز بإطار أخضر بدل التلاشي؛ المقفلة بالتسلسل تبقى باهتة.
+  const cardClass = complete
+    ? 'overflow-hidden border-2 border-emerald-400 bg-emerald-50/40'
+    : `overflow-hidden ${canOpen ? '' : 'opacity-60'}`
+
   return (
-    <Card className={`overflow-hidden ${canOpen ? '' : 'opacity-60'}`}>
+    <Card className={cardClass}>
       <div className={`h-1 bg-gradient-to-l from-${stage.accent}-500 to-transparent`} />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
@@ -263,6 +310,15 @@ function StageCard({ status, clientQ }: { status: StageStatus; clientQ: string }
           </span>
         </div>
         <CardDescription>{stage.descAr}</CardDescription>
+        {!inPath && (
+          <button
+            type="button"
+            onClick={() => setUnlocked(false)}
+            className="mt-1 w-fit text-[10px] text-muted-foreground underline-offset-2 hover:underline"
+          >
+            ↩︎ أعِدها للقفل (خارج مسارك)
+          </button>
+        )}
       </CardHeader>
       <CardContent>
         {matched.length > 0 && (

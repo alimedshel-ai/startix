@@ -36,9 +36,9 @@ const COLORS = ['#10b981', '#0ea5e9', '#f43f5e', '#8b5cf6', '#f59e0b']
 
 // المسار يحدّد أفق الإسقاط ولذلك ترتيب الأولوية.
 function pathHorizon(path: StrategyPath | null): { years: number; label: string; icon: string } {
-  if (path === 'QUICK')  return { years: 1, label: 'سريع ٠-١٢ شهر', icon: '⚡' }
-  if (path === 'MEDIUM') return { years: 3, label: 'متوسّط ١-٣ سنوات', icon: '🎯' }
-  return { years: 5, label: 'طويل ٣-٥+ سنوات', icon: '🔭' }
+  if (path === 'QUICK')  return { years: 1, label: 'تشغيلي (قصير) ٠-١٢ شهر', icon: '⚡' }
+  if (path === 'MEDIUM') return { years: 3, label: 'تكتيكي (متوسّط) ١-٣ سنوات', icon: '🎯' }
+  return { years: 5, label: 'استراتيجي (طويل) ٣-٥+ سنوات', icon: '🔭' }
 }
 
 // ترتيب البريستات حسب المسار — من الأولى بالتنفيذ للأخيرة.

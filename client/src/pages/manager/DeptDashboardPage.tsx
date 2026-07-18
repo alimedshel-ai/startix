@@ -137,7 +137,7 @@ const STAGES: StageDef[] = [
     icon: '🚀',
     color: { border: 'border-rose-400', bg: 'bg-rose-50/70', text: 'text-rose-900', ring: 'ring-rose-400', dot: 'bg-rose-500' },
     tools: [
-      { icon: '📁', labelAr: 'المشاريع',           to: (q) => `/projects${q}`, note: 'أساسي' },
+      { icon: '📁', labelAr: 'متابعة المبادرات',   to: (q) => `/projects${q}`, note: 'أساسي' },
       { icon: '📅', labelAr: 'مخطّط جانت',          to: (q) => `/gantt-chart${q}` },
       { icon: '✓',  labelAr: 'المهام',              to: (q) => `/tasks${q}` },
       { icon: '📐', labelAr: 'التحليل المالي',     to: (q) => `/financial-analysis${q}` },
@@ -209,7 +209,7 @@ export function DeptDashboardPage() {
     return () => { alive = false }
   }, [scope.company])
 
-  const artifactTypes = useMemo(() => new Set(artifacts.map((a) => a.type)), [artifacts])
+  const artifactTypes = useMemo(() => new Set<string>(artifacts.map((a) => a.type)), [artifacts])
   // نطاق العمل الفعلي — يُشتقّ من حجم الشركة إن لم يختره المدير.
   const effectiveScope: WorkScope = workScope ?? (
     scope.company?.size === 'MICRO' || scope.company?.size === 'SMALL' ? 'small' : 'medium'
@@ -243,7 +243,7 @@ export function DeptDashboardPage() {
       if (stage.key === 'kpi' && t.icon === '📊' && kpis.length > 0) { done++; continue }
       if (stage.key === 'kpi' && t.icon === '🎯' && objectives.length > 0) { done++; continue }
       if (stage.key === 'init' && t.icon === '💡' && initiatives.length > 0) { done++; continue }
-      if (t.artifactType && artifactTypes.has(t.artifactType as ReturnType<typeof String>)) done++
+      if (t.artifactType && artifactTypes.has(t.artifactType)) done++
       // artifact types with generic fallback (checking prefix)
       else if (t.artifactType) {
         const prefix = t.artifactType.split('_')[0]
@@ -256,7 +256,7 @@ export function DeptDashboardPage() {
   // ─── لوحة التعارضات ─────────────────────────────
   const conflicts: { icon: string; title: string; hint: string; severity: 'warn' | 'critical' }[] = []
   if (strategyPath === 'QUICK' && planLevel === 'strategic') {
-    conflicts.push({ icon: '⚠️', title: 'مسار سريع (٣ شهر) + خطّة استراتيجيّة (١+ سنة) — تعارض واضح', hint: 'إمّا اختر خطّة تشغيليّة/تكتيكيّة، أو غيّر مسارك إلى طويل.', severity: 'critical' })
+    conflicts.push({ icon: '⚠️', title: 'مسار تشغيلي (٣ شهر) + خطّة استراتيجيّة (١+ سنة) — تعارض واضح', hint: 'إمّا اختر خطّة تشغيليّة/تكتيكيّة، أو غيّر مسارك إلى الاستراتيجي (طويل الأمد).', severity: 'critical' })
   }
   if (effectiveScope === 'small' && planLevel === 'strategic') {
     conflicts.push({ icon: '⚡', title: 'نطاق صغير + خطّة استراتيجيّة — يحتاج تكيّف', hint: 'الشركات الصغيرة عادة تتحرّك عبر خطط تكتيكيّة ٦-١٢ شهر — قلّل عمق الخطّة أو اقصر أفقها.', severity: 'warn' })
@@ -265,7 +265,7 @@ export function DeptDashboardPage() {
     conflicts.push({ icon: '📋', title: 'بلا تدقيق أساسي — أيّ خطّة ستكون بلا سياق حقيقي', hint: 'ابدأ التدقيق قبل اختيار مستوى الخطّة.', severity: 'critical' })
   }
   if (strategyPath === 'LONG' && effectiveScope === 'small' && (myScore ?? 0) < 50) {
-    conflicts.push({ icon: '🚨', title: 'مسار طويل + نطاق صغير + صحّة أقلّ من ٥٠٪', hint: 'ابدأ بمسار سريع لاستعادة الاستقرار قبل التخطيط للتميّز.', severity: 'critical' })
+    conflicts.push({ icon: '🚨', title: 'مسار استراتيجي (طويل) + نطاق صغير + صحّة أقلّ من ٥٠٪', hint: 'ابدأ بمسار تشغيلي (قصير) لاستعادة الاستقرار قبل التخطيط للتميّز.', severity: 'critical' })
   }
 
   return (
@@ -340,7 +340,7 @@ export function DeptDashboardPage() {
         <CardContent className="space-y-3">
           <FilterGroup
             label="مسارك (يحدّد الأفق الزمني)"
-            hint={strategyPath === 'QUICK' ? '⚡ سريع ٠-٣ شهر' : strategyPath === 'MEDIUM' ? '🎯 متوسط ٣-١٢ شهر' : strategyPath === 'LONG' ? '🔭 طويل ١٢-٣٦+ شهر' : 'لم يُختَر — يمكن ضبطه من /settings/path'}
+            hint={strategyPath === 'QUICK' ? '⚡ تشغيلي (قصير) ٠-٣ شهر' : strategyPath === 'MEDIUM' ? '🎯 تكتيكي (متوسّط) ٣-١٢ شهر' : strategyPath === 'LONG' ? '🔭 استراتيجي (طويل) ١٢-٣٦+ شهر' : 'لم يُختَر — يمكن ضبطه من /settings/path'}
           />
           <FilterGroup label="نوع الخطّة (يحدّد عمق الأدوات)">
             <FilterChip active={planLevel === 'operational'} onClick={() => setPlanLevel(planLevel === 'operational' ? null : 'operational')} icon="⚙️" color="emerald">
@@ -466,7 +466,7 @@ export function DeptDashboardPage() {
                     {s.tools.map((t) => {
                       // اكتمال أداة فرديّة (تقريبي)
                       const isDone = !!(
-                        (t.artifactType && artifactTypes.has(t.artifactType as ReturnType<typeof String>)) ||
+                        (t.artifactType && artifactTypes.has(t.artifactType)) ||
                         (t.icon === '📋' && myDept) ||
                         (t.icon === '🧭' && s.key === 'synth' && hasSwotState) ||
                         (t.icon === '📊' && s.key === 'kpi' && kpis.length > 0) ||

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,7 +9,17 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { getProOverview, type OverviewClient } from '@/lib/proApi'
+import { goalSourceFor, type GoalSource } from '@/lib/goalSource'
 import { createObjective, deleteObjective, getArtifact, listObjectives, updateObjective, type Objective } from '@/lib/strategicApi'
+import { pickStrategicPath, type StrategicPath } from '@/lib/strategicPath'
+import { useAuthStore } from '@/store/authStore'
+
+// شارة عرض فقط — توضّح مصدر الأهداف بحسب الدور (لا تغيّر سلوكاً).
+const GOAL_SOURCE_HINT: Record<GoalSource, { icon: string; text: string; cls: string }> = {
+  manual:    { icon: '🖊️', text: 'أهدافك — تُحدّدها لهذا العميل بنفسك.',          cls: 'border-sky-300 bg-sky-50/70 text-sky-900' },
+  fromOwner: { icon: '🏛️', text: 'أهداف الشركة — من المالك؛ دورك التنفيذ والمتابعة.', cls: 'border-violet-300 bg-violet-50/70 text-violet-900' },
+}
 
 const TYPES = [
   ['financial',    'مالي'],
@@ -44,34 +53,63 @@ function progressFromOKRs(o: Objective): number {
 }
 
 export function ObjectivesPage() {
-  return (
-    <StrategicShell
-      title="الأهداف الاستراتيجية"
-      description="إنشاء ومتابعة 5–7 أهداف SMART مرتبطة بالاتجاه الاستراتيجي."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/measure?tab=objectives${q}`} replace />
+}
+
+export function ObjectivesView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 function Editor({ companyId }: { companyId: string }) {
   const [params] = useSearchParams()
+  const user = useAuthStore((s) => s.user)
   const clientQS = params.get('client') ? `?client=${params.get('client')}` : ''
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [generatingFromPlan, setGeneratingFromPlan] = useState(false)
   // فحص جاهزية BSC — إن ما كان محفوظاً نُخفي زر الاستيراد ونعرض CTA واضحاً.
   const [hasBSC, setHasBSC] = useState<boolean | null>(null)
+  // بيانات العميل الاستراتيجيّة — لتوليد أهداف من الخطة الموصى بها.
+  const [overviewClient, setOverviewClient] = useState<OverviewClient | null>(null)
   const [form, setForm] = useState({ title: '', description: '', type: TYPES[0][0] as string })
 
   useEffect(() => {
-    listObjectives(companyId).then(setObjectives).catch(() => undefined).finally(() => setLoading(false))
+    setFetchError(null)
+    listObjectives(companyId)
+      .then(setObjectives)
+      .catch((err) => {
+        console.error('[Objectives] listObjectives failed:', err)
+        setFetchError(apiErrorMessage(err, 'تعذّر جلب الأهداف من الخادم'))
+      })
+      .finally(() => setLoading(false))
     // فحص BSC — رفض هادئ يُظهر false، النجاح مع بيانات = true.
     getArtifact<{ perspectives?: unknown }>(companyId, 'BSC')
       .then((art) => setHasBSC(!!art?.data?.perspectives))
       .catch(() => setHasBSC(false))
+    // جلب لمحة العميل — نُحدّد المسار الموصى به (EMERGENCY/FOUNDATION/GROWTH/EXCELLENCE).
+    getProOverview()
+      .then((res) => {
+        const found = res.clients.find((c) => c.companyId === companyId) ?? null
+        setOverviewClient(found)
+      })
+      .catch(() => setOverviewClient(null))
   }, [companyId])
+
+  // المسار الموصى به بناءً على صحّة الإدارة.
+  const recommendedPath = useMemo<StrategicPath | null>(() => {
+    if (!overviewClient) return null
+    return pickStrategicPath({
+      healthPct: overviewClient.healthPct,
+      dangerZone: overviewClient.dangerZone,
+      hasAnyAudit: overviewClient.hasAnyAudit,
+    })
+  }, [overviewClient])
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -164,14 +202,84 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // ─── ترابط: الخطة الاستراتيجيّة → Objectives ───────────────────
+  // كل أولويّة في path.priorities تُصبح Objective. الـtype يُستنتج ذكائيّاً
+  // من نصّ الأولويّة (مالي/عميل/فريق/ابتكار → operations كافتراضي).
+  function typeFromPriorityText(text: string): string {
+    const s = text.toLowerCase()
+    if (/مال|إيراد|تكلفة|كلفة|سيولة|ربح|نقد/.test(s)) return 'financial'
+    if (/عميل|مستفيد|جمهور|زبون|رضا/.test(s))         return 'customer'
+    if (/فريق|تدريب|كادر|موظّف|موظف|كفاءات/.test(s))  return 'people'
+    if (/ابتكار|إبداع|جديد|بحث|تطوير/.test(s))         return 'innovation'
+    return 'operations'
+  }
+
+  async function generateFromPlan() {
+    if (!recommendedPath) {
+      toast.error('لم نتمكّن من تحديد المسار الاستراتيجي — تحقّق من تدقيق الإدارة أوّلاً.')
+      return
+    }
+    setGeneratingFromPlan(true)
+    try {
+      const existingTitles = new Set(objectives.map((o) => o.title))
+      let added = 0
+      for (const priority of recommendedPath.priorities) {
+        const title = priority.trim()
+        if (!title || existingTitles.has(title)) continue
+        try {
+          const o = await createObjective({
+            companyId,
+            title,
+            description: `من الخطة الاستراتيجيّة «${recommendedPath.name}» — مدّة ${recommendedPath.duration}`,
+            type: typeFromPriorityText(title),
+          })
+          setObjectives((p) => [...p, o])
+          existingTitles.add(title)
+          added++
+        } catch (err) {
+          console.error('[Objectives] createObjective failed for priority:', title, err)
+        }
+      }
+      if (added === 0) toast.error(`كل أولويّات «${recommendedPath.shortName}» موجودة سابقاً.`)
+      else toast.success(`أُضيف ${added} هدفاً من الخطة «${recommendedPath.shortName}» — راجعها وأضِف OKRs.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر التوليد من الخطة'))
+    } finally {
+      setGeneratingFromPlan(false)
+    }
+  }
+
   const counts = {
     active: objectives.filter((o) => o.status === 'active').length,
     achieved: objectives.filter((o) => o.status === 'achieved').length,
     cancelled: objectives.filter((o) => o.status === 'cancelled').length,
   }
 
+  // مصدر الأهداف — شارة توضيحيّة بحسب الدور (مشتقّ، لا حقل).
+  const goalSource = goalSourceFor(user?.userType, user?.managerType)
+
   return (
     <>
+      {goalSource && (
+        <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${GOAL_SOURCE_HINT[goalSource].cls}`}>
+          <span className="text-base leading-none">{GOAL_SOURCE_HINT[goalSource].icon}</span>
+          <span className="font-semibold">مصدر الأهداف:</span>
+          <span>{GOAL_SOURCE_HINT[goalSource].text}</span>
+        </div>
+      )}
+      {fetchError && (
+        <Card className="border-rose-300 bg-rose-50/60">
+          <CardHeader>
+            <CardTitle className="text-rose-900">⚠️ تعذّر جلب الأهداف</CardTitle>
+            <CardDescription className="text-rose-800">
+              {fetchError} — companyId: <code className="rounded bg-white/70 px-1.5 py-0.5 text-[11px]">{companyId}</code>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground">
+            راجع أنّ هذا العميل مربوط بحسابك. لتشخيص فنّي: افتح Developer Console (F12) وتحقّق من طلب <code>GET /api/strategic/objectives/{companyId}</code>.
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-sky-200 bg-sky-50/60">
           <CardHeader>
@@ -200,21 +308,35 @@ function Editor({ companyId }: { companyId: string }) {
             <CardTitle>هدف جديد</CardTitle>
             <CardDescription>SMART: محدد، قابل للقياس، قابل للتحقيق، ذو صلة، محدد زمنياً.</CardDescription>
           </div>
-          {/* زر الاستيراد يظهر فقط لو BSC مكتَمل. وإلا نُظهر رابطاً واضحاً. */}
-          {hasBSC === true && (
-            <Button variant="outline" size="sm" onClick={importFromBSC} disabled={importing}>
-              {importing ? 'جاري…' : '⚖️ استورد من BSC'}
-            </Button>
-          )}
-          {hasBSC === false && (
-            <Link
-              to={`/bsc${clientQS}`}
-              className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
-              title="أنشئ Balanced Scorecard أوّلاً لتستورد أهدافه هنا"
-            >
-              ⚖️ أنشئ BSC أوّلاً ←
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* توليد من الخطة الاستراتيجيّة — يستخدم أولويّات المسار الموصى به. */}
+            {recommendedPath && recommendedPath.key !== 'DEFAULT' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generateFromPlan}
+                disabled={generatingFromPlan}
+                title={`توليد أهداف من أولويّات «${recommendedPath.name}» (${recommendedPath.priorities.length} أولويّة)`}
+              >
+                {generatingFromPlan ? 'جاري…' : `${recommendedPath.icon} توليد من ${recommendedPath.shortName}`}
+              </Button>
+            )}
+            {/* زر الاستيراد يظهر فقط لو BSC مكتَمل. وإلا نُظهر رابطاً واضحاً. */}
+            {hasBSC === true && (
+              <Button variant="outline" size="sm" onClick={importFromBSC} disabled={importing}>
+                {importing ? 'جاري…' : '⚖️ استورد من BSC'}
+              </Button>
+            )}
+            {hasBSC === false && (
+              <Link
+                to={`/bsc${clientQS}`}
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+                title="أنشئ Balanced Scorecard أوّلاً لتستورد أهدافه هنا"
+              >
+                ⚖️ أنشئ BSC أوّلاً ←
+              </Link>
+            )}
+          </div>
         </CardHeader>
         <form onSubmit={create}>
           <CardContent className="grid gap-3 md:grid-cols-2">
@@ -269,6 +391,27 @@ function Editor({ companyId }: { companyId: string }) {
                   <Progress value={prog} className="mt-1 h-2" />
                   <p className="mt-1 text-[10px] text-muted-foreground">{o.okrs?.length ?? 0} نتيجة رئيسية</p>
                 </div>
+                {/* الجسر الاستراتيجي (نزولاً): المبادرات التنفيذيّة التي تخدم هذا الهدف */}
+                <div className="rounded-lg border bg-muted/30 p-2">
+                  <div className="flex items-center justify-between text-[11px] font-medium">
+                    <span>💡 المبادرات التنفيذيّة</span>
+                    <span className="tabular-nums text-muted-foreground">{o.initiatives?.length ?? 0}</span>
+                  </div>
+                  {o.initiatives && o.initiatives.length > 0 ? (
+                    <ul className="mt-1.5 space-y-1">
+                      {o.initiatives.map((ini) => (
+                        <li key={ini.id} className="flex items-center gap-1.5 text-[11px]">
+                          <span className="text-emerald-600">↳</span>
+                          <span className="flex-1 leading-tight">{ini.title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      لا مبادرة مربوطة — اربط مبادرة بهذا الهدف من <Link to="/priority?tab=initiatives" className="underline">صفحة المبادرات</Link>.
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <select
                     className="rounded-md border bg-background px-2 py-1 text-xs"
@@ -292,6 +435,7 @@ function Editor({ companyId }: { companyId: string }) {
           </Card>
         )}
       </div>
+
     </>
   )
 }

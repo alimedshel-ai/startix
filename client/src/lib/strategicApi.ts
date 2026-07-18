@@ -1,5 +1,6 @@
 import { api } from './api'
 import type { Company, DeptCode } from './deptApi'
+import { fromStorage, toStorage, type TaggedItem } from './taggedItem'
 
 // ─── PESTEL/Gap على مستوى الإدارة — أدوات المدير المستقل الخبير ─
 // المفاتيح `PESTEL_<DEPT>` و `GAP_ANALYSIS_<DEPT>` تعمل بمنهجية القديم
@@ -19,7 +20,7 @@ type DeptScopedArtifactType =
   | `BSC_${DeptCode}`
   // Marketing Hub — يخزّن هوية العلامة + قنواتها + مقاييسها + خططها الثلاث.
   // مستقلّ عن Ansoff/BSC/PESTEL — لأنه يجمع الجوانب الفنيّة (SEO, socials)
-  // مع الإداريّة (فريق، ميزانية) مع خطط تنفيذيّة (تشغيلي/تكتيكي/استراتيجي).
+  // مع الإداريّة (فريق، ميزانية) مع خطوات تنفيذيّة (تشغيلي/تكتيكي/استراتيجي).
   | `MARKETING_HUB_${DeptCode}`
 
 export type ArtifactType =
@@ -81,6 +82,8 @@ export async function listAllArtifacts(companyId: string): Promise<Artifact[]> {
 
 // ─── SWOT / TOWS ───────────────────────────────────────────────────────────
 
+// النوع العامّ للمستهلكين (Ansoff/Choices/TOWS/…): نصوص نظيفة فقط.
+// كل هؤلاء يقرؤون النصّ لتغذية أدوات أخرى — لا يحتاجون الأصل/المصدر.
 export interface SWOT {
   id: string
   companyId: string
@@ -92,13 +95,86 @@ export interface SWOT {
   updatedAt: string
 }
 
+// النوع الغنيّ لصفحة SWOT فقط — يحمل TaggedItem (أصل/مصدر/سبب) لكل بند.
+export interface TaggedSWOT {
+  id: string
+  companyId: string
+  strengths: TaggedItem[]
+  weaknesses: TaggedItem[]
+  opportunities: TaggedItem[]
+  threats: TaggedItem[]
+  tows?: SWOT['tows']
+  updatedAt: string
+}
+
+// شكل الاستجابة الخام: الحقول قد تكون string[] (قديم) أو {values,meta} (جديد).
+interface SWOTRaw {
+  id: string
+  companyId: string
+  strengths?: unknown
+  weaknesses?: unknown
+  opportunities?: unknown
+  threats?: unknown
+  tows?: SWOT['tows']
+  updatedAt: string
+}
+
+// للمستهلكين: يفكّ الشكلين + يجرّد العلامات القديمة ⟪⟫ ويُرجع نصوصاً نظيفة.
+// tows أيضاً يُطبَّع لكل ربع → string[] (كان يُمرَّر خاماً {values,meta} فتنكسر
+// المستهلكات التي تقرأ tows.so.length — مثل DirectionsPage «استورد من TOWS»).
+function normalizeToText(raw: SWOTRaw): SWOT {
+  const text = (v: unknown) => fromStorage(v).map((i) => i.text)
+  const rt = raw.tows as Record<string, unknown> | null | undefined
+  const tows = rt
+    ? { so: text(rt.so), wo: text(rt.wo), st: text(rt.st), wt: text(rt.wt) }
+    : null
+  return {
+    id: raw.id,
+    companyId: raw.companyId,
+    strengths: text(raw.strengths),
+    weaknesses: text(raw.weaknesses),
+    opportunities: text(raw.opportunities),
+    threats: text(raw.threats),
+    tows,
+    updatedAt: raw.updatedAt,
+  }
+}
+
+// لصفحة SWOT: يُرجع TaggedItem[] كاملة (أصل/مصدر/سبب محفوظة).
+function normalizeToTagged(raw: SWOTRaw): TaggedSWOT {
+  return {
+    id: raw.id,
+    companyId: raw.companyId,
+    strengths: fromStorage(raw.strengths),
+    weaknesses: fromStorage(raw.weaknesses),
+    opportunities: fromStorage(raw.opportunities),
+    threats: fromStorage(raw.threats),
+    tows: raw.tows ?? null,
+    updatedAt: raw.updatedAt,
+  }
+}
+
 export async function getSWOT(companyId: string): Promise<SWOT> {
   const { data } = await api.get(`/api/strategic/swot/${companyId}`)
-  return data
+  return normalizeToText(data as SWOTRaw)
 }
-export async function putSWOT(companyId: string, payload: Pick<SWOT, 'strengths' | 'weaknesses' | 'opportunities' | 'threats'>): Promise<SWOT> {
-  const { data } = await api.put(`/api/strategic/swot/${companyId}`, payload)
-  return data
+// صفحة SWOT فقط — قراءة/كتابة غنيّة تحفظ الأصل والمصدر عبر إعادات التحميل.
+export async function getTaggedSWOT(companyId: string): Promise<TaggedSWOT> {
+  const { data } = await api.get(`/api/strategic/swot/${companyId}`)
+  return normalizeToTagged(data as SWOTRaw)
+}
+export async function putTaggedSWOT(
+  companyId: string,
+  payload: Pick<TaggedSWOT, 'strengths' | 'weaknesses' | 'opportunities' | 'threats'>,
+): Promise<TaggedSWOT> {
+  const body = {
+    strengths: toStorage(payload.strengths),
+    weaknesses: toStorage(payload.weaknesses),
+    opportunities: toStorage(payload.opportunities),
+    threats: toStorage(payload.threats),
+  }
+  const { data } = await api.put(`/api/strategic/swot/${companyId}`, body)
+  return normalizeToTagged(data as SWOTRaw)
 }
 export async function putTOWS(companyId: string, payload: NonNullable<SWOT['tows']>): Promise<SWOT> {
   const { data } = await api.put(`/api/strategic/swot/${companyId}/tows`, payload)
@@ -108,11 +184,34 @@ export async function suggestTOWS(companyId: string): Promise<NonNullable<SWOT['
   const { data } = await api.post(`/api/strategic/swot/${companyId}/tows/suggest`, {})
   return data
 }
+
+// ─── TOWS الغنيّة (صفحة TOWS فقط) — TaggedItem لكل ربع ───────────────────────
+export type TaggedTOWS = { so: TaggedItem[]; wo: TaggedItem[]; st: TaggedItem[]; wt: TaggedItem[] }
+
+export async function getTaggedTOWS(companyId: string): Promise<TaggedTOWS> {
+  const { data } = await api.get(`/api/strategic/swot/${companyId}`)
+  const raw = (data as SWOTRaw).tows as Record<string, unknown> | null | undefined
+  return {
+    so: fromStorage(raw?.so),
+    wo: fromStorage(raw?.wo),
+    st: fromStorage(raw?.st),
+    wt: fromStorage(raw?.wt),
+  }
+}
+export async function putTaggedTOWS(companyId: string, payload: TaggedTOWS): Promise<void> {
+  const body = {
+    so: toStorage(payload.so),
+    wo: toStorage(payload.wo),
+    st: toStorage(payload.st),
+    wt: toStorage(payload.wt),
+  }
+  await api.put(`/api/strategic/swot/${companyId}/tows`, body)
+}
 // يبذر SWOT من آخر تشخيص للشركة (يدمج بلا طمس، بلا تكرار).
 // السيرفر يعيد 404 إن لم يوجد تشخيص — نتركه للـ apiErrorMessage.
 export async function seedSwotFromDiagnostic(companyId: string): Promise<SWOT> {
   const { data } = await api.post(`/api/strategic/swot/${companyId}/seed-from-diagnostic`, {})
-  return data
+  return normalizeToText(data as SWOTRaw)
 }
 
 // ─── Objectives + OKRs ─────────────────────────────────────────────────────
@@ -134,6 +233,8 @@ export interface Objective {
   status: string
   dueDate?: string | null
   okrs?: OKR[]
+  /** يأتي من الـAPI عند include — المبادرات المرتبطة بهذا الهدف. */
+  initiatives?: Initiative[]
 }
 
 export async function listObjectives(companyId: string): Promise<Objective[]> {
@@ -165,6 +266,12 @@ export async function deleteOKR(id: string): Promise<void> {
 }
 
 // ─── KPIs ──────────────────────────────────────────────────────────────────
+// نقطة على منحنى القيمة المتوقّعة — شهرٌ = ٠ يعني تاريخ startedAt.
+export interface ExpectedPathPoint {
+  month: number   // ٠ = البداية، ١ = بعد شهر، ٢ = بعد شهرَين، ...
+  value: number
+}
+
 export interface KPI {
   id: string
   companyId: string
@@ -175,6 +282,10 @@ export interface KPI {
   targetValue: number
   currentValue: number
   frequency: string
+  // Phase 1 — عمود القياس (اختياريّة، تُملأ عند إنشاء KPI مع منحنى).
+  baselineValue?: number | null
+  expectedPath?: ExpectedPathPoint[] | null
+  startedAt?: string | null
 }
 export async function listKPIs(companyId: string): Promise<KPI[]> {
   const { data } = await api.get(`/api/strategic/kpis/${companyId}`)
@@ -209,13 +320,23 @@ export async function createKPIEntry(payload: { kpiId: string; value: number; no
 }
 
 // ─── Initiatives / Projects / Tasks ────────────────────────────────────────
+/** المستوى (من يخطّط/ينفّذ) — منفصل عن الأفق الزمني strategyPath. */
+export type PlanLevel = 'operational' | 'tactical' | 'strategic'
+
 export interface Initiative {
   id: string
   companyId: string
+  /** الجسر الاستراتيجي: الهدف العلوي الذي تخدمه المبادرة (اختياري). */
+  objectiveId?: string | null
   title: string
   description?: string | null
   status: string
   priority: string
+  /** المستوى والتكلفة المقدّرة (SAR). cost قد يعود كنصّ (Prisma Decimal) — coerce بـNumber(). */
+  level?: PlanLevel | null
+  cost?: number | string | null
+  /** يأتي من الـAPI عند include — الهدف المرتبط إن وُجد. */
+  objective?: Objective | null
 }
 export interface Project {
   id: string
@@ -233,10 +354,15 @@ export interface Task {
   companyId: string
   projectId?: string | null
   assigneeId?: string | null
+  /** الجهة المنفّذة (نصّ حرّ): شركة/إدارة/شخص يشرف عليه المدير. */
+  owner?: string | null
   title: string
   description?: string | null
   status: string
   priority: string
+  /** المستوى والتكلفة المقدّرة (SAR) — cost قد يعود كنصّ. */
+  level?: PlanLevel | null
+  cost?: number | string | null
   dueDate?: string | null
   completedAt?: string | null
   createdAt: string

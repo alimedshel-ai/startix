@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { JOURNEY_STAGES, canOpenStage, overallProgressPct, type StageId } from './journeyStages'
+import { JOURNEY_STAGES, canOpenStage, overallProgressPct, stageLevel, type StageId } from './journeyStages'
 
 const NONE: Record<StageId, boolean> = {
   environment: false, synthesis: false, directions: false,
@@ -68,6 +68,37 @@ describe('journeyStages.overallProgressPct', () => {
     expect(overallProgressPct({ ...NONE, environment: true })).toBe(25)
     expect(overallProgressPct({ ...NONE, environment: true, synthesis: true })).toBe(50)
     expect(overallProgressPct({ ...NONE, environment: true, synthesis: true, directions: true })).toBe(75)
+  })
+
+  // إصلاح «الرقم الكاذب»: المقام يتبع المسار المُختار لا كل المراحل المقفلة.
+  it('is path-aware — QUICK reaches 100% after its 2 in-path locked stages', () => {
+    // QUICK path locked stages = environment + synthesis (directions/indicators خارج المسار).
+    const quickDone = { ...NONE, environment: true, synthesis: true }
+    expect(overallProgressPct(quickDone, 'QUICK')).toBe(100)   // لا يعلق تحت ١٠٠٪
+    expect(overallProgressPct(quickDone, null)).toBe(50)       // بلا مسار → السلوك القديم (÷٤)
+  })
+
+  it('is path-aware — MEDIUM denominator excludes indicators', () => {
+    // MEDIUM locked in-path = environment + synthesis + directions (٣).
+    const mediumDone = { ...NONE, environment: true, synthesis: true, directions: true }
+    expect(overallProgressPct(mediumDone, 'MEDIUM')).toBe(100)
+    expect(overallProgressPct({ ...NONE, environment: true }, 'MEDIUM')).toBe(33)
+  })
+
+  it('LONG counts all 4 locked stages (same as no path)', () => {
+    const done = { ...NONE, environment: true, synthesis: true }
+    expect(overallProgressPct(done, 'LONG')).toBe(50)
+  })
+})
+
+describe('journeyStages.stageLevel', () => {
+  it('derives tool level as the minimal path containing the stage', () => {
+    expect(stageLevel('environment')).toBe('QUICK')  // تشغيلي
+    expect(stageLevel('synthesis')).toBe('QUICK')
+    expect(stageLevel('initiatives')).toBe('QUICK')
+    expect(stageLevel('execution')).toBe('QUICK')
+    expect(stageLevel('directions')).toBe('MEDIUM')  // تكتيكي
+    expect(stageLevel('indicators')).toBe('LONG')    // استراتيجي
   })
 })
 

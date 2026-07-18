@@ -1,23 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { budgetStatus } from '@/lib/budgetGuard'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { CATEGORY_META, categorize } from '@/lib/directionCategory'
 import {
   createInitiative, deleteInitiative, getArtifact, getSWOT,
-  listInitiatives, updateInitiative,
-  type Initiative,
+  listInitiatives, listObjectives, updateInitiative,
+  type Initiative, type Objective, type PlanLevel,
 } from '@/lib/strategicApi'
+import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
+import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
+import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { StrategyPath } from '@/types/user'
+
+// المستوى (من يخطّط) — منفصل عن الأولوية والأفق الزمني. القيمة الافتراضيّة
+// تُشتقّ من decisionAuthority في التشخيص (لا صلاحيات — مجرّد اقتراح).
+const LEVELS: { value: PlanLevel; label: string; badge: string }[] = [
+  { value: 'operational', label: '⚙️ تشغيلي',   badge: 'border-emerald-300 bg-emerald-50 text-emerald-800' },
+  { value: 'tactical',    label: '🎯 تكتيكي',   badge: 'border-sky-300 bg-sky-50 text-sky-800' },
+  { value: 'strategic',   label: '🔭 استراتيجي', badge: 'border-purple-300 bg-purple-50 text-purple-800' },
+]
+const levelMeta = (l?: PlanLevel | null) => LEVELS.find((x) => x.value === l)
+const fmtSAR = (n: number) => n.toLocaleString('en-US')
 
 const PRIORITIES = [
   ['critical', 'حرجة',   'border-rose-300 bg-rose-50/60'],
@@ -61,14 +74,14 @@ function boostForPath(base: 'critical' | 'high' | 'medium' | 'low', cat: string,
 }
 
 export function InitiativesPage() {
-  return (
-    <StrategicShell
-      title="المبادرات الاستراتيجية"
-      description="حوّل تحليلاتك (TOWS + الاتجاهات + Ansoff + الآفاق) إلى مبادرات مرتّبة بحسب مسارك — بترقيم وأيقونات فئة."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const q = client ? `&client=${client}` : ''
+  return <Navigate to={`/priority?tab=initiatives${q}`} replace />
+}
+
+export function InitiativesView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 // جاهزية المصادر لتوليد المبادرات.
@@ -89,15 +102,27 @@ function Editor({ companyId }: { companyId: string }) {
     user?.managerType === 'INDEPENDENT_PRO' &&
     specialty != null
 
+  // الميزانيّة من Company.opex.budget القائم (لا حقل جديد).
+  const { company } = useCompany()
+  const budget = company?.opex?.budget ?? null
+  // الافتراض للمستوى من decisionAuthority (اقتراح فقط) → tactical عند غيابه.
+  const dxAuthority = useDiagnosticStore((s) => s.managerDraft.decisionAuthority) as PlanLevel | undefined
+  const defaultLevel: PlanLevel = dxAuthority ?? 'tactical'
+
   const [items, setItems] = useState<Initiative[]>([])
+  const [objectives, setObjectives] = useState<Objective[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sources, setSources] = useState<Sources | null>(null)
-  const [form, setForm] = useState({ title: '', description: '', priority: 'high' })
+  const [form, setForm] = useState<{ title: string; description: string; priority: string; objectiveId: string; level: PlanLevel; cost: string }>(
+    () => ({ title: '', description: '', priority: 'high', objectiveId: '', level: defaultLevel, cost: '' }),
+  )
 
   useEffect(() => {
     listInitiatives(companyId).then(setItems).catch(() => undefined).finally(() => setLoading(false))
+    // الجسر الاستراتيجي: نحمّل الأهداف لربط المبادرة بهدف علوي.
+    listObjectives(companyId).then(setObjectives).catch(() => undefined)
     // فحص جاهزية كل مصدر بالتوازي — يُشرح للمدير ماذا سيُقرأ.
     ;(async () => {
       const [swot, dir, ans, cho, h3] = await Promise.all([
@@ -128,9 +153,14 @@ function Editor({ companyId }: { companyId: string }) {
     if (!form.title.trim()) return
     setCreating(true)
     try {
-      const i = await createInitiative({ companyId, title: form.title, description: form.description, priority: form.priority })
+      const i = await createInitiative({
+        companyId, title: form.title, description: form.description,
+        priority: form.priority, objectiveId: form.objectiveId || null,
+        level: form.level, cost: form.cost.trim() ? Number(form.cost) : undefined,
+      })
       setItems((p) => [...p, i])
-      setForm({ title: '', description: '', priority: form.priority })
+      // نُبقي الأولوية والمستوى والهدف (إدخال متتابع أسرع).
+      setForm({ title: '', description: '', priority: form.priority, objectiveId: form.objectiveId, level: form.level, cost: '' })
       toast.success('تمت إضافة المبادرة')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل الإنشاء'))
@@ -165,15 +195,18 @@ function Editor({ companyId }: { companyId: string }) {
     if (!sources) return
     setGenerating(true)
     try {
-      const existing = new Set(items.map((x) => x.title.trim()))
+      // الدمج بمفتاح مُطبَّع (تنظيف + تطبيع عربي) — يمنع التكرار شبه المتطابق.
+      const existing = new Set(items.map((x) => titleKey(x.title)))
       const toCreate: { title: string; description: string; priority: string; source: string }[] = []
 
       // ⭐ Choices — أعلى أولوية (القرار الاستراتيجي المُثبَّت)
       if (sources.choices.has && sources.choices.title) {
-        const t = `⭐ [قرار] ${sources.choices.title}`
-        if (!existing.has(t)) {
+        // ننظّف نصّ القرار الداخليّ (قد يكون TOWS خاماً) مع إبقاء شارة ⭐ [قرار].
+        const t = `⭐ [قرار] ${cleanInitiativeTitle(sources.choices.title)}`
+        const key = titleKey(t)
+        if (!existing.has(key)) {
           toCreate.push({ title: t, description: 'المبادرة الأمّ من القرار الاستراتيجي المُثبَّت.', priority: 'critical', source: 'القرار' })
-          existing.add(t)
+          existing.add(key)
         }
       }
 
@@ -188,16 +221,19 @@ function Editor({ companyId }: { companyId: string }) {
             ['ST', tows.st ?? [], 'critical'],
             ['WT', tows.wt ?? [], 'critical'],
           ]
-          for (const [quad, list, basePriority] of pairs) {
+          for (const [, list, basePriority] of pairs) {
             for (const strat of list.slice(0, 2)) {
               const clean = strat.trim()
               if (!clean) continue
-              const title = `[${quad}] ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
-              if (existing.has(title)) continue
+              // العنوان = الجوهر التصريحي المنظَّف (لا نصّ TOWS خام + كود).
+              const cleaned = cleanInitiativeTitle(clean)
+              if (!cleaned) continue
+              const key = titleKey(cleaned)
+              if (existing.has(key)) continue
               const cat = categorize(clean)
               const priority = boostForPath(basePriority, cat, strategyPath)
-              toCreate.push({ title, description: clean, priority, source: 'TOWS' })
-              existing.add(title)
+              toCreate.push({ title: cleaned.slice(0, 100), description: clean, priority, source: 'TOWS' })
+              existing.add(key)
             }
           }
         }
@@ -208,14 +244,15 @@ function Editor({ companyId }: { companyId: string }) {
         const dirArt = await getArtifact<{ directions: { title: string; description: string; feasibility: number; impact: number }[] }>(companyId, 'DIRECTIONS')
         for (const d of (dirArt?.data?.directions ?? []).slice(0, 6)) {
           if (!d.title?.trim()) continue
-          const clean = d.title.replace(/^\[[A-Z]{2}\]\s*/, '').trim()
-          if (existing.has(clean)) continue
+          const clean = cleanInitiativeTitle(d.title)
+          const key = titleKey(clean)
+          if (!clean || existing.has(key)) continue
           const s = d.feasibility * d.impact
           const basePriority: 'high' | 'medium' | 'low' = s >= 16 ? 'high' : s >= 10 ? 'medium' : 'low'
           const cat = categorize(clean + ' ' + (d.description ?? ''))
           const priority = boostForPath(basePriority, cat, strategyPath)
           toCreate.push({ title: clean, description: d.description ?? '', priority, source: 'الاتجاهات' })
-          existing.add(clean)
+          existing.add(key)
         }
       } catch { /* skip */ }
 
@@ -232,12 +269,14 @@ function Editor({ companyId }: { companyId: string }) {
         }
         for (const i of (ansArt?.data?.initiatives ?? []).slice(0, 4)) {
           if (!i.title?.trim()) continue
-          if (existing.has(i.title.trim())) continue
+          const clean = cleanInitiativeTitle(i.title)
+          const key = titleKey(clean)
+          if (!clean || existing.has(key)) continue
           const basePriority = priorityMap[i.quadrant] ?? 'medium'
-          const cat = categorize(i.title)
+          const cat = categorize(clean)
           const priority = boostForPath(basePriority, cat, strategyPath)
-          toCreate.push({ title: i.title.trim(), description: `من Ansoff / ${i.quadrant}`, priority, source: 'Ansoff' })
-          existing.add(i.title.trim())
+          toCreate.push({ title: clean, description: `من Ansoff / ${i.quadrant}`, priority, source: 'Ansoff' })
+          existing.add(key)
         }
       } catch { /* skip */ }
 
@@ -249,17 +288,54 @@ function Editor({ companyId }: { companyId: string }) {
         const hPri: Record<string, 'high' | 'medium' | 'low'> = { h1: 'high', h2: 'medium', h3: 'low' }
         for (const i of (h3Art?.data?.initiatives ?? []).slice(0, 4)) {
           if (!i.title?.trim()) continue
-          if (existing.has(i.title.trim())) continue
+          const clean = cleanInitiativeTitle(i.title)
+          const key = titleKey(clean)
+          if (!clean || existing.has(key)) continue
           const basePriority = hPri[i.horizon] ?? 'medium'
-          const cat = categorize(i.title)
+          const cat = categorize(clean)
           const priority = boostForPath(basePriority, cat, strategyPath)
-          toCreate.push({ title: i.title.trim(), description: `من الآفاق الثلاثة / ${i.horizon.toUpperCase()}`, priority, source: 'الآفاق الثلاثة' })
-          existing.add(i.title.trim())
+          toCreate.push({ title: clean, description: `من الآفاق الثلاثة / ${i.horizon.toUpperCase()}`, priority, source: 'الآفاق الثلاثة' })
+          existing.add(key)
+        }
+      } catch { /* skip */ }
+
+      // 🚨 Risk Register — للوضع الطارئ (مخاطر حرجة/مرتفعة → مبادرات)
+      try {
+        const rArt = await getArtifact<{ risks?: Array<{ id: string; name: string; probability: number; impact: number; mitigation?: string }> }>(companyId, 'RISK_REGISTER')
+        for (const r of (rArt?.data?.risks ?? [])) {
+          if (!r.name?.trim()) continue
+          const score = r.probability * r.impact
+          if (score < 10) continue // نتجاهل المخاطر المنخفضة
+          // ننظّف الاسم/المعالجة الداخليّة (قد تحمل [تهديد]… خاماً) ونُبقي شارة [إنقاذ].
+          const mit = cleanInitiativeTitle(r.mitigation ?? '')
+          const nm = cleanInitiativeTitle(r.name ?? '')
+          const title = mit
+            ? `[إنقاذ] ${mit.slice(0, 80)}${mit.length > 80 ? '…' : ''}`
+            : `[إنقاذ] معالجة ${nm.slice(0, 70)}${nm.length > 70 ? '…' : ''}`
+          const key = titleKey(title)
+          if (existing.has(key)) continue
+          const basePriority: 'critical' | 'high' = score >= 16 ? 'critical' : 'high'
+          toCreate.push({ title, description: r.name, priority: basePriority, source: 'خريطة المخاطر' })
+          existing.add(key)
+        }
+      } catch { /* skip */ }
+
+      // 🎯 Eisenhower — مهام «افعل الآن» → مبادرات حرجة
+      try {
+        const eArt = await getArtifact<{ tasks?: Array<{ id: string; title: string; quadrant: string }> }>(companyId, 'EISENHOWER')
+        for (const t of (eArt?.data?.tasks ?? [])) {
+          if (!t.title?.trim() || t.quadrant !== 'do') continue
+          const clean = cleanInitiativeTitle(t.title.replace(/^(تخفيف:|عالج:)\s*/, ''))
+          const title = `[عاجل] ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
+          const key = titleKey(title)
+          if (existing.has(key)) continue
+          toCreate.push({ title, description: t.title, priority: 'critical', source: 'أيزنهاور' })
+          existing.add(key)
         }
       } catch { /* skip */ }
 
       if (toCreate.length === 0) {
-        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو المصادر فارغة.')
+        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
         return
       }
       // إنشاء المبادرات بالتوازي.
@@ -284,21 +360,23 @@ function Editor({ companyId }: { companyId: string }) {
   }, {}), [items])
   const inProgress = counts.in_progress ?? 0
   const done = counts.done ?? 0
+  // حارس الميزانيّة: Σ تكاليف المبادرات مقابل Company.opex.budget (تحذير لا حظر).
+  const bs = useMemo(() => budgetStatus(items.map((i) => i.cost), budget), [items, budget])
   const suggestedNextStep = useMemo(() => {
     if (items.length === 0) return null
     if (inProgress === 0 && done === 0) {
       return {
         icon: '📁',
-        labelAr: 'حوّل مبادراتك إلى مشاريع',
-        hint: 'أنشئ مشاريع تحت كل مبادرة لتصبح قابلة للتنفيذ.',
-        to: '/projects',
-        cta: 'انتقل للمشاريع ←',
+        labelAr: 'حوّل كل مبادرة إلى ٢-٤ خطوات تنفيذ',
+        hint: 'كل مبادرة تحتاج خطوات تنفيذ محدّدة (بتاريخ + مسؤول) لتصبح قابلة للتحقّق.',
+        to: '/execute?tab=projects',
+        cta: 'افتح متابعة المبادرات ←',
       }
     }
     if (inProgress > 0) {
       return {
         icon: '📅',
-        labelAr: 'خطّط تنفيذ المبادرات النشطة',
+        labelAr: 'رتّب خطوات تنفيذ المبادرات النشطة',
         hint: `${inProgress} مبادرة قيد التنفيذ — رتّبها زمنياً في مخطّط جانت.`,
         to: '/gantt-chart',
         cta: 'افتح مخطّط جانت ←',
@@ -329,7 +407,7 @@ function Editor({ companyId }: { companyId: string }) {
             )}
             {strategyPath && (
               <span className="rounded-full border bg-card px-2 py-0.5 font-medium">
-                {strategyPath === 'QUICK' ? '⚡ مسارك: سريع' : strategyPath === 'MEDIUM' ? '🎯 مسارك: متوسط' : '🔭 مسارك: طويل'}
+                {strategyPath === 'QUICK' ? '⚡ مسارك: تشغيلي (قصير)' : strategyPath === 'MEDIUM' ? '🎯 مسارك: تكتيكي (متوسّط)' : '🔭 مسارك: استراتيجي (طويل)'}
               </span>
             )}
             <span className="text-muted-foreground">
@@ -400,6 +478,41 @@ function Editor({ companyId }: { companyId: string }) {
                 {PRIORITIES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="level">المستوى (من يخطّط)</Label>
+              <select
+                id="level"
+                className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                value={form.level}
+                onChange={(e) => setForm((p) => ({ ...p, level: e.target.value as PlanLevel }))}
+              >
+                {LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cost">التكلفة المقدّرة (SAR)</Label>
+              <Input
+                id="cost" type="number" min={0} inputMode="numeric"
+                value={form.cost}
+                onChange={(e) => setForm((p) => ({ ...p, cost: e.target.value }))}
+                placeholder="اختياري"
+              />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label htmlFor="objective">🎯 الهدف الاستراتيجي (اختياري — يربط المبادرة بالخطة العليا)</Label>
+              <select
+                id="objective"
+                className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                value={form.objectiveId}
+                onChange={(e) => setForm((p) => ({ ...p, objectiveId: e.target.value }))}
+              >
+                <option value="">— بلا هدف (مبادرة يتيمة) —</option>
+                {objectives.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+              </select>
+              {objectives.length === 0 && (
+                <p className="text-[10px] text-muted-foreground">لا أهداف بعد — أنشئ أهدافاً في صفحة الأهداف لتربط المبادرات بها.</p>
+              )}
+            </div>
             <div className="md:col-span-3 space-y-1">
               <Label htmlFor="desc">الوصف</Label>
               <Textarea id="desc" rows={2} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
@@ -412,6 +525,43 @@ function Editor({ companyId }: { companyId: string }) {
       </Card>
 
       {loading && <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>}
+
+      {/* 💰 حارس الميزانيّة — Σ التكاليف مقابل الميزانيّة (تحذير لا حظر) */}
+      {(bs.budget != null || bs.spent > 0) && (
+        <Card className={bs.overBudget ? 'border-2 border-rose-400 bg-rose-50/50' : 'border-primary/20 bg-primary/5'}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold">💰 ميزانيّة المبادرات</span>
+              {bs.budget != null ? (
+                <span className={`text-sm font-bold tabular-nums ${bs.overBudget ? 'text-rose-700' : 'text-primary'}`}>
+                  {fmtSAR(bs.spent)} / {fmtSAR(bs.budget)} SAR ({bs.pct}٪)
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  التكاليف: {fmtSAR(bs.spent)} SAR · لم تُحدَّد ميزانيّة (تُضبَط في OPEX)
+                </span>
+              )}
+            </div>
+            {bs.budget != null && (
+              <>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full transition-all ${bs.overBudget ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${Math.min(100, bs.pct ?? 0)}%` }}
+                  />
+                </div>
+                {bs.overBudget ? (
+                  <p className="mt-1.5 text-xs font-medium text-rose-700">
+                    ⚠️ تجاوزٌ بـ{fmtSAR(-(bs.remaining ?? 0))} SAR — تحذير فقط، الحفظ متاح.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">المتبقّي: {fmtSAR(bs.remaining ?? 0)} SAR</p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* قائمة المبادرات — بترقيم وأيقونات فئة */}
       {items.length > 0 && (
@@ -440,21 +590,82 @@ function Editor({ companyId }: { companyId: string }) {
                       <span className="rounded-md border bg-card px-2 py-0.5 text-[10px]">{pLabel(i.priority)}</span>
                     </div>
                     {i.description && <CardDescription className="mt-1 leading-relaxed">{i.description}</CardDescription>}
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] w-fit bg-muted/40">
-                      <span>{catMeta.icon}</span>
-                      <span>{catMeta.labelAr}</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px]">
+                      <span className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-1.5 py-0.5">
+                        <span>{catMeta.icon}</span>
+                        <span>{catMeta.labelAr}</span>
+                      </span>
+                      {levelMeta(i.level) && (
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 ${levelMeta(i.level)!.badge}`}>
+                          {levelMeta(i.level)!.label}
+                        </span>
+                      )}
+                      {i.cost != null && Number(i.cost) > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 tabular-nums text-amber-800">
+                          💰 {fmtSAR(Number(i.cost))} SAR
+                        </span>
+                      )}
                     </div>
                   </CardHeader>
-                  <CardContent className="flex items-center gap-2">
-                    <select
-                      className="rounded-md border bg-background px-2 py-1 text-xs"
-                      value={i.status}
-                      onChange={(e) => update(i, { status: e.target.value })}
-                    >
-                      {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                    </select>
-                    <span className="text-xs text-muted-foreground">{sLabel(i.status)}</span>
-                    <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(i)}>حذف</Button>
+                  <CardContent className="flex flex-col gap-2">
+                    {/* الجسر الاستراتيجي: ربط/فكّ الهدف + شارة اليتيمة */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground shrink-0">🎯 الهدف:</span>
+                      <select
+                        className="rounded-md border bg-background px-2 py-1 text-xs flex-1 min-w-0"
+                        value={i.objectiveId ?? ''}
+                        onChange={(e) => update(i, { objectiveId: e.target.value || null })}
+                      >
+                        <option value="">— بلا هدف —</option>
+                        {objectives.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+                      </select>
+                      {!i.objectiveId && (
+                        <span
+                          className="shrink-0 rounded-full border border-amber-400/60 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300"
+                          title="مبادرة غير مربوطة بأي هدف استراتيجي"
+                        >
+                          ⚠️ يتيمة
+                        </span>
+                      )}
+                    </div>
+                    {/* تحرير إنلاين: المستوى + التكلفة — يعمل على أي مبادرة (مولَّدة أو يدوية) */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="rounded-md border bg-background px-2 py-1 text-xs"
+                        value={i.level ?? ''}
+                        onChange={(e) => update(i, { level: (e.target.value || null) as PlanLevel | null })}
+                        title="المستوى (من يخطّط)"
+                      >
+                        <option value="">— المستوى —</option>
+                        {LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                      </select>
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">💰</span>
+                        <Input
+                          type="number" min={0} inputMode="numeric"
+                          defaultValue={i.cost != null ? String(Number(i.cost)) : ''}
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim()
+                            const next = raw ? Number(raw) : null
+                            const cur = i.cost != null ? Number(i.cost) : null
+                            if (next !== cur) update(i, { cost: next })
+                          }}
+                          placeholder="التكلفة SAR"
+                          className="h-8 w-28 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="rounded-md border bg-background px-2 py-1 text-xs"
+                        value={i.status}
+                        onChange={(e) => update(i, { status: e.target.value })}
+                      >
+                        {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                      </select>
+                      <span className="text-xs text-muted-foreground">{sLabel(i.status)}</span>
+                      <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(i)}>حذف</Button>
+                    </div>
                   </CardContent>
                 </Card>
               )

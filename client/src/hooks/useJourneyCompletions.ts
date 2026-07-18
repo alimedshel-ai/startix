@@ -15,6 +15,8 @@ import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strat
 export interface JourneyCompletions {
   loading: boolean
   completions: Record<StageId, boolean>
+  /** أنواع الـartifacts المحفوظة — لعدّ التحاليل المُنجَزة بدقّة. */
+  artifactTypes: Set<string>
 }
 
 const EMPTY: Record<StageId, boolean> = {
@@ -23,11 +25,11 @@ const EMPTY: Record<StageId, boolean> = {
 }
 
 export function useJourneyCompletions(companyId: string | null): JourneyCompletions {
-  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY })
+  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set() })
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, completions: EMPTY })
+      setState({ loading: false, completions: EMPTY, artifactTypes: new Set() })
       return
     }
     let alive = true
@@ -59,9 +61,9 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
           if (stage.id === 'indicators' && hasKpis)  done = true
           completions[stage.id] = done
         }
-        setState({ loading: false, completions })
+        setState({ loading: false, completions, artifactTypes })
       } catch {
-        if (alive) setState({ loading: false, completions: EMPTY })
+        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set() })
       }
     })()
     return () => { alive = false }

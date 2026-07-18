@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { OpexHint } from '@/components/OpexHint'
-import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -63,14 +62,17 @@ function nextCode(cur: RaciCode): RaciCode {
 }
 
 export function RACIPage() {
-  return (
-    <StrategicShell
-      title="مصفوفة RACI"
-      description="من مسؤول عن ماذا؟ Responsible / Accountable / Consulted / Informed."
-    >
-      {(companyId) => <Editor companyId={companyId} />}
-    </StrategicShell>
-  )
+  const [params] = useSearchParams()
+  const client = params.get('client')
+  const from = params.get('from')
+  const parts = ['tab=raci']
+  if (client) parts.push(`client=${client}`)
+  if (from) parts.push(`from=${from}`)
+  return <Navigate to={`/priority?${parts.join('&')}`} replace />
+}
+
+export function RACIView({ companyId }: { companyId: string }) {
+  return <Editor companyId={companyId} />
 }
 
 function Editor({ companyId }: { companyId: string }) {
@@ -96,6 +98,49 @@ function Editor({ companyId }: { companyId: string }) {
     }).catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId])
+
+  // 🚨 توليد المهام من مصفوفة أيزنهاور — مناسب لوضع الطوارئ
+  // (الأيزنهاور جاء من المخاطر → RACI يضيف المسؤول لكل مهمة)
+  async function generateFromEisenhower() {
+    setGenerating(true)
+    try {
+      const artifact = await getArtifact<{ tasks?: Array<{ id: string; title: string; quadrant: 'do' | 'schedule' | 'delegate' | 'delete' }> }>(companyId, 'EISENHOWER')
+      const tasks = artifact?.data?.tasks ?? []
+      // نستورد فقط «افعل الآن» + «جدولها» (الأولى بالتنفيذ الآن)
+      const eligible = tasks.filter((t) => t.quadrant === 'do' || t.quadrant === 'schedule')
+      if (eligible.length === 0) {
+        toast.error('لا توجد مهام في «افعل الآن» أو «جدولها» — افتح مصفوفة أيزنهاور أوّلاً (الخطوة ٢).')
+        return
+      }
+      const existing = new Set(data.rows.map((r) => r.task))
+      const toAdd = eligible.filter((t) => t.title && !existing.has(t.title))
+      if (toAdd.length === 0) {
+        toast.message('كل المهام مضافة سلفاً كصفوف RACI.')
+        return
+      }
+      const managerRole = data.roles[0] // أول دور = المدير
+      setData((p) => ({
+        ...p,
+        rows: [
+          ...p.rows,
+          ...toAdd.map((t) => ({
+            id: crypto.randomUUID(),
+            task: t.title,
+            // مهام «افعل الآن» → المدير هو A (المحاسَب)
+            assignments: Object.fromEntries(p.roles.map((r) => [
+              r,
+              (r === managerRole && t.quadrant === 'do' ? 'A' : '') as RaciCode,
+            ])),
+          })),
+        ],
+      }))
+      toast.success(`🚨 أُضيف ${toAdd.length} مهمة من أيزنهاور — عيّن R/A/C/I لكل خلية.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من أيزنهاور'))
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   // 🧠 توليد المهام من المبادرات — كل مبادرة تُصبح مهمة في RACI بأدوار افتراضية.
   async function generateFromInitiatives() {
@@ -242,21 +287,27 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
-      {/* 🧠 توليد من المبادرات */}
+      {/* 🧠 توليد المهام — من أيزنهاور (وضع الطوارئ) أو من المبادرات */}
       <Card className="border-primary/40 bg-gradient-to-l from-primary/15 to-primary/5">
         <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
           <div className="flex items-start gap-3">
             <div className="text-3xl" aria-hidden>🧠</div>
             <div>
-              <div className="text-sm font-bold">توليد المهام من المبادرات</div>
+              <div className="text-sm font-bold">توليد المهام</div>
               <div className="text-xs text-muted-foreground">
-                كل مبادرة تُصبح مهمة في RACI — الحرجة/العالية تحصل على المدير كـ A تلقائياً.
+                من <b className="text-foreground">أيزنهاور</b> («افعل الآن» + «جدولها» → المدير A تلقائياً) —
+                أو من <b className="text-foreground">المبادرات</b> (الحرجة/العالية → المدير A).
               </div>
             </div>
           </div>
-          <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
-            {generating ? 'جاري…' : '✨ ولّد من المبادرات'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={generateFromEisenhower} disabled={generating || saving} variant="outline" size="lg" className="border-rose-400 text-rose-800 hover:bg-rose-50">
+              {generating ? 'جاري…' : '🚨 من أيزنهاور'}
+            </Button>
+            <Button onClick={generateFromInitiatives} disabled={generating || saving} size="lg">
+              {generating ? 'جاري…' : '✨ من المبادرات'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

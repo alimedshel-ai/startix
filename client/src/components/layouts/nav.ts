@@ -2,217 +2,259 @@ import type { DeptCode } from '@/lib/deptApi'
 import type { StageId } from '@/lib/journeyStages'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
+// ─── نظام التنقّل الموحّد (SIDEBAR-STRUCTURE.md) ─────────────────
+// الطبقات الثلاث:
+//   • main    — مسار العمل الأساسي (دائم الظهور، ٥-٨ عناصر)
+//   • context — الإدارة والسياق (ثانوي قابل للطيّ، ٢-٤ عناصر)
+//   • pinned  — أدوات مساندة مثبَّتة (٣ عناصر ثابتة: 🤖 · ⌘K · ⚙️)
+//
+// «لا شيء يُدفَن»: كل عنصر يجد بيتاً واضحاً.
+// «Hub = تبويبات إلزاميّة»: ما يعرض تبويبات هو Hub، غيره «قسم».
+
 export interface NavItem {
   to: string
   label: string
   icon?: string
-  // SEC-2 — يخفي العنصر عن غير المسؤولين. السيرفر أيضاً يحمي المسار
-  // بـ requireAdmin؛ هذا فقط لتنظيف التنقّل.
+  // SEC-2 — يخفي العنصر عن غير المسؤولين. السيرفر يحمي المسار.
   adminOnly?: boolean
-  // PRO-F — يربط العنصر بإدارة معيّنة. للمدير المستقل (INDEPENDENT_PRO)،
-  // نُخفي العناصر التي لا تطابق تخصّصه.
+  // PRO-F — يربط العنصر بإدارة معيّنة. للمدير المستقل، نُخفي غير المطابق.
   dept?: DeptCode
-  // M1..M3 — عنصر مخصّص للمدير المستقل (INDEPENDENT_PRO) فقط. يظهر
-  // للمالك والمستقل في السايدبار (المسار في الراوتر يفتح للـ OWNER أيضاً)،
-  // لكن يُخفى عن المدير الداخلي (INTERNAL) لأنّه أُنشئ لسير عمل المستشار.
+  // proOnly — للمدير المستقل فقط.
   proOnly?: boolean
-  // Sidebar (Commit ٣) — العناصر الأساسية (⭐) للأقسام القابلة للطي.
-  // القسم ① يعرض هذه دائماً، والبقية خلف زر «أظهر المزيد».
+  // الأدوات النجميّة الأساسيّة داخل الأقسام القابلة للطيّ.
   essential?: boolean
-  // Fix #4 — أدوات مساندة داخل مرحلة لكنها لا تُحسب في اكتمال المرحلة.
-  // Sidebar يعرضها بلمعان أخفت وتلميح "مساندة".
+  // مساندة داخل مرحلة لكنها لا تُحسب في اكتمال المرحلة.
   optional?: boolean
+  // ⏳ عنصر مخطّط بلا صفحة بعد — يُعرض بادج «⏳» ويوجّه إلى PlaceholderPage.
+  placeholder?: boolean
 }
 
-/** Accent color used by the sidebar for the section header / left-bar marker. */
 export type AccentColor = 'teal' | 'indigo' | 'amber' | 'emerald' | 'rose' | 'violet' | 'sky' | 'orange'
+
+// طبقة القسم في السايدبار — تحدّد الموقع البصري وإمكانيّة الطيّ.
+export type NavLayer = 'main' | 'context' | 'pinned'
 
 export interface NavSection {
   title: string
   accent: AccentColor
   items: NavItem[]
-  // ربط القسم بمرحلة في التسلسل الاستراتيجي المقفل. Sidebar يستخدمه لعرض
-  // شارة حالة (🔒 مقفل / ✓ مكتمل / ● قيد العمل) بجانب عنوان القسم.
-  // الأقسام غير المرتبطة بمرحلة (البداية، المالي، الخطة والذكاء) لا يوجد
-  // لها stageId فتظهر بدون شارة.
   stageId?: StageId
-  // Sidebar (Commit ٣) — لو true: العناصر بلا `essential` تُطوى تحت زر
-  // «أظهر ن عنصراً إضافياً». يُستخدم للقسم ① (١٠ عناصر → ٣ ⭐ + ٧ موسّع)
-  // لتفادي إرهاق بصري.
   collapsible?: boolean
+  // الطبقة (SIDEBAR-STRUCTURE.md). افتراضي 'main' لأمان الرجعيّة.
+  layer?: NavLayer
+  // نوع القسم للعرض — Hub يستحقّ لوناً بارزاً، «قسم» عادي.
+  isHub?: boolean
 }
 
+// ═══════════════════════════════════════════════════════════════
+// المالك (OWNER) — ٦ main + ٤ context + ٣ pinned
+// ═══════════════════════════════════════════════════════════════
+
 const ownerNav: NavSection[] = [
+  // ─── مسار العمل الأساسي ─────────────────────────────────────
   {
-    title: 'نظرة عامة',
+    title: '🏠 نظرة عامّة',
     accent: 'teal',
+    layer: 'main',
     items: [
-      { to: '/dashboard',           label: 'لوحة القيادة',         icon: '🏠' },
-      { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي',  icon: '👔' },
-      { to: '/exec-dashboard',      label: 'لوحة الفريق التنفيذي',  icon: '👥' },
-      { to: '/board-dashboard',     label: 'لوحة المجلس',           icon: '🏛️' },
-      { to: '/admin-dashboard',     label: 'لوحة المسؤول',          icon: '🛠️', adminOnly: true },
-      { to: '/live-board',          label: 'اللوحة الحية',          icon: '⚡' },
-      { to: '/analytics-dashboard', label: 'التحليلات',             icon: '📈' },
-      { to: '/activity-feed',       label: 'سجل النشاط',            icon: '📰' },
+      { to: '/dashboard',    label: 'لوحة القيادة',  icon: '🏠' },
+      { to: '/live-board',   label: 'اللوحة الحيّة',  icon: '⚡' },
+      { to: '/activity-feed', label: 'سجل النشاط',   icon: '📰' },
     ],
   },
   {
-    title: 'الشركات',
+    title: '📖 الخطة الاستراتيجيّة',
     accent: 'indigo',
+    layer: 'main',
     items: [
-      { to: '/companies',     label: 'شركاتي',         icon: '🏢' },
-      { to: '/companies/add', label: 'إضافة شركة',     icon: '➕' },
-      { to: '/invitations',   label: 'دعوات الفريق',   icon: '✉️' },
+      { to: '/owner/strategic-plan', label: 'خطة الشركة', icon: '🗺️', placeholder: true },
     ],
   },
   {
-    title: 'التشخيص',
+    title: '🎯 التشخيص',
     accent: 'sky',
+    layer: 'main',
+    isHub: true,
+    collapsible: true,
     items: [
-      { to: '/diagnostic/owner',  label: 'تشخيص المالك',   icon: '🎯' },
-      { to: '/diagnostic/result', label: 'نتيجة التشخيص',  icon: '📊' },
-      { to: '/company-health',    label: 'صحة الشركة',     icon: '❤️' },
+      // ⭐ Hub الرئيسي — رابطٌ لصفحة تجمع كل الأدوات بتبويبات
+      { to: '/owner/diagnostic-hub', label: '📚 مركز التشخيص (كل الأدوات)', icon: '🎯', essential: true },
+      // الأدوات الفرديّة (قابلة للطيّ)
+      { to: '/diagnostic/owner',  label: 'تشخيص المالك', icon: '🎯' },
+      { to: '/assessment-wizard', label: 'معالج التقييم', icon: '🧭' },
+      { to: '/company-health',    label: 'صحّة الشركة',   icon: '❤️' },
     ],
   },
   {
-    title: 'التحليل الاستراتيجي',
+    title: '🌐 التحليل والتوليف',
     accent: 'violet',
-    // ترتيب مطابق لجدول ٣٤ الأداة (المرحلة ①).
+    layer: 'main',
+    isHub: true,
+    collapsible: true,
     items: [
-      { to: '/internal-environment', label: 'البيئة الداخلية (7S)',   icon: '🎯' },
-      { to: '/value-chain',          label: 'سلسلة القيمة',           icon: '🔗' },
-      { to: '/porter',               label: 'قوى بورتر الخمس',        icon: '⚔️' },
-      { to: '/pestel',               label: 'تحليل PESTEL',           icon: '🌐' },
-      { to: '/core-capabilities',    label: 'القدرات الجوهرية',       icon: '💎' },
-      { to: '/benchmarking',         label: 'المقارنة المرجعية',      icon: '🔍' },
-      { to: '/org-dna',              label: 'الحمض التنظيمي',         icon: '🧬' },
-      { to: '/stakeholders',         label: 'أصحاب المصلحة',          icon: '👥' },
+      // ⭐ Hub الرئيسي
+      { to: '/owner/analysis-hub', label: '📚 مركز التحليل (كل الأدوات)', icon: '🌐', essential: true },
+      // الأدوات الفرديّة (قابلة للطيّ)
+      { to: '/internal-environment', label: 'البيئة الداخليّة (7S)', icon: '🎯' },
+      { to: '/pestel',               label: 'تحليل PESTEL',        icon: '🌐' },
+      { to: '/porter',               label: 'قوى بورتر الخمس',       icon: '⚔️' },
+      { to: '/swot',                 label: 'تحليل SWOT',           icon: '🧭' },
+      { to: '/tows',                 label: 'مصفوفة TOWS',           icon: '🔄' },
+      { to: '/value-chain',          label: 'سلسلة القيمة',          icon: '🔗' },
+      { to: '/core-capabilities',    label: 'القدرات الجوهريّة',      icon: '💎' },
+      { to: '/benchmarking',         label: 'المقارنة المرجعيّة',    icon: '🔍' },
+      { to: '/stakeholders',         label: 'أصحاب المصلحة',         icon: '👥' },
+      { to: '/risk-map',             label: 'خريطة المخاطر',         icon: '⚠️' },
+      { to: '/ambition-gap',         label: 'فجوة الطموح',           icon: '🎯' },
+      { to: '/strategic-tensions',   label: 'التوترات الاستراتيجيّة',  icon: '⚖️' },
     ],
   },
   {
-    title: 'المرحلة ② — التوليف',
-    accent: 'rose',
-    // ⚠️ Gap نُقل إلى ③ (الاتجاه) مطابقاً لجدول المستخدم.
-    items: [
-      { to: '/swot',                 label: 'تحليل SWOT',         icon: '🧭' },
-      { to: '/tows',                 label: 'مصفوفة TOWS',         icon: '🔄' },
-      { to: '/risk-map',             label: 'خريطة المخاطر',       icon: '⚠️' },
-      { to: '/ambition-gap',         label: 'فجوة الطموح',         icon: '🎯' },
-      { to: '/strategic-tensions',   label: 'التوترات الاستراتيجية', icon: '⚖️' },
-    ],
-  },
-  {
-    title: 'المرحلة ③ — التوجّهات والخيارات',
+    title: '🧭 القرار والتوجّه',
     accent: 'amber',
-    // ترتيب مطابق لجدول المستخدم (#١٤-٢٠).
+    layer: 'main',
+    isHub: true,
+    collapsible: true,
     items: [
+      // ⭐ Hub الرئيسي
+      { to: '/owner/decision-hub', label: '📚 مركز القرار (كل الأدوات)', icon: '🧭', essential: true },
+      // الأدوات الفرديّة (قابلة للطيّ)
       { to: '/directions',      label: 'الاتجاهات',              icon: '🧭' },
-      { to: '/bmc',             label: 'نموذج الأعمال Canvas',   icon: '🧩' },
-      { to: '/gap-analysis',    label: 'تحليل الفجوة',           icon: '📐' },
-      { to: '/three-horizons',  label: 'الآفاق الثلاثة',         icon: '🔭' },
-      { to: '/choices',         label: 'القرار الاستراتيجي',     icon: '✅' },
+      { to: '/choices',         label: 'القرار الاستراتيجي',    icon: '✅' },
+      { to: '/bmc',             label: 'نموذج الأعمال Canvas',  icon: '🧩' },
+      { to: '/ansoff',          label: 'مصفوفة أنسوف',           icon: '📈' },
       { to: '/bcg',             label: 'مصفوفة BCG',             icon: '⭐' },
-      { to: '/ansoff',          label: 'مصفوفة أنسوف',           icon: '📐' },
+      { to: '/three-horizons',  label: 'الآفاق الثلاثة',         icon: '🔭' },
       { to: '/scenarios',       label: 'السيناريوهات',           icon: '🔮' },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',        icon: '⚡' },
-      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',        icon: '📊' },
-      { to: '/space',           label: 'مصفوفة SPACE',           icon: '🛰️' },
+      { to: '/gap-analysis',    label: 'تحليل الفجوة',           icon: '📐' },
       { to: '/qspm',            label: 'مصفوفة QSPM',            icon: '🧮' },
+      { to: '/space',           label: 'مصفوفة SPACE',           icon: '🛰️' },
     ],
   },
   {
-    title: 'التنفيذ',
+    title: '📊 القياس والتنفيذ',
     accent: 'emerald',
+    layer: 'main',
+    isHub: true,
+    collapsible: true,
     items: [
-      { to: '/objectives',   label: 'الأهداف',          icon: '🎯' },
-      { to: '/okrs',         label: 'OKRs',             icon: '🏆' },
-      { to: '/ogsm',         label: 'إطار OGSM',         icon: '🧩' },
-      { to: '/kpis',         label: 'مؤشرات الأداء',    icon: '📊' },
-      { to: '/bsc',          label: 'Balanced Scorecard', icon: '⚖️' },
-      { to: '/kpi-entries',  label: 'إدخالات المؤشرات', icon: '✍️' },
-      { to: '/initiatives',  label: 'المبادرات',        icon: '💡' },
-      { to: '/raci',         label: 'مصفوفة RACI',       icon: '👥' },
-      { to: '/projects',     label: 'المشاريع',         icon: '📁' },
-      { to: '/annual-plan',  label: 'الخطة السنوية',    icon: '🗓️' },
-      { to: '/gantt-chart',  label: 'مخطط جانت',        icon: '📅' },
-      { to: '/tasks',        label: 'المهام',           icon: '✓' },
+      // ⭐ Hub الرئيسي
+      { to: '/owner/measure-execute-hub', label: '📚 مركز القياس والتنفيذ (كل الأدوات)', icon: '📊', essential: true },
+      // الأدوات الفرديّة (قابلة للطيّ)
+      { to: '/objectives',   label: 'الأهداف الاستراتيجيّة', icon: '🎯' },
+      { to: '/kpis',         label: 'مؤشّرات الأداء',        icon: '📊' },
+      { to: '/bsc',          label: 'Balanced Scorecard',   icon: '⚖️' },
+      // OKRs / OGSM / مصفوفة الأولويّة أُزيلت من التنقّل — صياغات مكرّرة لبيانٍ
+      // واحد. المسارات والجداول باقية؛ يُوصَل إليها عبر الـ hub لا كمداخل مستقلّة.
+      { to: '/kpi-entries',  label: 'إدخالات المؤشّرات',    icon: '✍️' },
+      { to: '/initiatives',     label: 'المبادرات',         icon: '💡' },
+      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',    icon: '📊' },
+      { to: '/raci',            label: 'مصفوفة RACI',        icon: '👥' },
+      { to: '/projects',    label: 'متابعة المبادرات', icon: '📁' },
+      { to: '/annual-plan', label: 'الخطة السنويّة',  icon: '🗓️' },
+      { to: '/gantt-chart', label: 'مخطّط جانت',      icon: '📅' },
+      { to: '/tasks',       label: 'المهام',         icon: '✓' },
+    ],
+  },
+
+  // ─── الإدارة والسياق ────────────────────────────────────────
+  {
+    title: '🏢 الشركات والفريق',
+    accent: 'indigo',
+    layer: 'context',
+    items: [
+      { to: '/companies',     label: 'شركاتي',       icon: '🏢' },
+      { to: '/companies/add', label: 'إضافة شركة',   icon: '➕' },
+      { to: '/invitations',   label: 'دعوات الفريق', icon: '✉️' },
+      { to: '/org-dna',       label: 'DNA المنظّمة',  icon: '🧬' },
     ],
   },
   {
-    title: 'المراجعة والتقارير',
+    title: '💼 لوحات القيادة',
+    accent: 'violet',
+    layer: 'context',
+    items: [
+      { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي', icon: '👔' },
+      { to: '/exec-dashboard',      label: 'لوحة الفريق التنفيذي', icon: '👥' },
+      { to: '/board-dashboard',     label: 'لوحة المجلس',          icon: '🏛️' },
+      { to: '/analytics-dashboard', label: 'التحليلات',            icon: '📈' },
+      { to: '/admin-dashboard',     label: 'لوحة المسؤول',         icon: '🛠️', adminOnly: true },
+    ],
+  },
+  {
+    title: '📑 المراجعة والتقارير',
     accent: 'orange',
+    layer: 'context',
     items: [
       { to: '/strategic-calendar', label: 'التقويم الاستراتيجي', icon: '🗓️' },
       { to: '/reviews',            label: 'المراجعات',           icon: '🔁' },
-      { to: '/corrections',        label: 'الإجراءات التصحيحية', icon: '🔧' },
+      { to: '/corrections',        label: 'الإجراءات التصحيحيّة', icon: '🔧' },
       { to: '/reports',            label: 'التقارير',            icon: '📑' },
     ],
   },
   {
-    title: 'التحليل المالي',
+    title: '💰 التحليل المالي',
     accent: 'emerald',
+    layer: 'context',
     items: [
       { to: '/financial-analysis', label: 'Dupont و Monte Carlo', icon: '📐' },
     ],
   },
+
+  // ─── مُثبَّت ─────────────────────────────────────────────────
   {
-    title: 'محرك التقييم',
+    title: '🤖 الذكاء الاصطناعي',
     accent: 'violet',
+    layer: 'pinned',
     items: [
-      { to: '/assessment-wizard', label: 'معالج التقييم', icon: '🧭' },
+      { to: '/ai-center',       label: 'مركز الذكاء',    icon: '🤖' },
+      { to: '/ai/advisor',      label: 'المستشار',       icon: '💬' },
+      { to: '/ai/presentation', label: 'مولّد العروض',   icon: '🎞️' },
+      { to: '/ai/pain-screen',  label: 'فحص نقاط الألم', icon: '🩺' },
+      { to: '/ai/simulation',   label: 'مختبر المحاكاة', icon: '🧪' },
     ],
   },
   {
-    title: 'الذكاء الاصطناعي',
-    accent: 'violet',
+    title: '⌘K بحث',
+    accent: 'sky',
+    layer: 'pinned',
     items: [
-      { to: '/ai-center',       label: 'مركز الذكاء',         icon: '🤖' },
-      { to: '/ai/advisor',      label: 'المستشار',             icon: '💬' },
-      { to: '/ai/presentation', label: 'مولّد العروض',         icon: '🎞️' },
-      { to: '/ai/pain-screen',  label: 'فحص نقاط الألم',       icon: '🩺' },
-      { to: '/ai/simulation',   label: 'مختبر المحاكاة',       icon: '🧪' },
+      { to: '/search', label: 'بحث سريع', icon: '🔍', placeholder: true },
     ],
   },
 ]
 
-// ─── سايدبار المدير — ٩ أقسام مرقّمة (المسار الاستراتيجي المقفل) ─
-// المدير المستقل يمشي من ① → ⑥. الأقسام غير المرقّمة (البداية،
-// المالي، الخطة والذكاء) أدوات مساندة تُستخدم عبر الرحلة.
-//
-// خارج المرحلة: قسم «العملاء» (proClientsSection) يُضاف تلقائياً فوق
-// السايدبار للمدير المستقل عبر `navFor()`.
-//
-// INTERNAL manager: يرى نفس الأقسام بدون فلترة `proOnly`.
-// INDEPENDENT_PRO مع تخصّص: يُطبَّق فلتر `dept === specialty`
-// في `navFor()` فيرى فقط تدقيقات/إصلاحات تخصّصه.
+// ═══════════════════════════════════════════════════════════════
+// المدير (MANAGER) — ٨ main + ٣ context + ٣ pinned
+// ═══════════════════════════════════════════════════════════════
+
 const managerNav: NavSection[] = [
-  // ─── ٠) البداية ─────────────────────────────────────────────
-  // Fix #1 — لوحة الإدارة تُعرض للمدير الداخلي فقط. المستقل يمشي
-  // عبر «العملاء» أعلاه (يُدرج من navFor)، فلا معنى للوحة إدارة وحيدة.
+  // ─── مسار العمل الأساسي ─────────────────────────────────────
+  // (٠ البداية للـINTERNAL فقط — لوحة الإدارة الوحيدة)
   {
     title: '🏠 البداية',
     accent: 'teal',
+    layer: 'main',
     items: [
-      { to: '/manager/dept-dashboard', label: 'لوحة الإدارة',  icon: '📊' /* INTERNAL only — يُفلتَر في navFor */ },
-      { to: '/manager/diagnostic',      label: 'تشخيص المدير', icon: '🎯' },
+      { to: '/manager/dept-dashboard', label: 'لوحة الإدارة',  icon: '📊' /* INTERNAL only */ },
+      { to: '/manager/diagnostic',     label: 'تشخيص المدير',  icon: '🎯' /* INTERNAL only */ },
     ],
   },
 
-  // ─── ① التشخيص وتحليل البيئة ─────────────────────────────
-  // ٩ أدوات جوهرية للبيئة الداخلية والخارجية + التدقيق التخصّصي
-  // (يظهر تدقيق واحد فقط للمدير المستقل بحسب `dept === specialty`).
+  // ① التشخيص Hub
   {
     title: '🌐 ① التشخيص وتحليل البيئة',
     accent: 'sky',
     stageId: 'environment',
+    layer: 'main',
+    isHub: true,
     collapsible: true,
     items: [
-      // ⭐ الأدوات النجمية الأساسية (تظهر دائماً)
-      { to: '/internal-environment',  label: 'البيئة الداخلية (7S)',   icon: '🎯', proOnly: true, essential: true },
-      { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة', icon: '🔬', proOnly: true, essential: true },
-      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',         icon: '🌐', proOnly: true, essential: true },
-      // ⭐ تدقيق التخصّص أيضاً أساسي (فلتر dept يُظهر واحداً فقط)
+      { to: '/manager/analysis-wizard', label: '🔬 معالج التحليل الشامل', icon: '🪄', proOnly: true, essential: true },
+      { to: '/internal-environment',  label: 'البيئة الداخليّة (7S)',    icon: '🏛️', proOnly: true, essential: true },
+      { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة',   icon: '🔬', proOnly: true, essential: true },
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',           icon: '🌍', proOnly: true, essential: true },
+      // تدقيق التخصّص (يظهر واحد بحسب dept)
       { to: '/manager/hr/audit',             label: 'تدقيق الموارد البشرية',  icon: '👤', dept: 'HR',                essential: true },
       { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE',           essential: true },
       { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES',             essential: true },
@@ -226,158 +268,251 @@ const managerNav: NavSection[] = [
       { to: '/manager/projects/audit',       label: 'تدقيق المشاريع',         icon: '📋', dept: 'PROJECTS',          essential: true },
       { to: '/manager/governance/audit',     label: 'تدقيق الحوكمة',          icon: '🏛️', dept: 'GOVERNANCE',        essential: true },
       { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال',         icon: '⚖️', dept: 'COMPLIANCE',        essential: true },
-
-      // بقية أدوات المرحلة (خلف زر "أظهر المزيد")
-      { to: '/value-chain',           label: 'سلسلة القيمة',           icon: '🔗', proOnly: true },
-      { to: '/porter',                label: 'قوى بورتر الخمس',        icon: '⚔️', proOnly: true },
-      { to: '/core-capabilities',     label: 'القدرات الجوهرية',       icon: '💎', proOnly: true },
-      { to: '/benchmarking',          label: 'المقارنة المرجعية',      icon: '🔍', proOnly: true },
-      { to: '/org-dna',               label: 'DNA المنظمة',            icon: '🧬', proOnly: true },
-      { to: '/stakeholders',          label: 'أصحاب المصلحة',          icon: '👥', proOnly: true },
-      // Fix #6 — التحليل المبسّط ٤ أسئلة هو مصدر بيانات المرحلة ① (نُقل من «الخطة والذكاء»).
-      { to: '/manager/dept-deep',     label: 'التحليل المبسّط',        icon: '📝', proOnly: true, optional: true },
-      // أدوات ثانوية لتخصّصات معيّنة
-      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '⚖️', dept: 'GOVERNANCE' },
-      { to: '/manager/compliance/audit-pro', label: 'تدقيق الامتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },
+      // الموسّعة
+      { to: '/value-chain',           label: 'سلسلة القيمة',      icon: '⛓️', proOnly: true },
+      { to: '/porter',                label: 'قوى بورتر الخمس',   icon: '⚔️', proOnly: true },
+      { to: '/core-capabilities',     label: 'القدرات الجوهريّة', icon: '💎', proOnly: true },
+      { to: '/benchmarking',          label: 'المقارنة المرجعيّة', icon: '🎖️', proOnly: true },
+      { to: '/org-dna',               label: 'DNA المنظّمة',      icon: '🧬', proOnly: true },
+      { to: '/stakeholders',          label: 'أصحاب المصلحة',    icon: '🫂', proOnly: true },
+      { to: '/manager/dept-deep',     label: 'التحليل المبسّط',   icon: '📝', proOnly: true, optional: true },
+      { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '🏛️', dept: 'GOVERNANCE' },
+      { to: '/manager/compliance/audit-pro', label: 'تدقيق امتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },
     ],
   },
 
-  // ─── ② التوليف ─────────────────────────────────────────────
-  // Fix #3 — /manager/contradictions حُذف: لا artifact لاكتماله + غير
-  // مذكور في journeyStages.toolPaths → يتيم.
+  // ② التوليف
   {
     title: '🧭 ② التوليف',
     accent: 'rose',
     stageId: 'synthesis',
+    layer: 'main',
     items: [
-      { to: '/swot', label: 'تحليل SWOT',  icon: '🧭', proOnly: true },
-      { to: '/tows', label: 'مصفوفة TOWS', icon: '🔄', proOnly: true },
+      { to: '/swot', label: 'تحليل SWOT',  icon: '🎭', proOnly: true },
+      { to: '/tows', label: 'مصفوفة TOWS', icon: '🔀', proOnly: true },
     ],
   },
 
-  // ─── ③ التوجّه والخيارات ─────────────────────────────────
-  // Gap (سواء العام أو dept-scoped) هنا حسب `journeyStages.ts`.
-  // Fix #8 — نعرض /gap-analysis (شركة) و /manager/dept-gap (إدارة)
-  // كِلاهما للمدير المستقل حتى يعرف أن هناك نسختين. سابقاً كان
-  // filterToolsForUser يُخفي واحدة بلا إشعار.
+  // ③ القرار والتوجّه
   {
     title: '🎯 ③ التوجّه والخيارات',
     accent: 'amber',
     stageId: 'directions',
+    layer: 'main',
     items: [
-      { to: '/directions',       label: 'التوجّه الاستراتيجي',   icon: '🎯', proOnly: true },
-      { to: '/bmc',              label: 'نموذج الأعمال Canvas', icon: '🧩', proOnly: true },
-      { to: '/manager/dept-gap', label: 'فجوات الإدارة',        icon: '📐', proOnly: true },
-      { to: '/gap-analysis',     label: 'فجوات الشركة (عام)',   icon: '📐', proOnly: true, optional: true },
-      { to: '/ansoff',           label: 'مصفوفة أنسوف',          icon: '📈', proOnly: true },
-      { to: '/bcg',              label: 'مصفوفة BCG',            icon: '⭐', proOnly: true },
-      { to: '/choices',          label: 'القرار الاستراتيجي',   icon: '✅', proOnly: true },
+      { to: '/directions',       label: 'التوجّه الاستراتيجي',   icon: '🧭', proOnly: true },
+      { to: '/bmc',              label: 'نموذج الأعمال Canvas', icon: '🧱', proOnly: true },
+      { to: '/manager/dept-gap', label: 'فجوات الإدارة',        icon: '📏', proOnly: true },
+      { to: '/gap-analysis',     label: 'فجوات الشركة',         icon: '📐', proOnly: true, optional: true },
+      { to: '/ansoff',           label: 'مصفوفة أنسوف',          icon: '🎢', proOnly: true },
+      { to: '/bcg',              label: 'مصفوفة BCG',            icon: '🐄', proOnly: true },
+      { to: '/choices',          label: 'القرار الاستراتيجي',   icon: '⭐', proOnly: true },
       { to: '/three-horizons',   label: 'الآفاق الثلاثة',        icon: '🔭', proOnly: true },
       { to: '/scenarios',        label: 'السيناريوهات',          icon: '🔮', proOnly: true },
     ],
   },
 
-  // ─── ④ الأهداف والمؤشرات ─────────────────────────────────
-  // Fix #4 — dept-smart + kpi-entries `optional: true` لأنّ اكتمال المرحلة
-  // يعتمد على OGSM/ANNUAL_PLAN/BSC + Objectives/KPIs الأساسية، ليس عليهما.
+  // ④ القياس (Hub /measure)
   {
-    title: '📊 ④ الأهداف والمؤشرات',
+    title: '📊 ④ القياس والأهداف',
     accent: 'emerald',
     stageId: 'indicators',
+    layer: 'main',
     items: [
-      { to: '/bsc',                label: 'Balanced Scorecard', icon: '⚖️', proOnly: true },
-      { to: '/objectives',         label: 'الأهداف الاستراتيجية', icon: '🎯', proOnly: true },
-      { to: '/okrs',               label: 'OKRs',                 icon: '🏆', proOnly: true },
-      { to: '/ogsm',               label: 'إطار OGSM',            icon: '🧩', proOnly: true },
-      { to: '/kpis',               label: 'مؤشرات الأداء',       icon: '📊', proOnly: true },
-      { to: '/annual-plan',        label: 'الخطة السنوية',       icon: '🗓️', proOnly: true },
-      { to: '/manager/dept-smart', label: 'ذكاء KPIs',            icon: '✨', proOnly: true, optional: true },
-      { to: '/kpi-entries',        label: 'إدخالات المؤشرات',    icon: '✍️', proOnly: true, optional: true },
+      { to: '/measure',            label: 'الأهداف والمؤشّرات', icon: '📈', proOnly: true, essential: true },
+      { to: '/manager/dept-smart', label: 'ذكاء KPIs',           icon: '✨', proOnly: true, optional: true },
     ],
   },
 
-  // ─── ⑤ المبادرات والمخاطر ─────────────────────────────────
-  // Fix #2 — /projects نُقل هنا من ⑥ (المشاريع تُشتقّ من المبادرات).
-  // Fix #5 — /ai/simulation مضاف هنا (كان في journeyStages فقط).
+  // ⑤ المبادرات (Hub /priority)
   {
-    title: '💡 ⑤ المبادرات والمخاطر',
+    title: '💡 ⑤ المبادرات والأولويّات',
     accent: 'violet',
     stageId: 'initiatives',
+    layer: 'main',
     items: [
-      { to: '/initiatives',     label: 'المبادرات',         icon: '💡', proOnly: true },
-      { to: '/priority-matrix', label: 'مصفوفة الأولوية',    icon: '⚡', proOnly: true },
-      { to: '/eisenhower',      label: 'مصفوفة أيزنهاور',    icon: '📊', proOnly: true },
-      { to: '/risk-map',        label: 'خريطة المخاطر',      icon: '⚠️', proOnly: true },
-      { to: '/raci',            label: 'مصفوفة RACI',        icon: '👥', proOnly: true },
-      { to: '/projects',        label: 'المشاريع',           icon: '📁', proOnly: true },
-      { to: '/ai/simulation',   label: 'مختبر المحاكاة',     icon: '🧪', proOnly: true, optional: true },
+      { to: '/priority',      label: 'المبادرات والأولويّات', icon: '💡', proOnly: true, essential: true },
     ],
   },
 
-  // ─── ⑥ التنفيذ والمتابعة ─────────────────────────────────
-  // Fix #7 — /manager/strategic-plan + خطط الإصلاح انتقلت هنا من قسم
-  // «الخطة والذكاء» المحذوف — هي نتائج تنفيذية تُقرأ في المتابعة.
+  // ⑥ التنفيذ (Hub /execute)
   {
     title: '🚀 ⑥ التنفيذ والمتابعة',
     accent: 'orange',
     stageId: 'execution',
+    layer: 'main',
     items: [
-      { to: '/gantt-chart',            label: 'مخطط جانت',           icon: '📅', proOnly: true },
-      { to: '/tasks',                  label: 'المهام',              icon: '✓',  proOnly: true },
-      { to: '/manager/strategic-plan', label: 'الخطة الاستراتيجية',  icon: '🗺️', proOnly: true, optional: true },
-      { to: '/manager/logistics/reform',  label: 'خطة إصلاح اللوجستيات', icon: '🔧', dept: 'LOGISTICS',  optional: true },
-      { to: '/manager/compliance/reform', label: 'خطة إصلاح الامتثال',   icon: '🔧', dept: 'COMPLIANCE', optional: true },
+      { to: '/execute',                   label: 'التنفيذ والمتابعة',    icon: '🚀', proOnly: true, essential: true },
     ],
   },
 
-  // ─── التحليل المالي (مساند لكل المراحل) ─────────────────────
+  // ─── الإدارة والسياق ────────────────────────────────────────
+  {
+    title: '📑 خطط الإصلاح',
+    accent: 'orange',
+    layer: 'context',
+    items: [
+      { to: '/manager/logistics/reform',  label: 'خطة إصلاح اللوجستيات', icon: '🩹', dept: 'LOGISTICS',  optional: true },
+      { to: '/manager/compliance/reform', label: 'خطة إصلاح الامتثال',   icon: '🔨', dept: 'COMPLIANCE', optional: true },
+    ],
+  },
   {
     title: '💰 التحليل المالي',
     accent: 'emerald',
+    layer: 'context',
     items: [
-      { to: '/financial-analysis',         label: 'Dupont و Monte Carlo', icon: '📐', proOnly: true },
+      { to: '/financial-analysis',         label: 'Dupont و Monte Carlo', icon: '📉', proOnly: true },
       { to: '/manager/finance/break-even', label: 'نقطة التعادل',         icon: '⚖️', dept: 'FINANCE' },
     ],
   },
 
-  // ملاحظة (Fix #7): قسم «الخطة والذكاء» حُذف — عناصره وُزّعت:
-  //  · /manager/dept-deep          → مرحلة ① (مصدر تشخيصي).
-  //  · /manager/strategic-plan     → مرحلة ⑥ (نتيجة تنفيذية).
-  //  · /manager/logistics/reform  → مرحلة ⑥ (خطة تنفيذية لوجستيّة).
-  //  · /manager/compliance/reform → مرحلة ⑥ (خطة تنفيذية للامتثال).
+  // ─── مُثبَّت ─────────────────────────────────────────────────
+  {
+    title: '🤖 الذكاء الاصطناعي',
+    accent: 'violet',
+    layer: 'pinned',
+    items: [
+      { to: '/ai/simulation', label: 'مختبر المحاكاة', icon: '🧪', proOnly: true, optional: true },
+    ],
+  },
+  {
+    title: '⌘K بحث',
+    accent: 'sky',
+    layer: 'pinned',
+    items: [
+      { to: '/search', label: 'بحث سريع', icon: '🔍', placeholder: true },
+    ],
+  },
 ]
+
+// ═══════════════════════════════════════════════════════════════
+// المستثمر (INVESTOR) — ٥ main + ٢ context + ٣ pinned
+// ═══════════════════════════════════════════════════════════════
 
 const investorNav: NavSection[] = [
+  // ─── مسار العمل الأساسي ─────────────────────────────────────
   {
-    title: 'التشخيص',
-    accent: 'sky',
-    items: [{ to: '/investor/diagnostic', label: 'تشخيص المستثمر', icon: '🎯' }],
-  },
-  {
-    title: 'المحفظة',
-    accent: 'emerald',
+    title: '🏠 نظرة عامّة',
+    accent: 'teal',
+    layer: 'main',
+    isHub: true,
     items: [
-      { to: '/investor/dashboard', label: 'لوحة المستثمر', icon: '📊' },
-      { to: '/investor/portfolio', label: 'المحفظة',        icon: '💼' },
+      { to: '/investor/dashboard',        label: 'لوحة المستثمر',   icon: '📊', essential: true },
+      { to: '/investor/activity',         label: 'سجل النشاط',      icon: '📰', placeholder: true },
+      { to: '/investor/alerts',           label: 'التنبيهات',       icon: '🔔', placeholder: true },
     ],
   },
   {
-    title: 'الصفقات',
-    accent: 'amber',
+    title: '🎯 التشخيص',
+    accent: 'sky',
+    layer: 'main',
+    isHub: true,
     items: [
-      { to: '/investor/deals', label: 'خط الأنابيب', icon: '🤝' },
+      { to: '/investor/diagnostic',       label: 'تشخيص المستثمر',   icon: '🎯', essential: true },
+      { to: '/investor/sector-preferences', label: 'تفضيلات القطاع', icon: '🏷️', placeholder: true },
+    ],
+  },
+  {
+    title: '💼 المحفظة',
+    accent: 'emerald',
+    layer: 'main',
+    isHub: true,
+    items: [
+      { to: '/investor/portfolio',        label: 'محفظتي',           icon: '💼', essential: true },
+      { to: '/investor/portfolio/compare', label: 'مقارنة الشركات', icon: '⚖️', placeholder: true },
+      { to: '/investor/portfolio/sectors', label: 'التوزيع القطاعي', icon: '📊', placeholder: true },
+    ],
+  },
+  {
+    title: '📊 التحليل المالي',
+    accent: 'violet',
+    layer: 'main',
+    isHub: true,
+    items: [
+      { to: '/investor/financial/dupont',  label: 'Dupont Analysis', icon: '📐', placeholder: true },
+      { to: '/investor/financial/monte-carlo', label: 'Monte Carlo', icon: '🎲', placeholder: true },
+      { to: '/investor/financial/roi',     label: 'ROI محسوب',        icon: '💰', placeholder: true },
+      { to: '/investor/financial/reports', label: 'التقارير الماليّة', icon: '📑', placeholder: true },
+    ],
+  },
+  {
+    title: '🔍 التقييم والفرز',
+    accent: 'amber',
+    layer: 'main',
+    isHub: true,
+    items: [
+      { to: '/investor/deals',            label: 'خط الأنابيب',      icon: '🤝', essential: true },
+      { to: '/investor/scoring',          label: 'إطار التقييم',     icon: '📊', placeholder: true },
+      { to: '/investor/due-diligence',    label: 'العناية الواجبة',  icon: '🔎', placeholder: true },
+      { to: '/investor/benchmarking',     label: 'المقارنة المرجعيّة', icon: '🔍', placeholder: true },
+    ],
+  },
+
+  // ─── الإدارة والسياق ────────────────────────────────────────
+  {
+    title: '📑 التقارير والملفّات',
+    accent: 'orange',
+    layer: 'context',
+    items: [
+      { to: '/investor/reports', label: 'تقارير المستثمر', icon: '📑', placeholder: true },
+    ],
+  },
+  {
+    title: '🌐 استكشاف السوق',
+    accent: 'indigo',
+    layer: 'context',
+    items: [
+      { to: '/investor/market', label: 'اكتشاف الفرص', icon: '🌐', placeholder: true },
+    ],
+  },
+
+  // ─── مُثبَّت ─────────────────────────────────────────────────
+  {
+    title: '🤖 توصيات AI',
+    accent: 'violet',
+    layer: 'pinned',
+    items: [
+      { to: '/investor/ai/recommendations', label: 'توصيات استثماريّة', icon: '🤖', placeholder: true },
+    ],
+  },
+  {
+    title: '⌘K بحث',
+    accent: 'sky',
+    layer: 'pinned',
+    items: [
+      { to: '/search', label: 'بحث سريع', icon: '🔍', placeholder: true },
     ],
   },
 ]
 
-// PRO-B — قسم مستقل للمدير المستقل (INDEPENDENT_PRO) يعرض قائمة عملائه.
-// يُدرج فقط عندما يكون نوع المدير INDEPENDENT_PRO لأنه لا معنى له للـ INTERNAL.
+// ─── أقسام مدرَجة تلقائياً للمدير المستقل ────────────────────────
 const proClientsSection: NavSection = {
-  title: '🤝 العملاء',
+  title: '🤝 العملاء والمحفظة',
   accent: 'amber',
+  layer: 'main',
   items: [
-    { to: '/manager/clients',    label: 'عملائي',           icon: '🤝' },
-    { to: '/manager/journey-map', label: 'خريطة المسار',    icon: '🗺️' },
+    { to: '/manager/clients',            label: 'عملائي',              icon: '🤝' },
+    { to: '/manager/journey-map',        label: 'خريطة المسار',       icon: '🗺️' },
+    { to: '/manager/diagnostic',         label: 'تشخيص المدير',       icon: '🎯' },
+  ],
+}
+
+const strategicPlanSection: NavSection = {
+  title: '📖 الخطة الاستراتيجيّة',
+  accent: 'indigo',
+  layer: 'main',
+  items: [
+    { to: '/manager/strategic-plan', label: 'خطة الإدارة', icon: '🗺️', proOnly: true, essential: true },
+  ],
+}
+
+// قسم الإعدادات المُثبَّت — يظهر لكل الأدوار.
+const settingsSection: NavSection = {
+  title: '⚙️ الإعدادات',
+  accent: 'teal',
+  layer: 'pinned',
+  items: [
+    { to: '/settings/path', label: 'مساري الاستراتيجي', icon: '🎯' },
   ],
 }
 
@@ -386,33 +521,37 @@ export function navFor(
   managerType?: ManagerType | null,
   specialty?: SpecialtyDeptType | null
 ): NavSection[] {
-  if (userType === 'OWNER') return ownerNav
+  if (userType === 'OWNER') return [...ownerNav, settingsSection]
   if (userType === 'MANAGER') {
+    // الترتيب:
+    //   INDEPENDENT_PRO → العملاء + الخطة + بقية المراحل + الإعدادات
+    //   INTERNAL        → البداية + الخطة + بقية المراحل + الإعدادات
     const base = managerType === 'INDEPENDENT_PRO'
-      ? [proClientsSection, ...managerNav]
-      : managerNav
-    // Fix #1 — لوحة الإدارة (`/manager/dept-dashboard`) للمدير الداخلي فقط.
-    // المستقل يعمل عبر «العملاء» → /manager/clients، فلا معنى لعرضها.
+      ? [proClientsSection, strategicPlanSection, ...managerNav]
+      : [managerNav[0], strategicPlanSection, ...managerNav.slice(1)]
     const roleFiltered = base.map((s) => ({
       ...s,
       items: s.items.filter((i) => {
         if (managerType === 'INDEPENDENT_PRO' && i.to === '/manager/dept-dashboard') return false
+        if (managerType === 'INDEPENDENT_PRO' && i.to === '/manager/diagnostic' && s.title === '🏠 البداية') return false
         return true
       }),
     }))
-    // PRO-F — للمدير المستقل مع تخصّص محدّد: احذف كل بند مرتبط بإدارة
-    // غير إدارته، ثم أسقط الأقسام اللي بقت فارغة.
+    // PRO-F: احذف بنود التخصّص غير المطابقة، وأسقط الأقسام الفارغة.
     if (managerType === 'INDEPENDENT_PRO' && specialty) {
-      return roleFiltered
-        .map((s) => ({
-          ...s,
-          items: s.items.filter((i) => !i.dept || i.dept === specialty),
-        }))
-        .filter((s) => s.items.length > 0)
+      return [
+        ...roleFiltered
+          .map((s) => ({
+            ...s,
+            items: s.items.filter((i) => !i.dept || i.dept === specialty),
+          }))
+          .filter((s) => s.items.length > 0),
+        settingsSection,
+      ]
     }
-    return roleFiltered.filter((s) => s.items.length > 0)
+    return [...roleFiltered.filter((s) => s.items.length > 0), settingsSection]
   }
-  if (userType === 'INVESTOR') return investorNav
+  if (userType === 'INVESTOR') return [...investorNav, settingsSection]
   return []
 }
 
@@ -420,8 +559,6 @@ export function homeFor(
   userType: UserType | null | undefined,
   managerType?: ManagerType | null
 ): string {
-  // المدير المستقل يعمل عبر عدّة عملاء — بيته «عملائي» لا لوحة إدارة وحيدة.
-  // المدير الداخلي يبقى على لوحة إدارته (شركة واحدة). الأمر ٢٦ في الخطة.
   if (userType === 'MANAGER') {
     return managerType === 'INDEPENDENT_PRO'
       ? '/manager/clients'
@@ -431,8 +568,6 @@ export function homeFor(
   return '/dashboard'
 }
 
-/** Resolves accent color tokens to Tailwind classes. Centralized so sidebar
- *  and any future accent-using component stay in sync. */
 export const ACCENT_CLASSES: Record<AccentColor, { dot: string; bgSoft: string; text: string }> = {
   teal:    { dot: 'bg-teal-500',    bgSoft: 'bg-teal-50',    text: 'text-teal-700' },
   indigo:  { dot: 'bg-indigo-500',  bgSoft: 'bg-indigo-50',  text: 'text-indigo-700' },
