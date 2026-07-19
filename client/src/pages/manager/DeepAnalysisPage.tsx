@@ -21,6 +21,7 @@ import {
   type TextareaQuestion,
 } from '@/lib/deptQuestions'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { SalesDiagnostic } from './SalesDiagnostic'
 import { useAuthStore } from '@/store/authStore'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
@@ -578,7 +579,15 @@ function normalize(raw: unknown): Record<string, QAValue> {
 
 // embedded=true عند تضمينها داخل DeptDeepPage — نُخفي بطاقة «الخطوة التالية»
 // تفادياً لتكرارها (الحاوية تعرض بطاقتها الخاصّة).
+// ─── موجّه: المبيعات → تشخيص تكيّفي؛ غيرها → البنك الحالي (٣ فئات) ───
+// نقطة تبديل واحدة تغطّي المسار والتضمين معاً (المرحلة ٥ من تشخيص المبيعات).
 export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
+  if (specialty === 'SALES') return <SalesDiagnostic embedded={embedded} />
+  return <DeepAnalysisBank embedded={embedded} />
+}
+
+function DeepAnalysisBank({ embedded = false }: { embedded?: boolean } = {}) {
   const user = useAuthStore((s) => s.user)
   const [sp] = useSearchParams()
   const clientQuery = sp.get('client') ? `?client=${sp.get('client')}` : ''
