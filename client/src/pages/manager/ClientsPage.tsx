@@ -431,14 +431,24 @@ function ClientCard({ client }: { client: OverviewClient }) {
           {sm.hintAr}
         </div>
 
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex flex-col gap-2 text-xs">
           <span className="text-muted-foreground">{DEPT_LABEL[client.specialty]}</span>
-          <Link
-            to={`/manager/clients/${client.companyId}`}
-            className={`rounded-md px-2.5 py-1.5 font-medium transition ${sm.buttonClass}`}
-          >
-            {sm.buttonLabel}
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* زر «المراحل» — يفتح صفحة مراحل هذا العميل (أين أنت + الخطوة القادمة) */}
+            <Link
+              to={`/manager/clients/${client.companyId}/journey`}
+              className="flex-1 rounded-md border bg-card px-2.5 py-1.5 text-center font-medium transition hover:bg-accent"
+              title="اعرض مراحل خطّة هذا العميل وأين وصلت"
+            >
+              🗺️ المراحل
+            </Link>
+            <Link
+              to={`/manager/clients/${client.companyId}`}
+              className={`flex-1 rounded-md px-2.5 py-1.5 text-center font-medium transition ${sm.buttonClass}`}
+            >
+              {sm.buttonLabel}
+            </Link>
+          </div>
         </div>
       </CardContent>
     </Card>
