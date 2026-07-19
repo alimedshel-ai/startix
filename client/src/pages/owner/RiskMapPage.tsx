@@ -362,6 +362,8 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
       <Card>
         <CardHeader>
           <CardTitle>الشبكة الحرارية (احتمالية × أثر)</CardTitle>
@@ -441,43 +443,57 @@ function Editor({ companyId }: { companyId: string }) {
               لا توجد مخاطر مسجلة بعد.
             </p>
           )}
-          <div className="flex justify-between pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button variant="outline" size="sm" onClick={add}>+ خطر جديد</Button>
             <Button variant="outline" size="sm" onClick={importFromSWOT} disabled={importing || saving}>
               {importing ? 'جاري…' : '🧭 استورد من SWOT'}
             </Button>
-            <Button onClick={save} disabled={saving || importing}>{saving ? 'جاري الحفظ…' : 'حفظ السجل'}</Button>
           </div>
         </CardContent>
       </Card>
+        </div>
 
-      {ranked.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>أولوية المعالجة</CardTitle>
-            <CardDescription>المخاطر مرتبة حسب احتمالية × أثر.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-2 text-sm">
-              {ranked.slice(0, 10).map((r, i) => {
-                const score = r.probability * r.impact
-                const tint = cellTint(score)
-                return (
-                  <li key={r.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-                    <span className="flex items-center gap-2">
-                      <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">{i + 1}</span>
-                      <span className="font-medium">{r.name}</span>
-                    </span>
-                    <span className={`rounded-md px-2 py-0.5 text-xs ${tint.bg} ${tint.text}`}>
-                      {tint.label} · {score}
-                    </span>
-                  </li>
-                )
-              })}
-            </ol>
-          </CardContent>
-        </Card>
-      )}
+        {/* أولوية المعالجة — ملتصقة بجانب السجل لتربط كل خطر بترتيب علاجه */}
+        <aside className="h-fit space-y-3 lg:sticky lg:top-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">🎯 أولوية المعالجة</CardTitle>
+              <CardDescription className="text-xs">الأعلى (احتمالية × أثر) يُعالَج أوّلاً.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {ranked.length > 0 ? (
+                <ol className="space-y-2 text-sm">
+                  {ranked.slice(0, 10).map((r, i) => {
+                    const score = r.probability * r.impact
+                    const tint = cellTint(score)
+                    return (
+                      <li key={r.id} className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">{i + 1}</span>
+                          <span className="truncate font-medium">{r.name}</span>
+                        </span>
+                        <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs ${tint.bg} ${tint.text}`}>{score}</span>
+                      </li>
+                    )
+                  })}
+                </ol>
+              ) : (
+                <p className="text-xs text-muted-foreground">أضِف مخاطر (باسمٍ) ليظهر ترتيب معالجتها هنا.</p>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+
+      {/* شريط حفظ ثابت أسفل الصفحة — لا يضيع مهما طال السجل */}
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-primary/40 bg-card p-3 shadow-lg">
+        <div className="text-xs text-muted-foreground">
+          <b className="text-red-700 tabular-nums">{criticalCount}</b> حرجة · <b className="text-foreground tabular-nums">{data.risks.length}</b> إجمالي · احفظ لتثبيت السجل.
+        </div>
+        <Button onClick={save} disabled={saving || importing} size="lg">
+          {saving ? 'جاري الحفظ…' : '💾 حفظ السجل'}
+        </Button>
+      </div>
     </>
   )
 }
