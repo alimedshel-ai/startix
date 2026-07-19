@@ -11,7 +11,9 @@ import {
   type AxisResult, type DiagAnswers, type DiagQuestion, type SalesAxisKey,
 } from '@/lib/salesDiagnostic'
 import { getProOverview } from '@/lib/proApi'
-import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { createInitiative, getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
+import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 // ─── تشخيص المبيعات التكيّفي (المرحلة ٢: المعالج) ───────────────────
@@ -33,6 +35,8 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
   const [loading, setLoading] = useState(true)
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [auditHealth, setAuditHealth] = useState<number | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generatedCount, setGeneratedCount] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipFirst = useRef(true)
 
@@ -106,6 +110,48 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     // تغيير إجابة أعلى قد يُيتّم إجابات أعمق — لكنها تُتجاهَل تلقائياً في
     // axisFlow/axisScore (لا تُعرَض ولا تُحسَب)، فلا حاجة لمسحها يدوياً.
     setAnswers((prev) => (prev[qid] === value ? prev : { ...prev, [qid]: value }))
+    setGeneratedCount(null)
+  }
+
+  // ─── المرحلة ٤: توليد خطة ٩٠ يوم كمبادرات فعليّة ─────────────────
+  // كل حلّ في المحاور الحمراء/الصفراء → مبادرة (الأولويّة من شدّة المحور).
+  // تتدفّق بعدها للمهام عبر «اجلب حسب الأولويّة» الذي بنيناه. تجاهُل المكرّر.
+  async function generatePlan() {
+    if (!company) return
+    setGenerating(true)
+    try {
+      const existing = await listInitiatives(company.id).catch(() => [])
+      const existingTitles = new Set(existing.map((i) => i.title.trim()))
+      const targets = results
+        .filter((r) => r.zone === 'red' || r.zone === 'yellow')
+        .sort((a, b) => (a.score ?? 100) - (b.score ?? 100))
+      const seen = new Set<string>()
+      let created = 0
+      for (const r of targets) {
+        for (const sol of r.solutions) {
+          const title = sol.trim()
+          if (!title || seen.has(title) || existingTitles.has(title)) continue
+          seen.add(title)
+          try {
+            await createInitiative({
+              companyId: company.id,
+              title: title.slice(0, 120),
+              description: `من تشخيص المبيعات — المحور ${r.labelAr} (${r.score}٪ · ${r.zone === 'red' ? 'حرج' : 'متوسّط'})`,
+              priority: r.zone === 'red' ? 'critical' : 'high',
+              level: 'operational',
+            })
+            created++
+          } catch { /* skip */ }
+        }
+      }
+      setGeneratedCount(created)
+      if (created > 0) toast.success(`📥 ولّدت ${created} مبادرة من التشخيص — رتّبها ونفّذها من صفحة المبادرات.`)
+      else toast.message('كل مبادرات التشخيص موجودة سلفاً.')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر توليد الخطة'))
+    } finally {
+      setGenerating(false)
+    }
   }
 
   if (scope.loading || loading) {
@@ -175,6 +221,33 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
       ))}
 
       <ReportCard results={results} overall={overall} auditHealth={auditHealth} allComplete={allComplete} />
+
+      {/* المرحلة ٤: توليد الخطة كمبادرات */}
+      {results.some((r) => r.zone === 'red' || r.zone === 'yellow') && (
+        <Card className="overflow-hidden border-2 border-emerald-300 bg-emerald-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-emerald-900">🗓️ حوّل التشخيص إلى خطّة ٩٠ يوم</div>
+              <p className="mt-0.5 text-xs text-emerald-800/80">
+                نُنشئ مبادرة لكل حلّ في المحاور الحمراء/الصفراء (الأولويّة من شدّة المحور)،
+                ثم تجلبها كمهام من صفحة المبادرات.
+                {!allComplete && <b> أكمل كل المحاور أوّلاً لخطّة شاملة.</b>}
+              </p>
+              {generatedCount != null && generatedCount > 0 && (
+                <div className="mt-1 text-xs font-medium text-emerald-800">
+                  ✓ أُنشئت {generatedCount} مبادرة ·{' '}
+                  <Link to={`/priority?tab=initiatives&client=${company.id}`} className="underline underline-offset-2">
+                    افتح المبادرات ←
+                  </Link>
+                </div>
+              )}
+            </div>
+            <Button onClick={generatePlan} disabled={generating} size="lg" className="bg-emerald-600 hover:bg-emerald-700">
+              {generating ? 'جاري التوليد…' : '📥 ولّد الخطة كمبادرات'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
