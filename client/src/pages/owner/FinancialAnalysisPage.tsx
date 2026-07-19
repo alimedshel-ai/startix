@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCompany } from '@/hooks/useCompany'
+import { useGuidedManager } from '@/hooks/useGuidedManager'
+import { JourneyNextStep } from '@/journey/shared/JourneyNextStep'
 import { apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type Company, type DeptCode } from '@/lib/deptApi'
 import {
@@ -105,6 +107,7 @@ function FinancialAnalysisContent() {
   // نبقي الحالة الداخلية `company` لتوافق مع الاستخدامات السفلية بلا تغيير شامل.
   const scope = useCompany()
   const user = useAuthStore((s) => s.user)
+  const guided = useGuidedManager()
   const specialty = user?.specialtyDeptType ?? null
   const preset = specialty ? DEPT_FIN_PRESETS[specialty] : null
   const [company, setCompany] = useState<Company | null>(null)
@@ -226,6 +229,10 @@ function FinancialAnalysisContent() {
 
       <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} preset={preset} opex={company.opex} />
       <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} preset={preset} opex={company.opex} />
+
+      {/* «وش يجي بعدها؟» — التحليل المالي أداة مساندة خارج المراحل، فنوضّح
+          الخطوة التالية في مسار المدير المستقل صراحةً (§٤). */}
+      {guided && <JourneyNextStep companyId={company.id} clientQuery={`?client=${company.id}`} />}
     </div>
   )
 }
