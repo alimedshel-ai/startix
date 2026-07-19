@@ -164,7 +164,37 @@ function Editor({ companyId }: { companyId: string }) {
           whyOutside="اختيار اتّجاه استراتيجيّ يفترض الاستقرار. في المنطقة الحمراء، الإنقاذ أوّلاً قبل قرار الاتّجاه."
         />
       )}
-      <div className="grid gap-3 md:grid-cols-2">
+      {/* شريط أدوات علوي: العدد + الإضافة/الاستيراد في مكان واحد واضح */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            الاتجاهات المحتملة
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold tabular-nums text-primary">{data.directions.length}</span>
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">قيّم كل اتجاه بقابلية التنفيذ × الأثر — الأعلى يُرشَّح للقرار.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={add}>+ اتجاه جديد</Button>
+          <Button variant="outline" size="sm" onClick={importFromTOWS} disabled={importing || saving}>
+            {importing ? 'جاري الاستيراد…' : '🔄 استورد من TOWS'}
+          </Button>
+        </div>
+      </div>
+
+      {data.directions.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="text-3xl" aria-hidden>🎯</div>
+            <p className="max-w-sm text-sm text-muted-foreground">لا اتجاهات بعد. ابدأ باتجاه جديد، أو استورد استراتيجيّات TOWS تلقائياً كنقطة انطلاق.</p>
+            <div className="flex gap-2">
+              <Button onClick={add}>+ اتجاه جديد</Button>
+              <Button variant="outline" onClick={importFromTOWS} disabled={importing}>🔄 استورد من TOWS</Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
         {data.directions.map((d) => {
           const s = score(d)
           return (
@@ -217,39 +247,57 @@ function Editor({ companyId }: { companyId: string }) {
             </Card>
           )
         })}
-      </div>
-
-      <div className="flex flex-wrap justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={add}>+ اتجاه جديد</Button>
-          <Button variant="outline" onClick={importFromTOWS} disabled={importing || saving}>
-            {importing ? 'جاري الاستيراد…' : '🔄 استورد من TOWS'}
-          </Button>
         </div>
-        <Button onClick={save} disabled={saving || importing}>{saving ? 'جاري الحفظ…' : 'حفظ الاتجاهات'}</Button>
-      </div>
 
-      {ranked.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>الترتيب حسب القابلية × الأثر</CardTitle>
-            <CardDescription>الأعلى ترتيباً هو الأكثر جاذبية للتنفيذ.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-2 text-sm">
-              {ranked.map((d, i) => (
-                <li key={d.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-                  <span className="flex items-center gap-2">
-                    <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">{i + 1}</span>
-                    <span className="font-medium">{d.title}</span>
-                  </span>
-                  <span className="text-xs tabular-nums text-muted-foreground">قابلية {d.feasibility} × أثر {d.impact} = {score(d)}</span>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
+        {/* الترتيب الحيّ بجانب البطاقات — يربط كل اتجاه بأولويّته مباشرةً */}
+        <aside className="h-fit space-y-3 lg:sticky lg:top-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">🏆 الترتيب حسب الأولويّة</CardTitle>
+              <CardDescription className="text-xs">قابلية × أثر — الأعلى يُرشَّح أوّلاً للقرار.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {ranked.length > 0 ? (
+                <ol className="space-y-2 text-sm">
+                  {ranked.map((d, i) => (
+                    <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2.5">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">{i + 1}</span>
+                        <span className="truncate font-medium">{d.title}</span>
+                      </span>
+                      <span className="shrink-0 rounded-md border bg-card px-1.5 py-0.5 text-xs font-bold tabular-nums" title={`قابلية ${d.feasibility} × أثر ${d.impact}`}>{score(d)}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs text-muted-foreground">أضِف عنواناً لكل اتجاه ليظهر ترتيبه هنا.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* دليل ألوان البطاقات — لفهم التقييم بنظرة */}
+          <div className="rounded-lg border bg-card p-2.5 text-[11px] text-muted-foreground">
+            <div className="mb-1 font-medium text-foreground">دليل اللون (قابلية × أثر)</div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded border border-emerald-300 bg-emerald-50/60 px-1.5 py-0.5">١٦+ ممتاز</span>
+              <span className="rounded border border-sky-300 bg-sky-50/60 px-1.5 py-0.5">١٠+ جيّد</span>
+              <span className="rounded border border-amber-300 bg-amber-50/60 px-1.5 py-0.5">٥+ متوسّط</span>
+              <span className="rounded border border-rose-300 bg-rose-50/60 px-1.5 py-0.5">&lt;٥ ضعيف</span>
+            </div>
+          </div>
+        </aside>
+      </div>
       )}
+
+      {/* شريط حفظ ثابت أسفل الصفحة — لا يضيع مهما طالت الصفحة */}
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-primary/40 bg-card p-3 shadow-lg">
+        <div className="text-xs text-muted-foreground">
+          <b className="text-foreground tabular-nums">{data.directions.filter((d) => d.title.trim()).length}</b> اتجاه جاهز · احفظ لتثبيتها قبل الانتقال للقرار.
+        </div>
+        <Button onClick={save} disabled={saving || importing} size="lg">
+          {saving ? 'جاري الحفظ…' : '💾 حفظ الاتجاهات'}
+        </Button>
+      </div>
     </>
   )
 }
