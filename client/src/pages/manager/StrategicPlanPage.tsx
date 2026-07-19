@@ -743,6 +743,12 @@ export function StrategicPlanPage() {
         )
       })()}
 
+      {/* ─── توصيات المسار — شبكة عمودين لتنظيم أوضح ─── */}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-sm font-bold">📋 توصيات مسار {path.shortName}</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
       {/* الأولويات — الآن ترتبط بأيزنهاور لفرزها كمهام */}
       <Card>
         <CardHeader>
@@ -868,6 +874,7 @@ export function StrategicPlanPage() {
           </div>
         </CardContent>
       </Card>
+      </div>
 
       {/* خارطة زمنية — الآن ترتبط بمخطّط جانت */}
       <Card>
