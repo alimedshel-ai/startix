@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
-import { filterToolsForUser, JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
+import { filterToolsForUser, isStageInPath, JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── S3 — بطاقة «الخطوة التالية» أسفل كل أداة استراتيجية ──────────
@@ -98,8 +98,12 @@ export function NextStepCard({ clientQuery = '', companyId }: Props) {
     // ١) الأداة الحالية ⭐ ولها ⭐ تالية → اقتراح خطي طبيعي (SWOT→TOWS، …).
     nextPath = starredFiltered[starredIdx + 1]
   } else {
-    // ٢) الحالية عدسة مساندة (أو آخر ⭐ في المرحلة) → اقفز للمرحلة التالية.
-    const next = JOURNEY_STAGES.find((s) => s.order === cur.stage.order + 1)
+    // ٢) الحالية عدسة مساندة (أو آخر ⭐ في المرحلة) → اقفز للمرحلة التالية
+    //    **داخل مسار خطة المستخدم** (لا مجرّد order+1): مستخدم QUICK ينتقل من
+    //    التوليف مباشرةً للمبادرات متجاوزاً ③④ الخارجتين عن مساره (§٤-٥).
+    const next = JOURNEY_STAGES.find(
+      (s) => s.order > cur.stage.order && isStageInPath(s.id, user?.strategyPath ?? null),
+    )
     if (next) {
       const nextStarred = filterToolsForUser(next.starredPaths, isDeptScoped)
       const nextAll = filterToolsForUser(next.toolPaths, isDeptScoped)

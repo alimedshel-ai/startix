@@ -18,6 +18,7 @@ import {
   type Origin,
   type TaggedItem,
 } from '@/lib/taggedItem'
+import { useGuidedManager } from '@/hooks/useGuidedManager'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── TOWS — مصفوفة تحويل SWOT إلى استراتيجيّات ─────────────────────
@@ -120,6 +121,7 @@ function Editor({ companyId }: { companyId: string }) {
   const isRescueMode = params.get('from') === 'emergency'
 
   const user = useAuthStore((s) => s.user)
+  const guided = useGuidedManager()
   const userOrigin: Origin = `user:${user?.id ?? 'me'}`
 
   const [data, setData] = useState<TOWSData>(EMPTY)
@@ -398,7 +400,9 @@ function Editor({ companyId }: { companyId: string }) {
           <b className="text-foreground">{total}</b> استراتيجيّة موزّعة على ٤ أرباع
         </div>
         <div className="flex flex-wrap gap-2">
-          {total > 0 && (
+          {/* روابط «التالي» المكرّرة تُخفى للمدير المستقل — بطاقة الخطوة التالية
+              أعلى الصفحة هي الإجراء الواحد (§٤). يبقى زر الحفظ فقط. */}
+          {!guided && total > 0 && (
             <Link
               to={`/priority?tab=initiatives${clientQuery}`}
               className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
@@ -406,12 +410,14 @@ function Editor({ companyId }: { companyId: string }) {
               💡 اذهب إلى المبادرات ←
             </Link>
           )}
-          <Link
-            to={`/directions${clientQuery ? `?${clientQuery.slice(1)}` : ''}`}
-            className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
-          >
-            🧭 التوجّه ←
-          </Link>
+          {!guided && (
+            <Link
+              to={`/directions${clientQuery ? `?${clientQuery.slice(1)}` : ''}`}
+              className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
+            >
+              🧭 التوجّه ←
+            </Link>
+          )}
           <Button onClick={save} disabled={saving} size="lg">
             {saving ? 'جاري الحفظ…' : '💾 حفظ TOWS'}
           </Button>
