@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/api'
-import { createTask, deleteTask, getArtifact, listProjects, listTasks, updateTask, type Project, type Task } from '@/lib/strategicApi'
+import { createTask, deleteTask, getArtifact, listInitiatives, listProjects, listTasks, updateTask, type Initiative, type Project, type Task } from '@/lib/strategicApi'
 
 const STATUS = [
   ['todo',        'للقيام',     'border-slate-300 bg-slate-50/60',     'bg-slate-500'],
@@ -28,6 +28,17 @@ function sMeta(s: string) {
 }
 function pLabel(p: string) {
   return PRIORITIES.find((x) => x[0] === p)?.[1] ?? p
+}
+
+// رتبة الأولويّة للترتيب (تشمل قيم المبادرات: critical/urgent) — الأعلى أوّلاً.
+const PRIORITY_RANK: Record<string, number> = { critical: 5, urgent: 4, high: 3, medium: 2, low: 1 }
+function prank(p: string): number {
+  return PRIORITY_RANK[p] ?? 0
+}
+function dueAsc(a: Task, b: Task): number {
+  const ta = a.dueDate ? new Date(a.dueDate).getTime() : Infinity
+  const tb = b.dueDate ? new Date(b.dueDate).getTime() : Infinity
+  return ta - tb
 }
 
 function fmtDate(iso?: string | null): string {
@@ -56,10 +67,13 @@ function Editor({ companyId }: { companyId: string }) {
   const isRescueMode = searchParams.get('from') === 'emergency'
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [initiatives, setInitiatives] = useState<Initiative[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [filter, setFilter] = useState<{ status: string; projectId: string; owner: string }>({ status: 'all', projectId: 'all', owner: 'all' })
+  // ترتيب القائمة — افتراضياً «حسب الأولويّة» (كما رتّبنا المبادرات).
+  const [sortBy, setSortBy] = useState<'priority' | 'due' | 'created'>('priority')
   // تاريخ استحقاق افتراضي بعد أسبوع. نغلّف Date.now في دالّة تُستدعى من مُهيّئ
   // useState الكسول ومن معالج الإرسال — لا من جسم الرسم (تفادياً للنجاسة أثناء الرسم).
   const weekFromNowISO = () => new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10)
@@ -72,8 +86,8 @@ function Editor({ companyId }: { companyId: string }) {
   }))
 
   useEffect(() => {
-    Promise.all([listTasks(companyId), listProjects(companyId)])
-      .then(([t, p]) => { setTasks(t); setProjects(p) })
+    Promise.all([listTasks(companyId), listProjects(companyId), listInitiatives(companyId).catch(() => [] as Initiative[])])
+      .then(([t, p, i]) => { setTasks(t); setProjects(p); setInitiatives(i) })
       .catch(() => undefined)
       .finally(() => setLoading(false))
   }, [companyId])
@@ -157,6 +171,55 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // 📥 جلب المهام من المبادرات المرتّبة — كل مبادرة تُصبح مهمّة، بترتيب
+  //    الأولويّة نفسه الذي رتّبناه (حرجة→منخفضة)، مرتبطةً بمشروعها إن وُجد،
+  //    وباستحقاق متدرّج. الأعلى أولويّةً يُنشأ أوّلاً فيتصدّر القائمة — جاهز
+  //    للتوزيع على الفريق عبر «الجهة المنفّذة».
+  async function generateFromInitiatives() {
+    setGenerating(true)
+    try {
+      const usable = initiatives.filter((i) => i.title.trim())
+      if (usable.length === 0) {
+        toast.error('لا مبادرات مرتّبة بعد — رتّبها في مرحلة «المبادرات» أوّلاً.')
+        return
+      }
+      const ordered = [...usable].sort((a, b) => prank(b.priority) - prank(a.priority))
+      const existing = new Set(tasks.map((t) => t.title.trim()))
+      const now = new Date()
+      const created: Task[] = []
+      for (const [i, ini] of ordered.entries()) {
+        const title = ini.title.trim()
+        if (existing.has(title)) continue
+        // اربطها بمشروع المبادرة إن وُجد (project.initiativeId === ini.id).
+        const proj = projects.find((p) => p.initiativeId === ini.id)
+        const due = new Date(now)
+        due.setDate(now.getDate() + 7 + i * 3) // تدرّج حسب الترتيب
+        try {
+          const t = await createTask({
+            companyId,
+            title,
+            projectId: proj?.id,
+            priority: ini.priority || 'medium',
+            level: ini.level ?? undefined,
+            dueDate: due.toISOString(),
+          })
+          created.push(t)
+          existing.add(title)
+        } catch { /* skip */ }
+      }
+      if (created.length === 0) {
+        toast.message('كل المبادرات محوّلة لمهام سلفاً — لا جديد.')
+        return
+      }
+      setTasks((prev) => [...created, ...prev])
+      toast.success(`📥 جُلبت ${created.length} مهمّة من المبادرات مرتّبةً حسب الأولويّة — وزّعها على الفريق.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الجلب من المبادرات'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   async function remove(t: Task) {
     if (!confirm(`حذف المهمة "${t.title}"؟`)) return
     try {
@@ -169,13 +232,17 @@ function Editor({ companyId }: { companyId: string }) {
   }
 
   const filtered = useMemo(() => {
-    return tasks.filter((t) => {
+    const list = tasks.filter((t) => {
       if (filter.status !== 'all' && t.status !== filter.status) return false
       if (filter.projectId !== 'all' && (t.projectId ?? '') !== filter.projectId) return false
       if (filter.owner !== 'all' && (t.owner?.trim() || '—') !== filter.owner) return false
       return true
     })
-  }, [tasks, filter])
+    // «حسب الأولويّة» (كما رتّبنا) هو الافتراضي؛ أو الاستحقاق؛ أو ترتيب الإنشاء.
+    if (sortBy === 'priority') return [...list].sort((a, b) => prank(b.priority) - prank(a.priority) || dueAsc(a, b))
+    if (sortBy === 'due') return [...list].sort(dueAsc)
+    return list
+  }, [tasks, filter, sortBy])
 
   const counts = STATUS.reduce<Record<string, number>>((acc, [k]) => {
     acc[k] = tasks.filter((t) => t.status === k).length
@@ -286,6 +353,24 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
+      {/* 📥 جسر الأنبوب: المبادرات المرتّبة → مهام موزّعة حسب ما رتّبنا */}
+      <Card className="overflow-hidden border-2 border-primary/30 bg-gradient-to-l from-primary/10 to-transparent">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <div className="text-sm font-bold">📥 جلب المهام من المبادرات المرتّبة</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              حوّل مبادراتك — مرتّبةً بالأولويّة كما رتّبناها — إلى مهام جاهزة للتوزيع على الفريق.
+              {initiatives.length > 0
+                ? <> لديك <b className="text-foreground tabular-nums">{initiatives.length}</b> مبادرة.</>
+                : ' لا مبادرات بعد — أنشئها في مرحلة «المبادرات».'}
+            </p>
+          </div>
+          <Button onClick={generateFromInitiatives} disabled={generating || initiatives.length === 0} size="lg">
+            {generating ? 'جاري الجلب…' : '📥 اجلب حسب الأولويّة'}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="overflow-hidden bg-gradient-to-bl from-sky-500/10 to-transparent">
         <div className="h-1.5 bg-gradient-to-l from-sky-500 via-cyan-500 to-emerald-500" />
         <CardHeader>
@@ -375,9 +460,19 @@ function Editor({ companyId }: { companyId: string }) {
                 <option value="all">كل الجهات</option>
                 {owners.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
+              <select
+                className="rounded-md border bg-background px-2 py-1 text-xs"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                title="ترتيب القائمة"
+              >
+                <option value="priority">ترتيب: الأولويّة</option>
+                <option value="due">ترتيب: الاستحقاق</option>
+                <option value="created">ترتيب: الأحدث</option>
+              </select>
             </div>
           </div>
-          <CardDescription>{filtered.length} مهمة معروضة من {tasks.length} إجمالي.</CardDescription>
+          <CardDescription>{filtered.length} مهمة معروضة من {tasks.length} إجمالي · مرتّبة حسب {sortBy === 'priority' ? 'الأولويّة' : sortBy === 'due' ? 'الاستحقاق' : 'الأحدث'}.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading && <p className="text-sm text-muted-foreground">جاري التحميل…</p>}
