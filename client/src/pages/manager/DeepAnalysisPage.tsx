@@ -513,12 +513,17 @@ function classifySection(section: { id: string; title?: string; desc?: string })
   if (/(تحدي|مشكل|عقبة|خطر|مخاطر|أزمة|challenge|risk|problem)/.test(text)) return 'challenges'
   // أهداف ومستقبل
   if (/(أهداف|هدف|طموح|رؤية|مستقبل|goal|target|vision|future)/.test(text)) return 'goals'
+  // إداري «بنيويّ قويّ»: الهيكل/الحوكمة/السياسات/الأدوار/التنظيم/الصلاحيات.
+  // يُفحَص **قبل** المالي: هذه أقسام بنيويّة/سياساتيّة حتى لو ذكرت المال عرضاً
+  // (إصلاح: «الهيكل التنظيمي والسياسات المالية» و«السياسات والأدوات والتكاليف»
+  // كانت تُصنَّف «مالي» خطأً لمجرّد ورود كلمة تكلفة/مالية فيها).
+  if (/(هيكل|حوكم|تنظيم|أدوار|سياس|ميثاق|لائحة|صلاحي|structure|governance|policy|charter|role)/.test(text)) return 'administrative'
   // مالي
-  if (/(مالي|ميزاني|تكلف|راتب|أجور|إيراد|أرباح|financial|budget|salary|cost|revenue|payroll)/.test(text)) return 'financial'
+  if (/(مالي|ميزاني|تكلف|راتب|أجور|إيراد|أرباح|نقدي|رأس المال|ضريب|زكاة|financial|budget|salary|cost|revenue|payroll|cash)/.test(text)) return 'financial'
   // فنّي (أنظمة/أدوات/تقنية)
   if (/(نظام|أنظمة|أدوات|تقنية|رقمي|أتمتة|بيانات|جودة|records|system|tool|tech|automation|digital|data|quality)/.test(text)) return 'technical'
-  // إداري (هيكل/حوكمة/أدوار/سياسات/عقود)
-  if (/(هيكل|حوكمة|أدوار|سياس|إدار|قيادة|عقود|امتثال|structure|governance|role|policy|admin|contract|compliance)/.test(text)) return 'administrative'
+  // إداري «عام»: إدارة/عقود/امتثال/قيادة — بعد المالي والفنّي.
+  if (/(إدار|عقود|امتثال|قياد|admin|contract|compliance)/.test(text)) return 'administrative'
   // الوضع الحالي / التشخيص
   if (/(وضع|حالي|تشخيص|قوة|ضعف|status|current|diagnosis|strength|weakness|sw)/.test(text)) return 'situational'
   return 'other'
