@@ -7,9 +7,10 @@ import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { apiErrorMessage } from '@/lib/api'
 import {
   SALES_AXES, ZONE_META,
-  axisComplete, axisFlow, computeResults, overallScore, zoneOf,
-  type DiagAnswers, type DiagQuestion, type SalesAxisKey,
+  allAxesComplete, axisComplete, axisFlow, computeResults, overallScore, zoneOf,
+  type AxisResult, type DiagAnswers, type DiagQuestion, type SalesAxisKey,
 } from '@/lib/salesDiagnostic'
+import { getProOverview } from '@/lib/proApi'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 import { toast } from 'sonner'
 
@@ -31,6 +32,7 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
   const [answers, setAnswers] = useState<DiagAnswers>({})
   const [loading, setLoading] = useState(true)
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [auditHealth, setAuditHealth] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipFirst = useRef(true)
 
@@ -81,9 +83,24 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [answers, company, loading])
 
+  // مصالحة عرضيّة مع صحّة التدقيق (بلا دمج رقمي) — best-effort.
+  useEffect(() => {
+    if (!company) return
+    let cancel = false
+    getProOverview()
+      .then((res) => {
+        if (cancel) return
+        const c = res.clients.find((x) => x.companyId === company.id)
+        setAuditHealth(c?.healthPct ?? null)
+      })
+      .catch(() => undefined)
+    return () => { cancel = true }
+  }, [company])
+
   const results = useMemo(() => computeResults(answers), [answers])
   const overall = overallScore(answers)
   const completedAxes = SALES_AXES.filter((a) => axisComplete(a.key, answers)).length
+  const allComplete = allAxesComplete(answers)
 
   function choose(qid: string, value: string) {
     // تغيير إجابة أعلى قد يُيتّم إجابات أعمق — لكنها تُتجاهَل تلقائياً في
@@ -156,7 +173,69 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
           score={results.find((r) => r.axis === axis.key)?.score ?? null}
         />
       ))}
+
+      <ReportCard results={results} overall={overall} auditHealth={auditHealth} allComplete={allComplete} />
     </div>
+  )
+}
+
+// ─── تقرير النتيجة — بطاقة أداء المحاور الخمسة (المرحلة ٣) ───────────
+function ReportCard({
+  results, overall, auditHealth, allComplete,
+}: {
+  results: AxisResult[]
+  overall: number | null
+  auditHealth: number | null
+  allComplete: boolean
+}) {
+  const scored = results.filter((r) => r.score != null)
+  if (scored.length === 0) return null
+  // ترتيب الأولويّة: الأحمر أوّلاً ثم الأصفر (الأدنى درجةً أعلى أولويّة).
+  const ranked = [...scored].sort((a, b) => (a.score ?? 100) - (b.score ?? 100))
+
+  return (
+    <Card className="overflow-hidden border-2 border-primary/40">
+      <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-sky-500" />
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          📊 تقرير تشخيص المبيعات
+          {overall != null && zoneOf(overall) && (
+            <span className={`rounded-full border px-2.5 py-0.5 text-sm font-bold tabular-nums ${ZONE_META[zoneOf(overall)!].cls}`}>
+              الإجمالي {ZONE_META[zoneOf(overall)!].emoji} {overall}٪
+            </span>
+          )}
+        </CardTitle>
+        <CardDescription>
+          {allComplete ? 'التشخيص مكتمل — مرتّب حسب الأولويّة (الأحمر أوّلاً).' : `أكملت ${scored.length}/${SALES_AXES.length} محاور — أكمل الباقي لتقرير كامل.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {ranked.map((r) => (
+          <div key={r.axis} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${r.zone ? ZONE_META[r.zone].cls.split(' ')[0] : ''}`}>
+            <span className="text-lg" aria-hidden>{r.icon}</span>
+            <span className="min-w-[90px] text-sm font-semibold">{r.labelAr}</span>
+            {r.zone && (
+              <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums ${ZONE_META[r.zone].cls}`}>
+                {ZONE_META[r.zone].emoji} {r.score}٪ · {ZONE_META[r.zone].labelAr}
+              </span>
+            )}
+            {r.solutions.length > 0 && (
+              <span className="flex-1 text-xs text-muted-foreground">
+                <b className="text-foreground">أولى الخطوات:</b> {r.solutions[0]}
+              </span>
+            )}
+          </div>
+        ))}
+
+        {/* مصالحة عرضيّة مع التدقيق — بلا دمج رقمي */}
+        {auditHealth != null && (
+          <div className="mt-1 rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            🔗 للسياق: <b className="text-foreground tabular-nums">تدقيقك العام {Math.round(auditHealth)}٪</b> —
+            التشخيص أعلاه يفصّلها على ٥ محاور مبيعات (رقمان مستقلّان، لا يُدمَجان).
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
