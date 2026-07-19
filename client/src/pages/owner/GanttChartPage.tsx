@@ -62,6 +62,12 @@ const STATUS_COLOR: Record<string, string> = {
   in_progress: 'bg-sky-500',
 }
 
+// تنسيق تاريخ قصير (يوم/شهر) — لقائمة خطوات الإنقاذ.
+function fmtDay(iso?: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
+}
+
 export function GanttChartPage() {
   const [params] = useSearchParams()
   const client = params.get('client')
@@ -246,6 +252,10 @@ function Chart({ companyId }: { companyId: string }) {
 
   const markers = monthMarkers(range)
   const todayPct = pctOffset(new Date().toISOString(), range)
+  // خطوات الإنقاذ مرتّبة بتاريخ البداية — لعرضها كقائمة مفهومة في وضع الطوارئ.
+  const rescueSteps = isRescueMode
+    ? [...projects].sort((a, b) => new Date(a.startDate ?? 0).getTime() - new Date(b.startDate ?? 0).getTime())
+    : []
 
   return (
     <>
@@ -260,6 +270,43 @@ function Chart({ companyId }: { companyId: string }) {
             <span className="text-muted-foreground">
               خطوات تنفيذ مبادراتك ومهامها لهذا العميل — جانت يعرضها كلها معاً على خطّ الوقت.
             </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🚨 خطة الإنقاذ ٩٠ يوم — قائمة مفهومة بالخطوات قبل المخطّط البصريّ */}
+      {isRescueMode && rescueSteps.length > 0 && (
+        <Card className="overflow-hidden border-2 border-rose-300 bg-rose-50/40">
+          <div className="h-1 bg-gradient-to-l from-rose-500 to-rose-300" />
+          <CardHeader>
+            <CardTitle className="text-base text-rose-900">🚨 خطة الإنقاذ ٩٠ يوم — {rescueSteps.length} خطوات متتابعة</CardTitle>
+            <CardDescription>
+              نفّذها بالترتيب: خطوة كل أسبوعين. ابدأ بالأولى الآن — لا تقفز للأمام قبل إكمالها.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-2">
+              {rescueSteps.map((p, i) => (
+                <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rose-600 text-xs font-bold text-white tabular-nums">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{p.title.replace(/^\[إنقاذ \d+\]\s*/, '')}</div>
+                    <div className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                      📅 {fmtDay(p.startDate)} → {fmtDay(p.endDate)} · أسبوعان
+                    </div>
+                  </div>
+                  <Link
+                    to={`/execute?tab=tasks&client=${companyId}&from=emergency`}
+                    className="shrink-0 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-800 hover:bg-rose-100"
+                  >
+                    مهامها ←
+                  </Link>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 rounded-md border border-rose-200 bg-white/60 p-2 text-[11px] text-rose-900">
+              💡 المخطّط الزمنيّ أدناه يعرض نفس الخطوات على خطّ الوقت. بعد إكمالها تخرج من وضع الإنقاذ إلى المتابعة الأسبوعيّة.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -321,8 +368,9 @@ function Chart({ companyId }: { companyId: string }) {
         </CardContent>
       </Card>
 
-      {/* 🎯 الخطوة التالية — احسب أثر الجدول على المالية */}
-      {projects.length > 0 && (
+      {/* 🎯 الخطوة التالية — احسب أثر الجدول على المالية.
+          مُخفاة في وضع الطوارئ: خطة الإنقاذ تنفيذيّة، لا مكان للتحليل المالي هنا. */}
+      {!isRescueMode && projects.length > 0 && (
         <Card className="border-emerald-300 bg-emerald-50/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
             <div className="flex items-start gap-3">
