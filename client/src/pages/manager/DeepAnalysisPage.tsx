@@ -18,7 +18,6 @@ import {
   type CheckboxQuestion,
   type QuestionEntry,
   type RadioQuestion,
-  type SectionEntry,
   type TextareaQuestion,
 } from '@/lib/deptQuestions'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
@@ -513,82 +512,25 @@ const DEPT_SUPPLEMENTARY_QUESTIONS: Record<DeptCode, Partial<Record<AnalysisType
   },
 }
 
-// نُصنّف كل قسم بمطابقة سياق عنوانه/معرّفه.
-// ─── نوع التحليل الصريح لكل قسم من بنك stratix ────────────────────
-// التصنيف بالكلمات المفتاحيّة غير موثوق: وصف الأقسام نصّ تحفيزيّ يذكر
-// «المخاطر/التكاليف» فيخطف التصنيف (قسم بنيويّ يظهر «مالي» أو «تحدّيات»).
-// لذا نُثبّت نوع كل قسم يدوياً حسب العدسة الأنسب له. الأقسام المخصّصة أو
-// غير المعروفة تسقط على الاستدلال بالكلمات (fallback).
-const SECTION_TYPE: Record<string, AnalysisType> = {
-  // HR
-  hr_structure: 'administrative', hr_records: 'administrative', hr_recruitment: 'situational',
-  hr_performance: 'situational', hr_talent: 'financial', hr_culture: 'technical',
-  // FINANCE
-  fin_structure: 'administrative', fin_statements: 'financial', fin_capital: 'financial',
-  fin_budget: 'financial', fin_audit: 'administrative', fin_systems: 'technical',
-  // SALES — توزيع العدسات الستّ (لكلٍّ عدسة، بلا تكرار):
-  // البنية/الاستراتيجية→أهداف · المؤشّرات والإيراد→مالي · العملاء→الوضع الحالي ·
-  // الفريق والمخاطر→تحدّيات · السياسات والأدوات→إداري · المعرفة والأنظمة→فنّي.
-  sales_structure: 'goals', sales_kpis: 'financial', sales_customers: 'situational',
-  sales_team: 'challenges', sales_tools: 'administrative', sales_knowledge: 'technical',
-  // MARKETING
-  mkt_strategy: 'goals', mkt_digital: 'technical', mkt_leadgen: 'situational',
-  mkt_performance: 'financial', mkt_team: 'technical', mkt_freetext: 'challenges',
-  // OPERATIONS
-  ops_capacity: 'situational', ops_sops: 'technical', ops_quality: 'technical',
-  ops_suppliers: 'administrative', ops_delivery: 'financial', ops_freetext: 'challenges',
-  // IT
-  it_org: 'administrative', it_security: 'technical', it_systems: 'technical',
-  it_maturity: 'situational', it_service: 'situational', it_freetext: 'challenges',
-  // CUSTOMER SERVICE
-  cs_team: 'administrative', cs_quality: 'situational', cs_systems: 'technical',
-  cs_perf: 'situational', cs_freetext: 'challenges',
-  // QUALITY
-  q_org: 'administrative', q_control: 'technical', q_kpis: 'situational',
-  q_improve: 'goals', q_freetext: 'challenges',
-  // SUPPORT
-  sup_infra: 'technical', sup_security: 'technical', sup_helpdesk: 'situational',
-  sup_procurement: 'administrative', sup_continuity: 'administrative', sup_freetext: 'challenges',
-  // PROJECTS
-  proj_pmo: 'administrative', proj_planning: 'situational', proj_tools: 'technical',
-  proj_resources: 'situational', proj_freetext: 'challenges',
-  // COMPLIANCE (مجال تنظيمي إداري بطبيعته)
-  comp_gov: 'administrative', comp_cr: 'administrative', comp_labor: 'administrative',
-  comp_zatca: 'financial', comp_gosi: 'financial', comp_municipal: 'administrative',
-  comp_sector: 'administrative', comp_pdpl: 'technical', comp_nca: 'technical',
-  comp_ohs: 'situational', comp_env: 'situational', comp_aml: 'financial',
-  comp_policies: 'administrative', comp_tracking: 'technical', comp_freetext: 'challenges',
-  // LOGISTICS
-  log_capacity: 'situational', log_operations: 'technical', log_quality: 'technical',
-  log_suppliers: 'administrative', log_freetext: 'challenges',
-  // GOVERNANCE
-  gov_board: 'administrative', gov_policies: 'administrative', gov_risk: 'challenges',
-  gov_committees: 'situational', gov_transparency: 'situational', gov_freetext: 'challenges',
+// ─── تصنيف السؤال (لا القسم) إلى ٣ فئات فقط: فنّي · مالي · إداري ─────
+// طلب المستخدم: «التحليل العميق يكون إداري ومالي وفني» — بلا وضع/تحدّيات/
+// أهداف. والتصنيف على مستوى **السؤال** (لا القسم) حتى لا تتداخل الأسئلة:
+// كل سؤال يذهب لفئته حسب نصّه، فتُجمَع كل الأسئلة الماليّة معاً، والفنّية معاً…
+//
+// الترتيب: فنّي (نظام/أداة صريحة) ثم مالي (مال/تكلفة/إيراد) ثم إداري (الباقي —
+// البنية والسياسات والأدوار والفريق والأهداف كلّها تنظيم = إداري).
+const TECH_RE = /(نظام|أنظمة|أداة|أدوات|تقنية|تقني|رقمي|رقمنة|أتمتة|مؤتمت|آلي|برمج|منصّة|منصة|تطبيق|موقع الكترون|متجر الكترون|تكامل|قاعدة بيانات|لوحة معلومات|ذكاء اصطناعي|سيبراني|نسخ احتياطي|crm|erp|hris|lms|\bats\b|\bapi\b|dashboard|\bai\b|\bbi\b|automation|digital|platform|software|backup|integration|saas|cloud)/
+const FIN_RE = /(مالي|ميزاني|تكلف|كلفة|تكاليف|راتب|رواتب|أجور|إيراد|أرباح|ربحيّ|ربحية|هامش|نقدي|سيول|رأس المال|رأسمال|ضريب|زكاة|عمول|تسعير|أسعار|السعر|خصم|مصروف|موازنة|تدفّق نقدي|تحصيل|ائتمان|فاتور|cac|ltv|mrr|aov|\broi\b|romi|wacc|financial|budget|\bcost\b|revenue|margin|payroll|salary|discount|profit)/
+
+function classifyQuestion(label: string): 'technical' | 'financial' | 'administrative' {
+  const t = (label ?? '').toLowerCase()
+  if (TECH_RE.test(t)) return 'technical'
+  if (FIN_RE.test(t)) return 'financial'
+  return 'administrative'
 }
 
-function classifySection(section: { id: string; title?: string; desc?: string }): AnalysisType {
-  const explicit = SECTION_TYPE[section.id]
-  if (explicit) return explicit
-  const text = `${section.id} ${section.title ?? ''} ${section.desc ?? ''}`.toLowerCase()
-  // تحديات ومشاكل ومخاطر
-  if (/(تحدي|مشكل|عقبة|خطر|مخاطر|أزمة|challenge|risk|problem)/.test(text)) return 'challenges'
-  // أهداف ومستقبل
-  if (/(أهداف|هدف|طموح|رؤية|مستقبل|goal|target|vision|future)/.test(text)) return 'goals'
-  // إداري «بنيويّ قويّ»: الهيكل/الحوكمة/السياسات/الأدوار/التنظيم/الصلاحيات.
-  // يُفحَص **قبل** المالي: هذه أقسام بنيويّة/سياساتيّة حتى لو ذكرت المال عرضاً
-  // (إصلاح: «الهيكل التنظيمي والسياسات المالية» و«السياسات والأدوات والتكاليف»
-  // كانت تُصنَّف «مالي» خطأً لمجرّد ورود كلمة تكلفة/مالية فيها).
-  if (/(هيكل|حوكم|تنظيم|أدوار|سياس|ميثاق|لائحة|صلاحي|structure|governance|policy|charter|role)/.test(text)) return 'administrative'
-  // مالي
-  if (/(مالي|ميزاني|تكلف|راتب|أجور|إيراد|أرباح|نقدي|رأس المال|ضريب|زكاة|financial|budget|salary|cost|revenue|payroll|cash)/.test(text)) return 'financial'
-  // فنّي (أنظمة/أدوات/تقنية)
-  if (/(نظام|أنظمة|أدوات|تقنية|رقمي|أتمتة|بيانات|جودة|records|system|tool|tech|automation|digital|data|quality)/.test(text)) return 'technical'
-  // إداري «عام»: إدارة/عقود/امتثال/قيادة — بعد المالي والفنّي.
-  if (/(إدار|عقود|امتثال|قياد|admin|contract|compliance)/.test(text)) return 'administrative'
-  // الوضع الحالي / التشخيص
-  if (/(وضع|حالي|تشخيص|قوة|ضعف|status|current|diagnosis|strength|weakness|sw)/.test(text)) return 'situational'
-  return 'other'
-}
+// الفئات الثلاث المعروضة (بالترتيب) — إداري ثم مالي ثم فنّي.
+const DEEP_TYPES: AnalysisType[] = ['administrative', 'financial', 'technical']
 
 // ─── A1 — التحليل العميق المخصّص للتخصّص ──────────────────────────────────────
 // المسار: /manager/deep-analysis (يقرأ ?client=<id> عبر hook مشترك).
@@ -661,16 +603,16 @@ export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextAutosave = useRef(true) // نتخطّى التشغيل الأوّل بعد تحميل الإجابات
 
-  // نجمّع الأسئلة حسب القسم + نُلحق نوع التحليل بكل قسم.
+  // نجمّع الأسئلة في ٣ فئات (إداري/مالي/فنّي) على مستوى **السؤال** — لا القسم —
+  // حتى لا تتداخل الأنواع: كل سؤال يذهب لفئته الصحيحة حسب نصّه.
   const grouped = useMemo(() => {
     if (!bank) return []
-    const map = new Map<string, { section: SectionEntry; questions: QuestionEntry[]; type: AnalysisType }>()
-    for (const s of bank.sections) map.set(s.id, { section: s, questions: [], type: classifySection(s) })
+    const map = new Map<AnalysisType, { type: AnalysisType; questions: QuestionEntry[] }>()
+    for (const t of DEEP_TYPES) map.set(t, { type: t, questions: [] })
     for (const q of bank.questions) {
-      const bucket = map.get(q.sectionId)
-      if (bucket) bucket.questions.push(q)
+      map.get(classifyQuestion(q.label))!.questions.push(q)
     }
-    return Array.from(map.values())
+    return DEEP_TYPES.map((t) => map.get(t)!).filter((g) => g.questions.length > 0)
   }, [bank])
 
   // إحصائيات لكل نوع تحليل (لبناء الفلاتر مع عدّاد). تشمل الأسئلة المخصّصة.
@@ -945,8 +887,8 @@ export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = 
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">🎛️ فلترة حسب نوع التحليل</CardTitle>
           <CardDescription className="text-xs">
-            التحليل العميق يجمع ٦ أنواع مختلفة — اختر نوعاً للتركيز عليه، أو اترك «الكلّ» لعرضها بالترتيب.
-            <b className="text-foreground"> يمكنك إضافة أسئلة مخصّصة لكل نوع.</b>
+            التحليل العميق في ٣ فئات: 🏛️ إداري · 💰 مالي · 🧪 فنّي — اختر فئة للتركيز عليها، أو اترك «الكلّ».
+            <b className="text-foreground"> يمكنك إضافة أسئلة مخصّصة لكل فئة.</b>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5">
@@ -959,7 +901,7 @@ export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = 
             total={total}
             colorCls="border-primary/40 bg-primary/5 text-primary"
           />
-          {(['situational', 'technical', 'administrative', 'financial', 'challenges', 'goals'] as AnalysisType[]).map((t) => {
+          {DEEP_TYPES.map((t) => {
             const stats = typeStats[t]
             if (stats.total === 0) return null
             const meta = ANALYSIS_TYPE_META[t]
@@ -1073,33 +1015,26 @@ export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = 
       {visibleGrouped.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            لا توجد أقسام من نوع «{ANALYSIS_TYPE_META[typeFilter!]?.labelAr}» في بنك تخصّصك — امسح الفلترة لعرض الكلّ.
+            لا توجد أسئلة من فئة «{ANALYSIS_TYPE_META[typeFilter!]?.labelAr}» في بنك تخصّصك — امسح الفلترة لعرض الكلّ.
           </CardContent>
         </Card>
       )}
 
-      {visibleGrouped.map(({ section, questions, type }, sectionIndex) => {
+      {visibleGrouped.map(({ type, questions }) => {
         const typeMeta = ANALYSIS_TYPE_META[type]
+        const answeredInType = questions.filter((q) => answers[q.id] != null).length
         return (
-        <Card key={section.id} className={`overflow-hidden border-2 ${typeMeta.color.split(' ')[0]}`}>
-          <div className={`h-1 ${sectionAccent(sectionIndex)}`} />
+        <Card key={type} className={`overflow-hidden border-2 ${typeMeta.color.split(' ')[0]}`}>
+          <div className={`h-1 ${typeMeta.color.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'}`} />
           <CardHeader>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${typeMeta.color}`}>
-                <span>{typeMeta.icon}</span>
-                <span>نوع التحليل: {typeMeta.labelAr}</span>
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+              <span aria-hidden>{typeMeta.icon}</span>
+              <span>التحليل ال{typeMeta.labelAr}</span>
+              <span className="rounded-full border bg-card px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                {answeredInType}/{questions.length}
               </span>
-              {section.priority && (
-                <span className={`text-[10px] font-medium ${priorityColor(section.priority)}`}>
-                  · {section.priority}
-                </span>
-              )}
-            </div>
-            <CardTitle className="mt-1 flex items-center gap-2 text-base">
-              {section.icon && <span aria-hidden>{section.icon}</span>}
-              {section.title}
             </CardTitle>
-            {section.desc && <CardDescription>{section.desc}</CardDescription>}
+            <CardDescription>{typeMeta.descAr}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
             {questions.map((q) => (
@@ -1311,23 +1246,3 @@ function TextField({ q, value, onChange }: { q: TextareaQuestion; value: string;
   )
 }
 
-// ─── مساعدات بصرية ────────────────────────────────────────────────────
-
-function sectionAccent(index: number): string {
-  // نبدّل الألوان بين الأقسام لتمييز بصري بلا فوضى.
-  const palettes = [
-    'bg-gradient-to-l from-sky-500 to-indigo-500',
-    'bg-gradient-to-l from-emerald-500 to-teal-500',
-    'bg-gradient-to-l from-rose-500 to-orange-500',
-    'bg-gradient-to-l from-violet-500 to-fuchsia-500',
-    'bg-gradient-to-l from-amber-500 to-yellow-500',
-    'bg-gradient-to-l from-cyan-500 to-blue-500',
-  ]
-  return palettes[index % palettes.length]
-}
-
-function priorityColor(p: string): string {
-  if (p === 'حرج') return 'text-rose-600'
-  if (p === 'مهم') return 'text-amber-600'
-  return 'text-muted-foreground'
-}
