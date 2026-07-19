@@ -507,7 +507,59 @@ const DEPT_SUPPLEMENTARY_QUESTIONS: Record<DeptCode, Partial<Record<AnalysisType
 }
 
 // نُصنّف كل قسم بمطابقة سياق عنوانه/معرّفه.
+// ─── نوع التحليل الصريح لكل قسم من بنك stratix ────────────────────
+// التصنيف بالكلمات المفتاحيّة غير موثوق: وصف الأقسام نصّ تحفيزيّ يذكر
+// «المخاطر/التكاليف» فيخطف التصنيف (قسم بنيويّ يظهر «مالي» أو «تحدّيات»).
+// لذا نُثبّت نوع كل قسم يدوياً حسب العدسة الأنسب له. الأقسام المخصّصة أو
+// غير المعروفة تسقط على الاستدلال بالكلمات (fallback).
+const SECTION_TYPE: Record<string, AnalysisType> = {
+  // HR
+  hr_structure: 'administrative', hr_records: 'administrative', hr_recruitment: 'situational',
+  hr_performance: 'situational', hr_talent: 'financial', hr_culture: 'technical',
+  // FINANCE
+  fin_structure: 'administrative', fin_statements: 'financial', fin_capital: 'financial',
+  fin_budget: 'financial', fin_audit: 'administrative', fin_systems: 'technical',
+  // SALES
+  sales_structure: 'situational', sales_kpis: 'goals', sales_customers: 'situational',
+  sales_team: 'challenges', sales_tools: 'administrative', sales_knowledge: 'technical',
+  // MARKETING
+  mkt_strategy: 'goals', mkt_digital: 'technical', mkt_leadgen: 'situational',
+  mkt_performance: 'financial', mkt_team: 'technical', mkt_freetext: 'challenges',
+  // OPERATIONS
+  ops_capacity: 'situational', ops_sops: 'technical', ops_quality: 'technical',
+  ops_suppliers: 'administrative', ops_delivery: 'financial', ops_freetext: 'challenges',
+  // IT
+  it_org: 'administrative', it_security: 'technical', it_systems: 'technical',
+  it_maturity: 'situational', it_service: 'situational', it_freetext: 'challenges',
+  // CUSTOMER SERVICE
+  cs_team: 'administrative', cs_quality: 'situational', cs_systems: 'technical',
+  cs_perf: 'situational', cs_freetext: 'challenges',
+  // QUALITY
+  q_org: 'administrative', q_control: 'technical', q_kpis: 'situational',
+  q_improve: 'goals', q_freetext: 'challenges',
+  // SUPPORT
+  sup_infra: 'technical', sup_security: 'technical', sup_helpdesk: 'situational',
+  sup_procurement: 'administrative', sup_continuity: 'administrative', sup_freetext: 'challenges',
+  // PROJECTS
+  proj_pmo: 'administrative', proj_planning: 'situational', proj_tools: 'technical',
+  proj_resources: 'situational', proj_freetext: 'challenges',
+  // COMPLIANCE (مجال تنظيمي إداري بطبيعته)
+  comp_gov: 'administrative', comp_cr: 'administrative', comp_labor: 'administrative',
+  comp_zatca: 'financial', comp_gosi: 'financial', comp_municipal: 'administrative',
+  comp_sector: 'administrative', comp_pdpl: 'technical', comp_nca: 'technical',
+  comp_ohs: 'situational', comp_env: 'situational', comp_aml: 'financial',
+  comp_policies: 'administrative', comp_tracking: 'technical', comp_freetext: 'challenges',
+  // LOGISTICS
+  log_capacity: 'situational', log_operations: 'technical', log_quality: 'technical',
+  log_suppliers: 'administrative', log_freetext: 'challenges',
+  // GOVERNANCE
+  gov_board: 'administrative', gov_policies: 'administrative', gov_risk: 'challenges',
+  gov_committees: 'situational', gov_transparency: 'situational', gov_freetext: 'challenges',
+}
+
 function classifySection(section: { id: string; title?: string; desc?: string }): AnalysisType {
+  const explicit = SECTION_TYPE[section.id]
+  if (explicit) return explicit
   const text = `${section.id} ${section.title ?? ''} ${section.desc ?? ''}`.toLowerCase()
   // تحديات ومشاكل ومخاطر
   if (/(تحدي|مشكل|عقبة|خطر|مخاطر|أزمة|challenge|risk|problem)/.test(text)) return 'challenges'
