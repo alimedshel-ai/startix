@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { PageHeader } from '@/components/PageHeader'
 import { JourneyProgress } from '@/journey/shared/JourneyProgress'
+import { RiskFastPathBanner } from '@/components/manager/RiskFastPathBanner'
 import { NextStepCard } from '@/components/strategic/NextStepCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -179,6 +180,10 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
 
       {mode === 'result' && savedScore && deptId && (
         <>
+          {/* ربط الفحص بالمسار: خطر ⇐ توصية بالمسار السريع قبل التكتيكي/الطويل */}
+          {guided && company && (
+            <RiskFastPathBanner companyId={company.id} healthPct={savedScore.healthPct} dangerZone={savedScore.dangerZone} />
+          )}
           <SavedAuditCard
             deptCode={deptCode}
             score={savedScore}
