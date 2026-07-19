@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom'
 import { PageHeader, type BreadcrumbItem } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCompany } from '@/hooks/useCompany'
+import { JourneyProgress } from '@/journey/shared/JourneyProgress'
+import { useAuthStore } from '@/store/authStore'
 
 import { NextStepCard } from './NextStepCard'
 import { StageBanner } from './StageBanner'
@@ -23,15 +25,24 @@ interface Props {
  */
 export function StrategicShell({ title, description, breadcrumbs, actions, children }: Props) {
   const { company, loading, error } = useCompany()
+  const viewer = useAuthStore((s) => s.user)
+  // §٣-٤ — المسار الموجّه مخصّص للمدير المستقل؛ غيره يبقى بالسلوك السابق.
+  const guided = viewer?.userType === 'MANAGER' && viewer?.managerType === 'INDEPENDENT_PRO'
   const [params] = useSearchParams()
   const clientQuery = params.get('client') ? `?client=${params.get('client')}` : ''
+  const ready = !!company && !loading && !error
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={title} description={description} breadcrumbs={breadcrumbs} actions={actions} />
 
-      {/* S1 — شريط تسلسل مرئي في أعلى كل أداة استراتيجية. */}
-      <StageBanner clientQuery={clientQuery} />
+      {/* §٣ — شريط «أنت هنا» الواعي بالخطة (المستقل)، وإلا شريط التسلسل العام. */}
+      {guided
+        ? ready && <JourneyProgress companyId={company!.id} clientQuery={clientQuery} />
+        : <StageBanner clientQuery={clientQuery} />}
+
+      {/* §٤ — بوصلة الإجراء الواحد مرفوعة للأعلى للمدير المستقل. */}
+      {guided && ready && <NextStepCard clientQuery={clientQuery} companyId={company!.id} />}
 
       {loading && (
         <Card>
@@ -54,10 +65,10 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
         </Card>
       )}
 
-      {company && !loading && !error && children(company.id)}
+      {ready && children(company!.id)}
 
-      {/* S3 — بطاقة «الأداة التالية» في نهاية الصفحة. */}
-      {company && !loading && !error && <NextStepCard clientQuery={clientQuery} companyId={company.id} />}
+      {/* S3 — بطاقة «الأداة التالية» أسفل الصفحة (غير المستقل فقط — رُفِعت للأعلى للمستقل §٤). */}
+      {!guided && ready && <NextStepCard clientQuery={clientQuery} companyId={company!.id} />}
     </div>
   )
 }

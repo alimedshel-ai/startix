@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { homeFor } from '@/components/layouts/nav'
+import { landingAfterOnboarding } from '@/components/layouts/nav'
 import { api, apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { EXPERIENCE_OPTIONS, TEAM_SIZE_OPTIONS, TOOLING_OPTIONS } from '@/lib/managerInvestorQuestions'
@@ -236,7 +236,8 @@ export function OnboardingPage() {
       setUser(data.user)
       clearDraft()
       toast.success('تم حفظ بياناتك — أهلاً بك.')
-      navigate(homeFor(data.user.userType, data.user.managerType), { replace: true })
+      // §١ — المدير المستقل يهبط مباشرة على تدقيق إدارته (المرحلة ①).
+      navigate(landingAfterOnboarding(data.user), { replace: true })
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر الحفظ'))
     } finally {
@@ -246,7 +247,7 @@ export function OnboardingPage() {
 
   function skip() {
     clearDraft()
-    navigate(homeFor(user!.userType, user!.managerType), { replace: true })
+    navigate(landingAfterOnboarding(user!), { replace: true })
   }
 
   return (

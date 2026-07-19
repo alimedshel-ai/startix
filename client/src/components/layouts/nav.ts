@@ -1,3 +1,4 @@
+import { auditRouteFor } from '@/journey'
 import type { DeptCode } from '@/lib/deptApi'
 import type { StageId } from '@/lib/journeyStages'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
@@ -566,6 +567,23 @@ export function homeFor(
   }
   if (userType === 'INVESTOR') return '/investor/dashboard'
   return '/dashboard'
+}
+
+// ─── §١ — الوجهة مباشرةً بعد اكتمال التسجيل/التهيئة ────────────────
+// المدير المستقل يهبط **مباشرة** على المرحلة ① (تدقيق إدارته) — لا على
+// قائمة الصفحات ولا حتى على قائمة العملاء. نقطة الدخول الوحيدة = خطوته
+// الحاليّة. (strategyPath يُختار داخل onboarding قبل هذه اللحظة، فلا حاجة
+// لسؤال إضافي.) بلا تخصّص أو لأدوار أخرى → السلوك الافتراضي homeFor.
+export function landingAfterOnboarding(user: {
+  userType: UserType | null | undefined
+  managerType?: ManagerType | null
+  specialtyDeptType?: SpecialtyDeptType | null
+}): string {
+  if (user.userType === 'MANAGER' && user.managerType === 'INDEPENDENT_PRO') {
+    const audit = auditRouteFor(user.specialtyDeptType ?? null)
+    if (audit) return audit
+  }
+  return homeFor(user.userType, user.managerType)
 }
 
 export const ACCENT_CLASSES: Record<AccentColor, { dot: string; bgSoft: string; text: string }> = {

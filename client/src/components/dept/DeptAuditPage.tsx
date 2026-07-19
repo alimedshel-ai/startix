@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { PageHeader } from '@/components/PageHeader'
+import { JourneyProgress } from '@/journey/shared/JourneyProgress'
 import { NextStepCard } from '@/components/strategic/NextStepCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,6 +53,10 @@ const ZONE_LABEL: Record<string, string> = {
 export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Props) {
   const scope = useClientScopedCompany()
   const company = scope.company
+  const viewer = useAuthStore((s) => s.user)
+  // المسار الموجّه مخصّص للمدير المستقل (§١) — لا نغيّر تجربة المدير الداخلي.
+  const guided = viewer?.userType === 'MANAGER' && viewer?.managerType === 'INDEPENDENT_PRO'
+  const clientQuery = company ? `?client=${company.id}` : ''
   const [deptId, setDeptId] = useState<string | null>(null)
   const [mode, setMode] = useState<ViewMode>('loading')
   const [error, setError] = useState<string | null>(null)
@@ -139,6 +144,14 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
         }
       />
 
+      {/* §٣ — شريط «أنت هنا» مثبَّت أعلى الصفحة (للمدير المستقل فقط) */}
+      {guided && company && <JourneyProgress companyId={company.id} clientQuery={clientQuery} />}
+
+      {/* §٤ — بوصلة الإجراء الواحد: بطاقة الخطوة التالية مرفوعة للأعلى بعد اكتمال التدقيق */}
+      {guided && mode === 'result' && (
+        <NextStepCard clientQuery={clientQuery} companyId={company?.id} />
+      )}
+
       {/* لماذا التدقيق؟ — بطاقة قيمة (تظهر دائماً قبل النتيجة أو الأسئلة) */}
       <AuditValueCard deptCode={deptCode} />
 
@@ -177,7 +190,10 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
           {/* اللقطة الاستراتيجيّة: تجمع SWOT + المبادرات (level/cost) + الميزانيّة */}
           {company && <StrategicSnapshotCard companyId={company.id} budget={company.opex?.budget ?? null} />}
           {afterResult ? afterResult(deptId) : null}
-          <NextStepCard clientQuery={company ? `?client=${company.id}` : ''} />
+          {/* المدير الداخلي: تبقى البطاقة أسفل النتيجة (سلوك سابق). المستقل: رُفِعت للأعلى (§٤). */}
+          {!guided && (
+            <NextStepCard clientQuery={clientQuery} companyId={company?.id} />
+          )}
         </>
       )}
 
