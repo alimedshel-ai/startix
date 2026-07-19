@@ -41,6 +41,32 @@ function dueAsc(a: Task, b: Task): number {
   return ta - tb
 }
 
+// ─── أرباع أيزنهاور: مهمّ (الأولويّة) × عاجل (قرب الاستحقاق) ──────────
+// عاجل = مستحقّة خلال ٧ أيّام أو متأخّرة. مهمّ = أولويّة عالية فأعلى.
+function isImportant(t: Task): boolean {
+  return prank(t.priority) >= 3 // high / urgent / critical
+}
+function isUrgent(t: Task): boolean {
+  if (t.status === 'done' || !t.dueDate) return false
+  const days = (new Date(t.dueDate).getTime() - Date.now()) / 86_400_000
+  return days <= 7 // يشمل المتأخّرة (سالبة)
+}
+type QuadKey = 'do' | 'schedule' | 'delegate' | 'eliminate'
+function eisenQuadrant(t: Task): QuadKey {
+  const imp = isImportant(t)
+  const urg = isUrgent(t)
+  if (imp && urg) return 'do'
+  if (imp && !urg) return 'schedule'
+  if (!imp && urg) return 'delegate'
+  return 'eliminate'
+}
+const QUADRANTS = [
+  ['do',        '🔴 افعل الآن',      'مهمّ + عاجل — أنجِزها بنفسك فوراً.',        'border-rose-300 bg-rose-50/50'],
+  ['schedule',  '🔵 خطّط لها',       'مهمّ + غير عاجل — احجز لها وقتاً.',          'border-sky-300 bg-sky-50/50'],
+  ['delegate',  '🟡 فوّضها للفريق',  'غير مهمّ + عاجل — وزّعها على العضو المناسب.', 'border-amber-300 bg-amber-50/50'],
+  ['eliminate', '⚪ قلّلها / أجّلها', 'غير مهمّ + غير عاجل — راجِع جدواها.',        'border-slate-300 bg-slate-50/60'],
+] as const
+
 function fmtDate(iso?: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
@@ -74,6 +100,8 @@ function Editor({ companyId }: { companyId: string }) {
   const [filter, setFilter] = useState<{ status: string; projectId: string; owner: string }>({ status: 'all', projectId: 'all', owner: 'all' })
   // ترتيب القائمة — افتراضياً «حسب الأولويّة» (كما رتّبنا المبادرات).
   const [sortBy, setSortBy] = useState<'priority' | 'due' | 'created'>('priority')
+  // عرض المهام: قائمة مسطّحة أو تقسيمها حسب أرباع أيزنهاور.
+  const [view, setView] = useState<'list' | 'quadrants'>('list')
   // تاريخ استحقاق افتراضي بعد أسبوع. نغلّف Date.now في دالّة تُستدعى من مُهيّئ
   // useState الكسول ومن معالج الإرسال — لا من جسم الرسم (تفادياً للنجاسة أثناء الرسم).
   const weekFromNowISO = () => new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10)
@@ -435,6 +463,23 @@ function Editor({ companyId }: { companyId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>القائمة</CardTitle>
             <div className="flex flex-wrap gap-2">
+              {/* مبدّل العرض: قائمة ↔ أرباع أيزنهاور */}
+              <div className="flex rounded-md border p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  className={`rounded px-2 py-0.5 ${view === 'list' ? 'bg-primary font-medium text-primary-foreground' : 'text-muted-foreground'}`}
+                >
+                  ☰ قائمة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('quadrants')}
+                  className={`rounded px-2 py-0.5 ${view === 'quadrants' ? 'bg-primary font-medium text-primary-foreground' : 'text-muted-foreground'}`}
+                >
+                  ▦ أرباع
+                </button>
+              </div>
               <select
                 className="rounded-md border bg-background px-2 py-1 text-xs"
                 value={filter.status}
@@ -476,56 +521,93 @@ function Editor({ companyId }: { companyId: string }) {
         </CardHeader>
         <CardContent>
           {loading && <p className="text-sm text-muted-foreground">جاري التحميل…</p>}
-          <ul className="space-y-2">
-            {filtered.map((t) => {
-              const meta = sMeta(t.status)
-              const overdue = isOverdue(t)
-              return (
-                <li key={t.id} className={`flex items-center gap-2 rounded-xl border p-3 ${meta[2]}`}>
-                  <span className={`inline-block size-2.5 shrink-0 rounded-full ${meta[3]}`} />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <span>{t.title}</span>
-                      <span className="rounded-md border bg-card px-1.5 py-0.5 text-[10px]">{pLabel(t.priority)}</span>
-                      {overdue && <span className="rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">متأخرة</span>}
+
+          {/* عرض «أرباع»: تقسيم المهام على مصفوفة أيزنهاور (مهمّ × عاجل) */}
+          {view === 'quadrants' ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {QUADRANTS.map(([key, label, hint, tint]) => {
+                const items = filtered.filter((t) => eisenQuadrant(t) === key)
+                return (
+                  <div key={key} className={`rounded-xl border p-3 ${tint}`}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-bold">{label}</span>
+                      <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums">{items.length}</span>
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                      {t.projectId && <span>📁 {projects.find((p) => p.id === t.projectId)?.title ?? '—'}</span>}
-                      <span className="tabular-nums">📅 {fmtDate(t.dueDate)}</span>
-                      <span className="inline-flex items-center gap-1">
-                        👤
-                        <input
-                          className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
-                          placeholder="الجهة المنفّذة"
-                          defaultValue={t.owner ?? ''}
-                          list="task-owners"
-                          onBlur={(e) => {
-                            const v = e.target.value.trim()
-                            if (v !== (t.owner?.trim() ?? '')) update(t, { owner: v || null })
-                          }}
-                        />
-                      </span>
-                    </div>
+                    <p className="mb-2 text-[11px] text-muted-foreground">{hint}</p>
+                    <ul className="space-y-2">
+                      {items.map((t) => (
+                        <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} />
+                      ))}
+                      {items.length === 0 && (
+                        <li className="rounded-md border border-dashed bg-card/50 p-2 text-center text-[11px] text-muted-foreground">لا مهام هنا</li>
+                      )}
+                    </ul>
                   </div>
-                  <select
-                    className="rounded-md border bg-background px-1.5 py-1 text-xs"
-                    value={t.status}
-                    onChange={(e) => update(t, { status: e.target.value })}
-                  >
-                    {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                  </select>
-                  <button onClick={() => remove(t)} className="text-xs text-muted-foreground hover:text-destructive">×</button>
+                )
+              })}
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {filtered.map((t) => (
+                <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} />
+              ))}
+              {!loading && filtered.length === 0 && (
+                <li className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+                  لا توجد مهام مطابقة.
                 </li>
-              )
-            })}
-            {!loading && filtered.length === 0 && (
-              <li className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-                لا توجد مهام مطابقة.
-              </li>
-            )}
-          </ul>
+              )}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </>
+  )
+}
+
+// ─── صفّ مهمّة واحد — مُشترَك بين عرضَي «القائمة» و«الأرباع» ──────────
+function TaskRow({ t, projects, onUpdate, onRemove }: {
+  t: Task
+  projects: Project[]
+  onUpdate: (t: Task, patch: Partial<Task>) => void
+  onRemove: (t: Task) => void
+}) {
+  const meta = sMeta(t.status)
+  const overdue = isOverdue(t)
+  return (
+    <li className={`flex items-center gap-2 rounded-xl border p-3 ${meta[2]}`}>
+      <span className={`inline-block size-2.5 shrink-0 rounded-full ${meta[3]}`} />
+      <div className="flex-1">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <span>{t.title}</span>
+          <span className="rounded-md border bg-card px-1.5 py-0.5 text-[10px]">{pLabel(t.priority)}</span>
+          {overdue && <span className="rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">متأخرة</span>}
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          {t.projectId && <span>📁 {projects.find((p) => p.id === t.projectId)?.title ?? '—'}</span>}
+          <span className="tabular-nums">📅 {fmtDate(t.dueDate)}</span>
+          <span className="inline-flex items-center gap-1">
+            👤
+            <input
+              className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
+              placeholder="الجهة المنفّذة"
+              defaultValue={t.owner ?? ''}
+              list="task-owners"
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v !== (t.owner?.trim() ?? '')) onUpdate(t, { owner: v || null })
+              }}
+            />
+          </span>
+        </div>
+      </div>
+      <select
+        className="rounded-md border bg-background px-1.5 py-1 text-xs"
+        value={t.status}
+        onChange={(e) => onUpdate(t, { status: e.target.value })}
+      >
+        {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+      </select>
+      <button onClick={() => onRemove(t)} className="text-xs text-muted-foreground hover:text-destructive">×</button>
+    </li>
   )
 }
