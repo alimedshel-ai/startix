@@ -154,10 +154,17 @@ const DEPT_SUPPLEMENTARY_QUESTIONS: Record<DeptCode, Partial<Record<AnalysisType
       'كم نسبة فريق المبيعات المُعتمَد بشهادات مهنيّة؟',
       'هل توجد مصفوفة عمولات وحوافز واضحة ومنشورة؟',
     ],
+    // 💰 أسئلة ذكيّة تكشف القوّة الماليّة للمبيعات وفرص تحسينها.
     financial: [
-      'ما CAC (تكلفة اكتساب العميل) الحاليّة؟',
-      'ما LTV (قيمة العميل مدى الحياة) ونسبة LTV/CAC؟',
+      'ما CAC (تكلفة اكتساب العميل) الحاليّة واتجاهها؟',
+      'ما LTV (قيمة العميل مدى الحياة) ونسبة LTV/CAC؟ (الصحّي ٣:١+)',
       'ما متوسط قيمة الصفقة (AOV) وقيمة الاشتراك الشهري (MRR)؟',
+      'ما هامش الربح على المبيعات (Gross Margin) واتجاهه؟',
+      'ما نسبة التخفيضات الممنوحة من إجمالي المبيعات (Discount Leakage)؟',
+      'ما نسبة تحقيق الحصص البيعيّة (Quota Attainment) للفريق؟',
+      'ما تغطية خطّ الأنابيب مقارنةً بالهدف (Pipeline Coverage ×)؟',
+      'ما نسبة الإيراد المتوقَّع/المتكرّر (Predictable Revenue) من الإجمالي؟',
+      'ما تكلفة المبيعات كنسبة من الإيراد (Cost of Sales %)؟',
     ],
     challenges: [
       'ما أطول مرحلة تعطّل صفقات المبيعات؟',
@@ -519,8 +526,10 @@ const SECTION_TYPE: Record<string, AnalysisType> = {
   // FINANCE
   fin_structure: 'administrative', fin_statements: 'financial', fin_capital: 'financial',
   fin_budget: 'financial', fin_audit: 'administrative', fin_systems: 'technical',
-  // SALES
-  sales_structure: 'situational', sales_kpis: 'goals', sales_customers: 'situational',
+  // SALES — توزيع العدسات الستّ (لكلٍّ عدسة، بلا تكرار):
+  // البنية/الاستراتيجية→أهداف · المؤشّرات والإيراد→مالي · العملاء→الوضع الحالي ·
+  // الفريق والمخاطر→تحدّيات · السياسات والأدوات→إداري · المعرفة والأنظمة→فنّي.
+  sales_structure: 'goals', sales_kpis: 'financial', sales_customers: 'situational',
   sales_team: 'challenges', sales_tools: 'administrative', sales_knowledge: 'technical',
   // MARKETING
   mkt_strategy: 'goals', mkt_digital: 'technical', mkt_leadgen: 'situational',
