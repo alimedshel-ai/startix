@@ -22,6 +22,7 @@ import {
 } from '@/lib/deptQuestions'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 import { SalesDiagnostic } from './SalesDiagnostic'
+import { HrMaturityInApp } from './HrMaturityInApp'
 import { useAuthStore } from '@/store/authStore'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
@@ -584,6 +585,7 @@ function normalize(raw: unknown): Record<string, QAValue> {
 export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
   const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
   if (specialty === 'SALES') return <SalesDiagnostic embedded={embedded} />
+  if (specialty === 'HR') return <HrMaturityInApp embedded={embedded} />
   return <DeepAnalysisBank embedded={embedded} />
 }
 
