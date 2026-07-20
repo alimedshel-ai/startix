@@ -43,9 +43,10 @@ const BASE_ARTIFACT_TYPES = [
   'EISENHOWER',   // مصفوفة عاجل × مهم (٢×٢)
   // البيئة الداخلية (٧S — Strategy/Structure/Systems/…).
   'INTERNAL_ENV',
-  // تقييم نضج الموارد البشريّة (١٠ أقسام × ١٠ أسئلة مُنقّطة) — تشخيص المدير
-  // المستقل المتخصّص في HR. Data shape: { answers, results, overall }.
+  // تقييم نضج الموارد البشريّة (legacy — استُبدل بـ MATURITY المعمّم).
   'HR_MATURITY',
+  // تقييم نضج معمّم لأي تخصّص. Data shape: { specialty, answers, overallPct }.
+  'MATURITY',
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────

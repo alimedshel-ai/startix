@@ -21,8 +21,9 @@ import {
   type TextareaQuestion,
 } from '@/lib/deptQuestions'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
 import { SalesDiagnostic } from './SalesDiagnostic'
-import { HrMaturityInApp } from './HrMaturityInApp'
+import { MaturityInApp } from './MaturityInApp'
 import { useAuthStore } from '@/store/authStore'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 
@@ -585,7 +586,8 @@ function normalize(raw: unknown): Record<string, QAValue> {
 export function DeepAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
   const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
   if (specialty === 'SALES') return <SalesDiagnostic embedded={embedded} />
-  if (specialty === 'HR') return <HrMaturityInApp embedded={embedded} />
+  const maturityConfig = specialty ? MATURITY_BY_SPECIALTY[specialty] : undefined
+  if (maturityConfig) return <MaturityInApp config={maturityConfig} embedded={embedded} />
   return <DeepAnalysisBank embedded={embedded} />
 }
 

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
 import { useAuthStore } from '@/store/authStore'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
 
@@ -121,8 +122,8 @@ export function SelectTypePage() {
 
   const chooseSpecialty = (s: SpecialtyDeptType) => {
     setSelectedSpecialty(s)
-    // HR: جرّب تقييم النضج «قبل التسجيل» أوّلاً (التخصّص محفوظ فيلتقطه /join لاحقاً).
-    if (s === 'HR') { navigate('/diagnostic/hr'); return }
+    // التخصّصات التي لها تقييم نضج «قبل التسجيل» → جرّبه أوّلاً (التخصّص محفوظ فيلتقطه /join).
+    if (MATURITY_BY_SPECIALTY[s]) { navigate(`/diagnostic/m/${s.toLowerCase()}`); return }
     navigate('/join')
   }
 

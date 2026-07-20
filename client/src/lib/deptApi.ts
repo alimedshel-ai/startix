@@ -119,6 +119,20 @@ export interface CompanyOpex {
   avgSalary?: number
 }
 
+// تعريف العميل (اختياريّ) — يُدخَل عند الإضافة، يُغذّي تكييف التحليل لاحقاً.
+export interface CompanyProfile {
+  serviceType?: string
+  pricingModel?: string[]   // متعدّد: قد تجمع الشركة مشاريع + اشتراكات
+  customerType?: string
+  // إشارات الوضع/النطاق/الهيكل (اختياريّة، عرض/تخزين فقط الآن — الوصل بالمنطق مؤجَّل).
+  trajectory?: string        // اتجاه الأداء: fast_growth/slow_growth/flat/decline/crisis
+  runway?: string            // البقاء المالي: 12plus/6to12/3to6/under3
+  marketScope?: string       // نطاق العمل: local/regional/international
+  geoSpread?: string         // حجم النطاق: one_city/multi_city/national/multinational
+  deptCount?: string         // عدد الإدارات: 1/2-3/4-6/7plus
+  systemsMaturity?: string   // ERP/CRM: full/partial/none/excel
+}
+
 export interface Company {
   id: string
   name: string
@@ -126,6 +140,7 @@ export interface Company {
   subsector?: string | null
   entityType?: string | null
   opex?: CompanyOpex | null
+  profile?: CompanyProfile | null
   size: 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE'
   stage?: string | null
   country: string
@@ -142,7 +157,7 @@ export async function listMyCompanies(): Promise<CompanyWithRole[]> {
   return data
 }
 
-export async function createCompany(payload: { name: string; sector?: string; size: Company['size']; stage?: string; country?: string; logoUrl?: string }): Promise<Company> {
+export async function createCompany(payload: { name: string; sector?: string; size: Company['size']; stage?: string; country?: string; logoUrl?: string; profile?: CompanyProfile }): Promise<Company> {
   const { data } = await api.post('/api/companies', payload)
   return data
 }

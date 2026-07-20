@@ -1,37 +1,36 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  HR_LEVEL_META, HR_SECTIONS,
-  computeHrOverall, computeHrResults, hrAllAnswered, levelOf,
-  type HrAnswers, type HrQuestion, type HrSection,
-} from '@/lib/hrMaturity'
+  allAnswered, barBgOf, computeOverall, computeResults, levelOf,
+  type MaturityAnswers, type MaturityConfig, type MaturityQuestion, type MaturitySection,
+} from '@/lib/maturityEngine'
 
-// ─── تقييم نضج HR — واجهة التقييم (المرحلة ٢) ───────────────────────
-// مكوّن مُتحكَّم فيه (parent يملك الإجابات) ليسهُل حفظها في مسودّة ما قبل
-// التسجيل لاحقاً (المرحلة ٤). ١٠ أقسام، كل قسم درجته الحيّة، + شريط النضج.
+// ─── واجهة تقييم النضج المعمّمة (config-driven) ─────────────────────
+// مكوّن مُتحكَّم فيه لأي تخصّص: يعرض أقسام الـconfig وأسئلتها + درجة حيّة
+// لكل قسم + شريط نضج كلّي. يعمل لـ HR والمالية وأي تخصّص لاحق.
 
-export function HrMaturityDiagnostic({
-  answers, onSelect,
+export function MaturityAssessment({
+  config, answers, onSelect,
 }: {
-  answers: HrAnswers
+  config: MaturityConfig
+  answers: MaturityAnswers
   onSelect: (questionId: string, optionIndex: number) => void
 }) {
-  const results = computeHrResults(answers)
-  const overall = computeHrOverall(answers)
-  const overallLevel = HR_LEVEL_META[levelOf(overall.maturityPct)]
+  const results = computeResults(config, answers)
+  const overall = computeOverall(config, answers)
+  const overallLevel = levelOf(config, overall.maturityPct)
 
   return (
     <div className="flex flex-col gap-5">
-      {/* شريط النضج الكلّي الحيّ */}
       <Card className="border-primary/30 bg-gradient-to-l from-primary/5 to-transparent">
         <CardContent className="p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-sm font-bold">نضج إدارة الموارد البشريّة</div>
+            <div className="text-sm font-bold">{config.titleAr}</div>
             <span className={`rounded-full border px-3 py-1 text-sm font-bold tabular-nums ${overallLevel.cls}`}>
               {overallLevel.emoji} {overall.maturityPct}٪ · {overallLevel.labelAr}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full bg-gradient-to-l from-primary to-emerald-500 transition-all" style={{ width: `${overall.maturityPct}%` }} />
+            <div className={`h-full ${barBgOf(overallLevel)} transition-all`} style={{ width: `${overall.maturityPct}%` }} />
           </div>
           <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">
             أجبت {overall.answeredTotal}/{overall.totalQuestions} سؤالاً
@@ -39,33 +38,25 @@ export function HrMaturityDiagnostic({
         </CardContent>
       </Card>
 
-      {HR_SECTIONS.map((section) => {
+      {config.sections.map((section) => {
         const r = results.find((x) => x.key === section.key)!
-        return (
-          <SectionCard
-            key={section.key}
-            section={section}
-            answers={answers}
-            onSelect={onSelect}
-            pct={r.pct}
-            answered={r.answered}
-          />
-        )
+        return <SectionCard key={section.key} config={config} section={section} answers={answers} onSelect={onSelect} pct={r.pct} answered={r.answered} />
       })}
     </div>
   )
 }
 
 function SectionCard({
-  section, answers, onSelect, pct, answered,
+  config, section, answers, onSelect, pct, answered,
 }: {
-  section: HrSection
-  answers: HrAnswers
+  config: MaturityConfig
+  section: MaturitySection
+  answers: MaturityAnswers
   onSelect: (questionId: string, optionIndex: number) => void
   pct: number
   answered: number
 }) {
-  const level = HR_LEVEL_META[levelOf(pct)]
+  const level = levelOf(config, pct)
   const started = answered > 0
   return (
     <Card className={`overflow-hidden border-2 ${started ? level.cls.split(' ')[0] : 'border-border'}`}>
@@ -85,13 +76,7 @@ function SectionCard({
       </CardHeader>
       <CardContent className="grid gap-3">
         {section.questions.map((question, i) => (
-          <QuestionRow
-            key={question.id}
-            index={i}
-            question={question}
-            selected={answers[question.id] ?? null}
-            onSelect={(idx) => onSelect(question.id, idx)}
-          />
+          <QuestionRow key={question.id} index={i} question={question} selected={answers[question.id] ?? null} onSelect={(idx) => onSelect(question.id, idx)} />
         ))}
       </CardContent>
     </Card>
@@ -101,7 +86,7 @@ function SectionCard({
 function QuestionRow({
   question, index, selected, onSelect,
 }: {
-  question: HrQuestion
+  question: MaturityQuestion
   index: number
   selected: number | null
   onSelect: (optionIndex: number) => void
@@ -115,14 +100,8 @@ function QuestionRow({
         {question.options.map((o, idx) => {
           const active = selected === idx
           return (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onSelect(idx)}
-              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                active ? 'border-primary bg-primary/10 font-medium' : 'bg-card hover:border-primary/40 hover:bg-muted/40'
-              }`}
-            >
+            <button key={idx} type="button" onClick={() => onSelect(idx)}
+              className={`rounded-lg border px-3 py-1.5 text-xs transition ${active ? 'border-primary bg-primary/10 font-medium' : 'bg-card hover:border-primary/40 hover:bg-muted/40'}`}>
               {o.label}
             </button>
           )
@@ -132,25 +111,22 @@ function QuestionRow({
   )
 }
 
-// ─── تقرير النضج (المرحلة ٣) ────────────────────────────────────────
-// يعرض: النضج الكلّي + التصنيف · أقوى/أضعف قسم · شريط لكل قسم مرتّب
-// بالأضعف أوّلاً · توصيات تلقائيّة لأضعف الأقسام.
-export function HrMaturityReport({ answers }: { answers: HrAnswers }) {
-  const results = computeHrResults(answers)
-  const overall = computeHrOverall(answers)
+// ─── تقرير النضج المعمّم ────────────────────────────────────────────
+export function MaturityReport({ config, answers }: { config: MaturityConfig; answers: MaturityAnswers }) {
+  const results = computeResults(config, answers)
+  const overall = computeOverall(config, answers)
   if (overall.answeredTotal === 0) return null
-  const level = HR_LEVEL_META[overall.level]
-  const ranked = [...results].sort((a, b) => a.pct - b.pct) // الأضعف أوّلاً
-  const complete = hrAllAnswered(answers)
-  // توصيات: أضعف ٣ أقسام (ناشئة/ضعيفة).
-  const weakRecs = ranked.filter((r) => r.level === 'weak' || r.level === 'emerging').slice(0, 3)
+  const level = levelOf(config, overall.maturityPct)
+  const ranked = [...results].sort((a, b) => a.pct - b.pct)
+  const complete = allAnswered(config, answers)
+  const weakRecs = ranked.filter((r) => r.pct < 60).slice(0, 3)
 
   return (
     <Card className="overflow-hidden border-2 border-primary/40">
       <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-emerald-500" />
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          📊 تقرير نضج الموارد البشريّة
+          📊 تقرير {config.titleAr}
           <span className={`rounded-full border px-2.5 py-0.5 text-sm font-bold tabular-nums ${level.cls}`}>
             {level.emoji} {overall.maturityPct}٪ · {level.labelAr}
           </span>
@@ -160,7 +136,6 @@ export function HrMaturityReport({ answers }: { answers: HrAnswers }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* أقوى / أضعف */}
         <div className="flex flex-wrap gap-2 text-xs">
           {overall.strongest && (
             <span className="rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-1.5 text-emerald-900">
@@ -174,25 +149,20 @@ export function HrMaturityReport({ answers }: { answers: HrAnswers }) {
           )}
         </div>
 
-        {/* أشرطة الأقسام */}
         <div className="space-y-1.5">
-          {ranked.map((r) => {
-            const m = HR_LEVEL_META[r.level]
-            return (
-              <div key={r.key} className="flex items-center gap-2">
-                <span className="w-32 shrink-0 truncate text-xs font-medium">{r.icon} {r.labelAr}</span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className={`h-full ${m.cls.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'}`} style={{ width: `${r.pct}%` }} />
-                </div>
-                <span className={`w-16 shrink-0 rounded border px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums ${m.cls}`}>
-                  {m.emoji} {r.pct}٪
-                </span>
+          {ranked.map((r) => (
+            <div key={r.key} className="flex items-center gap-2">
+              <span className="w-32 shrink-0 truncate text-xs font-medium">{r.icon} {r.labelAr}</span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className={`h-full ${barBgOf(r.level)}`} style={{ width: `${r.pct}%` }} />
               </div>
-            )
-          })}
+              <span className={`w-16 shrink-0 rounded border px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums ${r.level.cls}`}>
+                {r.level.emoji} {r.pct}٪
+              </span>
+            </div>
+          ))}
         </div>
 
-        {/* توصيات تلقائيّة */}
         {weakRecs.length > 0 && (
           <div className="rounded-lg border border-dashed bg-muted/30 p-3">
             <div className="mb-1.5 text-xs font-bold">💡 توصيات الأولويّة (أضعف الأقسام):</div>

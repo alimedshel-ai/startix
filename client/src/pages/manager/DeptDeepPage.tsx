@@ -150,9 +150,64 @@ const PROJECTS_PROMPTS: DeepPrompt[] = [
   },
 ]
 
+// ─── SALES — بلغة المبيعات الفعليّة: خطّ الأنابيب، التحويل، دورة البيع،
+//     تسرّب العملاء. (مسوّدة — يراجعها خبير المجال.)
+const SALES_PROMPTS: DeepPrompt[] = [
+  {
+    question: 'ما أكبر قيد يعيق نموّ مبيعاتك اليوم؟',
+    hint: 'أين يتعطّل المحرّك: قلّة الفرص، أم ضعف الإغلاق، أم بطء الدورة؟ اختر ما ينطبق.',
+    options: [
+      { key: 'sales_weak_pipeline',  icon: '🕳️', label: 'خطّ أنابيب ضعيف (قلّة عملاء محتملين)' },
+      { key: 'sales_low_conversion', icon: '📉', label: 'معدّل تحويل متدنٍّ (فرص تُفتَح ولا تُغلَق)' },
+      { key: 'sales_long_cycle',     icon: '🐢', label: 'دورة بيع طويلة (بطء الإغلاق)' },
+      { key: 'sales_churn',          icon: '🚪', label: 'تسرّب العملاء وضعف الاحتفاظ' },
+      { key: 'sales_poor_qual',      icon: '🎯', label: 'ضعف تأهيل الفرص (leads غير مؤهّلة)' },
+      { key: 'sales_no_process',     icon: '🧭', label: 'غياب منهجيّة بيع موحّدة' },
+    ],
+  },
+  {
+    question: 'أي جانب في مبيعاتك هشّ ومكلف لو تعثّر غداً؟',
+    hint: 'نقاط الخطر التي إن سقطت تُسقط الإيراد.',
+    options: [
+      { key: 'sales_key_account',  icon: '🏦', label: 'تركّز الإيراد في عميل كبير واحد' },
+      { key: 'sales_star_rep',     icon: '🔑', label: 'الاعتماد على مندوب نجم واحد' },
+      { key: 'sales_volatile',     icon: '📊', label: 'تذبذب خطّ الأنابيب وعدم استقرار الطلب' },
+      { key: 'sales_margins',      icon: '💸', label: 'ضعف التسعير أو تآكل الهوامش' },
+      { key: 'sales_crm_data',     icon: '🗂️', label: 'بيانات CRM غير موثوقة' },
+      { key: 'sales_price_war',    icon: '⚔️', label: 'المنافسة على السعر لا القيمة' },
+    ],
+  },
+  {
+    question: 'أي مهمّة في المبيعات تستنزف وقتك وتستحقّ الأتمتة؟',
+    hint: 'المهام المتكرّرة قليلة القيمة — هي الأولى بالأتمتة.',
+    options: [
+      { key: 'sales_auto_crm',      icon: '⌨️', label: 'إدخال البيانات في الـCRM' },
+      { key: 'sales_auto_followup', icon: '🔁', label: 'متابعة العملاء المحتملين (Follow-up)' },
+      { key: 'sales_auto_quotes',   icon: '🧾', label: 'إعداد العروض والتسعير' },
+      { key: 'sales_auto_forecast', icon: '🔮', label: 'تقارير المبيعات والتنبّؤ' },
+      { key: 'sales_auto_leadroute',icon: '🚦', label: 'تأهيل وتوزيع الـLeads' },
+      { key: 'sales_auto_meetings', icon: '📅', label: 'جدولة الاجتماعات والعروض' },
+    ],
+  },
+  {
+    question: 'ما أقوى ممارسة راسخة في مبيعاتك وتستحقّ التوسّع؟',
+    hint: 'ما يعمل جيداً بالفعل — التوسّع فيه أرخص من بناء الجديد.',
+    options: [
+      { key: 'sales_playbook',    icon: '📘', label: 'دليل بيع واضح ومطبّق (Playbook)' },
+      { key: 'sales_crm_disc',    icon: '🗃️', label: 'CRM منظَّم ومُحدَّث بانضباط' },
+      { key: 'sales_qualif',      icon: '✅', label: 'تأهيل قويّ للفرص قبل المتابعة' },
+      { key: 'sales_relations',   icon: '🤝', label: 'علاقات عملاء قويّة (احتفاظ عالٍ)' },
+      { key: 'sales_closing',     icon: '🎯', label: 'فريق مدرَّب بمهارات إغلاق' },
+      { key: 'sales_forecast_acc',icon: '📈', label: 'تنبّؤ دقيق بالمبيعات' },
+    ],
+  },
+]
+
 // خريطة الإدارات ذات الأسئلة المتخصّصة — البقيّة تسقط على العامّة.
+// دَين: ١١ إدارة متبقّية بلا أسئلة متخصّصة — مشروع محتوى مؤجَّل.
 const DEPT_PROMPTS: Partial<Record<SpecialtyDeptType, DeepPrompt[]>> = {
   PROJECTS: PROJECTS_PROMPTS,
+  SALES: SALES_PROMPTS,
 }
 
 function promptsFor(specialty: SpecialtyDeptType | null | undefined): DeepPrompt[] {

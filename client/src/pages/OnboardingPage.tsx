@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { landingAfterOnboarding } from '@/components/layouts/nav'
-import { applyPendingHrMaturity } from '@/lib/hrMaturityCarryover'
+import { applyPendingMaturity } from '@/lib/maturityCarryover'
+import { MATURITY_CONFIGS } from '@/lib/maturityConfigs'
 import { api, apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { EXPERIENCE_OPTIONS, TEAM_SIZE_OPTIONS, TOOLING_OPTIONS } from '@/lib/managerInvestorQuestions'
@@ -129,9 +130,9 @@ export function OnboardingPage() {
   const diagnosticManagerDraft = useDiagnosticStore((s) => s.managerDraft)
   const diagnosticRole = useDiagnosticStore((s) => s.role)
 
-  // نقل مسودّة تقييم نضج HR (قبل التسجيل) إلى أوّل عميل — مرّة واحدة بعد التسجيل.
+  // نقل مسودّة تقييم النضج (قبل التسجيل) إلى أوّل عميل — مرّة واحدة بعد التسجيل.
   useEffect(() => {
-    void applyPendingHrMaturity(user)
+    void applyPendingMaturity(user, MATURITY_CONFIGS)
   }, [user])
 
   // Pre-select آلام/أهداف حسب التخصّص إن لم يكن هناك تحديد سابق

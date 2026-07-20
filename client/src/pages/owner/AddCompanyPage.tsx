@@ -21,11 +21,34 @@ const SIZES = [
 ] as const
 
 // خيارات مرحلة الشركة — مطابقة لـ OwnerAnswers.stage في التشخيص
+// حقول التعريف الإضافيّة (اختياريّة، تخزين فقط الآن — الوصل بالمنطق مؤجَّل دَيناً).
+const PROFILE_EXTRA: { key: string; label: string; options: [string, string][] }[] = [
+  { key: 'trajectory', label: 'اتجاه الأداء', options: [
+    ['fast_growth', 'نمو سريع'], ['slow_growth', 'نمو بطيء'], ['flat', 'ثبات'], ['decline', 'تراجع'], ['crisis', 'أزمة'],
+  ] },
+  { key: 'runway', label: 'البقاء المالي (Runway)', options: [
+    ['12plus', '+١٢ شهر'], ['6to12', '٦-١٢ شهر'], ['3to6', '٣-٦ أشهر'], ['under3', 'أقل من ٣ أشهر'],
+  ] },
+  { key: 'marketScope', label: 'نطاق العمل', options: [
+    ['local', 'محلي'], ['regional', 'إقليمي'], ['international', 'دولي'],
+  ] },
+  { key: 'geoSpread', label: 'حجم النطاق', options: [
+    ['one_city', 'مدينة واحدة'], ['multi_city', 'عدة مدن'], ['national', 'دولة'], ['multinational', 'متعدّد الجنسيات'],
+  ] },
+  { key: 'deptCount', label: 'عدد الإدارات', options: [
+    ['1', '١'], ['2-3', '٢-٣'], ['4-6', '٤-٦'], ['7plus', '٧+'],
+  ] },
+  { key: 'systemsMaturity', label: 'أنظمة ERP/CRM', options: [
+    ['full', 'متكامل'], ['partial', 'جزئي'], ['none', 'لا يوجد'], ['excel', 'Excel يدوي'],
+  ] },
+]
+
 const STAGES = [
-  ['struggle', 'متعثّرة — في وضع البقاء'],
-  ['startup',  'ناشئة — أقل من سنتين'],
-  ['scaling',  'متوسّعة — تنمو بسرعة'],
-  ['stable',   'مستقرّة — راسخة ومربحة'],
+  ['struggle',  'متعثّرة — في وضع البقاء'],
+  ['improving', 'تحتاج تحسين — تعمل بثبات لكن دون المستهدف'],
+  ['startup',   'ناشئة — أقل من سنتين'],
+  ['scaling',   'متوسّعة — تنمو بسرعة'],
+  ['stable',    'مستقرّة — راسخة ومربحة'],
 ] as const
 
 // ─── مصادر مسبق-الملء لكل حقل ─────────────────────────────────────────
@@ -93,6 +116,15 @@ export function AddCompanyPage() {
   const [size, setSize] = useState<typeof SIZES[number][0]>(initialSize)
   const [stage, setStage] = useState(initialStage)
   const [country, setCountry] = useState('SA')
+  // تعريف العميل — اختياريّ بالكامل (لا يُجبَر المستخدم قبل الإضافة).
+  const [serviceType, setServiceType] = useState('')
+  // نموذج التسعير متعدّد (شركة قد تجمع مشاريع + اشتراكات معاً).
+  const [pricingModel, setPricingModel] = useState<string[]>([])
+  const [customerType, setCustomerType] = useState('')
+  const togglePricing = (v: string) =>
+    setPricingModel((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))
+  // الحقول الإضافيّة الستّة (اختياريّة) — قيمة واحدة لكل مفتاح.
+  const [extra, setExtra] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [sources, setSources] = useState<PrefillMap>(initialSources)
 
@@ -139,12 +171,23 @@ export function AddCompanyPage() {
     }
     setSubmitting(true)
     try {
+      // نبني profile فقط إن مُلئ أيّ حقل (كلّها اختياريّة).
+      const extraFilled = Object.entries(extra).filter(([, v]) => v)
+      const profile = serviceType.trim() || pricingModel.length || customerType || extraFilled.length
+        ? {
+            serviceType: serviceType.trim() || undefined,
+            pricingModel: pricingModel.length ? pricingModel : undefined,
+            customerType: customerType || undefined,
+            ...Object.fromEntries(extraFilled),
+          }
+        : undefined
       await createCompany({
         name: name.trim(),
         sector: sector.trim() || undefined,
         size,
         stage: stage.trim() || undefined,
         country: country.trim() || 'SA',
+        profile,
       })
       toast.success(isPro ? 'تم إضافة العميل' : 'تم إنشاء الشركة')
       navigate(isPro ? '/manager/clients' : '/companies')
@@ -275,6 +318,59 @@ export function AddCompanyPage() {
               </div>
               <Input id="country" dir="ltr" className="text-left" value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} maxLength={2} />
             </div>
+
+            {/* تعريف العميل — اختياريّ بالكامل، يُغذّي تكييف التحليل لاحقاً */}
+            <div className="sm:col-span-2 rounded-lg border border-dashed bg-muted/20 p-3">
+              <div className="mb-2 text-xs font-semibold text-muted-foreground">🧩 تعريف العميل (اختياريّ — عبّئ ما تعرفه)</div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <Label htmlFor="serviceType">نوع الخدمة</Label>
+                  <Input id="serviceType" value={serviceType} onChange={(e) => setServiceType(e.target.value)} placeholder="تطوير برمجيات · استشارات…" />
+                </div>
+                <div className="space-y-1">
+                  <Label>نموذج التسعير <span className="font-normal text-muted-foreground">(اختر ما ينطبق)</span></Label>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[['project', 'مشروع (لمرّة)'], ['retainer', 'اشتراك دوريّ'], ['commission', 'عمولة']].map(([v, label]) => {
+                      const on = pricingModel.includes(v)
+                      return (
+                        <label
+                          key={v}
+                          className={`cursor-pointer select-none rounded-md border px-2.5 py-1 text-xs transition ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'bg-card hover:bg-muted'}`}
+                        >
+                          <input type="checkbox" className="hidden" checked={on} onChange={() => togglePricing(v)} />
+                          {on ? '✓ ' : ''}{label}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="customerType">نوع عملاء العميل</Label>
+                  <select id="customerType" className="h-9 w-full rounded-lg border bg-background px-3 text-sm" value={customerType} onChange={(e) => setCustomerType(e.target.value)}>
+                    <option value="">— اختياريّ —</option>
+                    <option value="b2b">شركات (B2B)</option>
+                    <option value="b2c">أفراد (B2C)</option>
+                    <option value="government">حكومة</option>
+                    <option value="mixed">مختلط</option>
+                  </select>
+                </div>
+                {PROFILE_EXTRA.map((f) => (
+                  <div key={f.key} className="space-y-1">
+                    <Label htmlFor={f.key}>{f.label}</Label>
+                    <select
+                      id={f.key}
+                      className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                      value={extra[f.key] ?? ''}
+                      onChange={(e) => setExtra((p) => ({ ...p, [f.key]: e.target.value }))}
+                    >
+                      <option value="">— اختياريّ —</option>
+                      {f.options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="sm:col-span-2 flex justify-end">
               <Button type="submit" disabled={submitting}>{submitting ? 'جاري الإنشاء…' : (isPro ? 'إضافة العميل' : 'إنشاء الشركة')}</Button>
             </div>

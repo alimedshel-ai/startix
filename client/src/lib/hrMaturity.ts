@@ -1,36 +1,19 @@
-// ─── محرّك تقييم نضج الموارد البشريّة (المرحلة ١) ────────────────────
-// تشخيص «قبل التسجيل» للمدير المستقل المتخصّص في HR. ١٠ أقسام × ١٠ أسئلة
-// باختيارات مُنقّطة (٠-١٠). درجة القسم = مجموع النقاط (/١٠٠ = نضج٪).
-// النضج الكلّي = متوسّط الأقسام. منقول من ملف المستخدم (محرّك نضج HR).
-//
-// ملف بيانات ودوال نقيّة — بلا واجهة، بلا مساس بأي مسار قائم.
-
-export type HrSectionKey =
-  | 'staff' | 'recruit' | 'training' | 'comp' | 'compliance'
-  | 'systems' | 'safety' | 'planning' | 'culture' | 'performance'
-
-export interface HrOption { label: string; points: number } // ٠-١٠
-export interface HrQuestion { id: string; text: string; options: HrOption[] }
-export interface HrSection {
-  key: HrSectionKey
-  labelAr: string
-  icon: string
-  /** توصية تُعرض عند ضعف القسم. */
-  recommendation: string
-  questions: HrQuestion[]
-}
+// ─── إعداد تقييم نضج الموارد البشريّة (config على الإطار المعمّم) ─────
+// ١٠ أقسام × ١٠ أسئلة مُنقّطة (٠-١٠). يُستهلك عبر maturityEngine.
+// منقول من ملف المستخدم (محرّك نضج HR).
+import type { MaturityConfig, MaturityOption, MaturityQuestion, MaturitySection } from '@/lib/maturityEngine'
 
 // ─── مجموعات خيارات شائعة ─────────────────────────────────────────
-const YPN: HrOption[] = [{ label: 'نعم', points: 10 }, { label: 'جزئياً', points: 5 }, { label: 'لا', points: 0 }]
-const YN: HrOption[]  = [{ label: 'نعم', points: 10 }, { label: 'لا', points: 0 }]
+const YPN: MaturityOption[] = [{ label: 'نعم', points: 10 }, { label: 'جزئياً', points: 5 }, { label: 'لا', points: 0 }]
+const YN: MaturityOption[]  = [{ label: 'نعم', points: 10 }, { label: 'لا', points: 0 }]
 /** المرتفع جيّد. */
-const HIGH_GOOD: HrOption[] = [{ label: 'مرتفع', points: 10 }, { label: 'متوسط', points: 5 }, { label: 'منخفض', points: 0 }]
+const HIGH_GOOD: MaturityOption[] = [{ label: 'مرتفع', points: 10 }, { label: 'متوسط', points: 5 }, { label: 'منخفض', points: 0 }]
 /** المنخفض جيّد. */
-const LOW_GOOD: HrOption[]  = [{ label: 'منخفض', points: 10 }, { label: 'متوسط', points: 5 }, { label: 'مرتفع', points: 0 }]
+const LOW_GOOD: MaturityOption[]  = [{ label: 'منخفض', points: 10 }, { label: 'متوسط', points: 5 }, { label: 'مرتفع', points: 0 }]
 
-const q = (id: string, text: string, options: HrOption[] = YPN): HrQuestion => ({ id, text, options })
+const q = (id: string, text: string, options: MaturityOption[] = YPN): MaturityQuestion => ({ id, text, options })
 
-export const HR_SECTIONS: HrSection[] = [
+const HR_SECTIONS: MaturitySection[] = [
   {
     key: 'staff', labelAr: 'شؤون الموظفين', icon: '🗂️',
     recommendation: 'رقمنة العقود والإجازات + سياسة انضباط مكتوبة + تقليل الشكاوى العالقة.',
@@ -193,90 +176,18 @@ export const HR_SECTIONS: HrSection[] = [
   },
 ]
 
-// ─── محرّك التسجيل ─────────────────────────────────────────────────
-export type HrAnswers = Record<string, number> // questionId → option index
+const HR_LEVELS = [
+  { key: 'weak',       minPct: 0,  emoji: '🔴', labelAr: 'ضعيف',   cls: 'border-rose-300 bg-rose-50/60 text-rose-800' },
+  { key: 'emerging',   minPct: 40, emoji: '🟠', labelAr: 'ناشئ',   cls: 'border-orange-300 bg-orange-50/60 text-orange-800' },
+  { key: 'developing', minPct: 60, emoji: '🟡', labelAr: 'متوسّط', cls: 'border-amber-300 bg-amber-50/60 text-amber-800' },
+  { key: 'advanced',   minPct: 75, emoji: '🟢', labelAr: 'متقدّم', cls: 'border-emerald-300 bg-emerald-50/60 text-emerald-800' },
+]
 
-const SECTION_MAX = 100 // ١٠ أسئلة × ١٠ نقاط
-
-function pointsOf(qid: string, idx: number): number {
-  const question = HR_SECTIONS.flatMap((s) => s.questions).find((x) => x.id === qid)
-  return question?.options[idx]?.points ?? 0
-}
-
-/** نضج القسم (٠-١٠٠) — مجموع نقاط الأسئلة المُجابة. */
-export function sectionScore(section: HrSection, answers: HrAnswers): number {
-  return section.questions.reduce((sum, question) => {
-    const idx = answers[question.id]
-    return sum + (idx == null ? 0 : pointsOf(question.id, idx))
-  }, 0)
-}
-
-export function sectionAnswered(section: HrSection, answers: HrAnswers): number {
-  return section.questions.filter((question) => answers[question.id] != null).length
-}
-
-export type HrLevel = 'weak' | 'emerging' | 'developing' | 'advanced'
-export function levelOf(pct: number): HrLevel {
-  if (pct < 40) return 'weak'
-  if (pct < 60) return 'emerging'
-  if (pct < 75) return 'developing'
-  return 'advanced'
-}
-export const HR_LEVEL_META: Record<HrLevel, { emoji: string; labelAr: string; cls: string }> = {
-  weak:       { emoji: '🔴', labelAr: 'ضعيف',   cls: 'border-rose-300 bg-rose-50/60 text-rose-800' },
-  emerging:   { emoji: '🟠', labelAr: 'ناشئ',   cls: 'border-orange-300 bg-orange-50/60 text-orange-800' },
-  developing: { emoji: '🟡', labelAr: 'متوسّط', cls: 'border-amber-300 bg-amber-50/60 text-amber-800' },
-  advanced:   { emoji: '🟢', labelAr: 'متقدّم', cls: 'border-emerald-300 bg-emerald-50/60 text-emerald-800' },
-}
-
-export interface HrSectionResult {
-  key: HrSectionKey
-  labelAr: string
-  icon: string
-  score: number       // ٠-١٠٠
-  pct: number         // = score (SECTION_MAX=100)
-  level: HrLevel
-  recommendation: string
-  answered: number
-}
-
-export function computeHrResults(answers: HrAnswers): HrSectionResult[] {
-  return HR_SECTIONS.map((s) => {
-    const score = sectionScore(s, answers)
-    const pct = Math.round((score / SECTION_MAX) * 100)
-    return {
-      key: s.key, labelAr: s.labelAr, icon: s.icon,
-      score, pct, level: levelOf(pct), recommendation: s.recommendation,
-      answered: sectionAnswered(s, answers),
-    }
-  })
-}
-
-export interface HrOverall {
-  maturityPct: number
-  level: HrLevel
-  strongest: HrSectionResult | null
-  weakest: HrSectionResult | null
-  answeredTotal: number
-  totalQuestions: number
-}
-
-export function computeHrOverall(answers: HrAnswers): HrOverall {
-  const results = computeHrResults(answers)
-  const maturityPct = Math.round(results.reduce((a, r) => a + r.pct, 0) / results.length)
-  const sorted = [...results].sort((a, b) => b.pct - a.pct)
-  const answeredTotal = results.reduce((a, r) => a + r.answered, 0)
-  const totalQuestions = HR_SECTIONS.reduce((a, s) => a + s.questions.length, 0)
-  return {
-    maturityPct,
-    level: levelOf(maturityPct),
-    strongest: sorted[0] ?? null,
-    weakest: sorted[sorted.length - 1] ?? null,
-    answeredTotal,
-    totalQuestions,
-  }
-}
-
-export function hrAllAnswered(answers: HrAnswers): boolean {
-  return HR_SECTIONS.every((s) => sectionAnswered(s, answers) === s.questions.length)
+export const HR_CONFIG: MaturityConfig = {
+  specialty: 'HR',
+  titleAr: 'تقييم نضج الموارد البشريّة',
+  descAr: '١٠ أقسام × ١٠ أسئلة → نضج لكل قسم + توصيات الأولويّة.',
+  draftKey: 'startix-hr-maturity',
+  sections: HR_SECTIONS,
+  levels: HR_LEVELS,
 }

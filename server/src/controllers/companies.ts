@@ -16,6 +16,20 @@ const opexSchema = z.object({
   avgSalary: z.number().min(0).optional(),
 }).optional();
 
+// تعريف العميل (اختياريّ بالكامل) — نوع الخدمة/التسعير/العملاء. يُغذّي التحليل.
+const profileSchema = z.object({
+  serviceType: z.string().max(120).optional(),
+  pricingModel: z.array(z.string().max(40)).max(6).optional(),  // متعدّد
+  customerType: z.string().max(40).optional(),
+  // إشارات الوضع/النطاق/الهيكل — كلّها اختياريّة (تخزين فقط الآن).
+  trajectory: z.string().max(40).optional(),
+  runway: z.string().max(40).optional(),
+  marketScope: z.string().max(40).optional(),
+  geoSpread: z.string().max(40).optional(),
+  deptCount: z.string().max(40).optional(),
+  systemsMaturity: z.string().max(40).optional(),
+}).optional();
+
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   sector: z.string().min(1).max(80).optional(),
@@ -23,6 +37,7 @@ const createSchema = z.object({
   subsector: z.string().min(1).max(80).optional(),
   entityType: z.string().min(1).max(40).optional(),
   opex: opexSchema,
+  profile: profileSchema,
   size: entitySize,
   stage: z.string().min(1).max(80).optional(),
   country: z.string().min(2).max(2).optional(),
@@ -69,6 +84,7 @@ export const createCompany: RequestHandler = async (req, res, next) => {
           subsector: body.subsector,
           entityType: body.entityType,
           opex: body.opex ?? undefined,
+          profile: body.profile ?? undefined,
           size: body.size,
           stage: body.stage,
           country: body.country ?? 'SA',

@@ -124,6 +124,9 @@ model Company {
   // في KPIs/Ansoff/GapAnalysis/RACI/FinancialAnalysis). Json مرن لتوسيع مستقبلي.
   // شكل مُتوقَّع: { team?: number, budget?: number, target?: number, avgSalary?: number }
   opex      Json?
+  // تعريف العميل (اختياريّ) — يُدخَل عند إضافة العميل، يُغذّي تكييف التحليل.
+  // شكل مُتوقَّع: { serviceType?: string, pricingModel?: string, customerType?: string }
+  profile   Json?
   createdAt DateTime   @default(now())
 
   users            CompanyUser[]
