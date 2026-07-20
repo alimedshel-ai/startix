@@ -52,6 +52,8 @@ export type ArtifactType =
   | 'BMC' | 'BSC' | 'RACI' | 'EISENHOWER'
   // البيئة الداخلية (٧S) — على مستوى شركة.
   | 'INTERNAL_ENV'
+  // تقييم نضج الموارد البشريّة (تشخيص المدير المستقل المتخصّص في HR).
+  | 'HR_MATURITY'
   | DeptScopedArtifactType
 
 export interface Artifact<T = unknown> {
