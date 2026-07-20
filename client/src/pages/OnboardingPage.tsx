@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { landingAfterOnboarding } from '@/components/layouts/nav'
+import { applyPendingHrMaturity } from '@/lib/hrMaturityCarryover'
 import { api, apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { EXPERIENCE_OPTIONS, TEAM_SIZE_OPTIONS, TOOLING_OPTIONS } from '@/lib/managerInvestorQuestions'
@@ -127,6 +128,11 @@ export function OnboardingPage() {
   // 📥 قراءة بيانات التشخيص السابق (guest) — نستعملها لتخصيص الأسئلة
   const diagnosticManagerDraft = useDiagnosticStore((s) => s.managerDraft)
   const diagnosticRole = useDiagnosticStore((s) => s.role)
+
+  // نقل مسودّة تقييم نضج HR (قبل التسجيل) إلى أوّل عميل — مرّة واحدة بعد التسجيل.
+  useEffect(() => {
+    void applyPendingHrMaturity(user)
+  }, [user])
 
   // Pre-select آلام/أهداف حسب التخصّص إن لم يكن هناك تحديد سابق
   const specialty = user?.specialtyDeptType ?? null

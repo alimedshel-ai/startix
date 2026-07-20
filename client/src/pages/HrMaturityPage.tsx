@@ -4,12 +4,13 @@ import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { HrMaturityDiagnostic, HrMaturityReport } from '@/pages/manager/HrMaturityDiagnostic'
 import type { HrAnswers } from '@/lib/hrMaturity'
+import { HR_MATURITY_DRAFT_KEY } from '@/lib/hrMaturityCarryover'
 
 // ─── تقييم نضج HR — صفحة عامّة «قبل التسجيل» (المرحلة ٤) ─────────────
 // الزائر (المدير المستقل المتخصّص في HR) يجرّب التقييم قبل التسجيل، يرى
 // تقرير نضجه، ثم يسجّل. مسودّة الإجابات تُحفظ محلياً (نفس استثناء القانون
 // الأوّل الموثّق لتدفّق ما-قبل-التسجيل: زائر مجهول بلا حساب بعد).
-const DRAFT_KEY = 'startix-hr-maturity'
+const DRAFT_KEY = HR_MATURITY_DRAFT_KEY
 
 function loadDraft(): HrAnswers {
   try {
