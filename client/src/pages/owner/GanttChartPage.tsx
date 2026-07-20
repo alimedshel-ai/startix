@@ -115,12 +115,18 @@ function Chart({ companyId }: { companyId: string }) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  // جاهزيّة أيزنهاور: هل توجد مهام «افعل الآن»؟ (null = جارٍ التحقّق)
+  const [eisenReady, setEisenReady] = useState<boolean | null>(null)
 
   useEffect(() => {
     Promise.all([listProjects(companyId), listTasks(companyId)])
       .then(([p, t]) => { setProjects(p); setTasks(t) })
       .catch(() => undefined)
       .finally(() => setLoading(false))
+    // نتحقّق من جاهزيّة أيزنهاور لإرشاد المستخدم بدل رسالة خطأ عند التوليد.
+    getArtifact<{ tasks?: Array<{ quadrant: string; title?: string }> }>(companyId, 'EISENHOWER')
+      .then((a) => setEisenReady((a?.data?.tasks ?? []).some((t) => t.quadrant === 'do' && !!t.title?.trim())))
+      .catch(() => setEisenReady(false))
   }, [companyId])
 
   // 🚨 توليد جدول إنقاذ ٩٠ يوم — من مهام «افعل الآن» في أيزنهاور
@@ -207,23 +213,51 @@ function Chart({ companyId }: { companyId: string }) {
                     بدل إنشاء كل خطوة تنفيذ يدوياً، اضغط الزرّ لتوليد <b>٤-٦ خطوات إنقاذ متتابعة</b> (كلّ خطوة ٢ أسبوعان)
                     من مهام «افعل الآن» في أيزنهاور. النتيجة: جدول جاهز مع تواريخ سترى المخطّط فوراً.
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <Button
-                      onClick={generateRescueTimeline}
-                      disabled={generating}
-                      size="lg"
-                      className="bg-rose-600 hover:bg-rose-700"
-                    >
-                      {generating ? 'جاري التوليد…' : '🚨 ولّد جدول الإنقاذ الآن'}
-                    </Button>
-                    <Link to="/execute?tab=projects&from=emergency" className="text-xs text-rose-700 underline-offset-4 hover:underline">
-                      أو أنشئ خطوة يدوياً ←
-                    </Link>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-rose-300 bg-rose-100/60 p-2 text-[11px] text-rose-900">
-                    <b>💡 كيف يعمل؟</b> يقرأ artifact `EISENHOWER` → يأخذ أوّل ٦ مهام «افعل الآن» → ينشئ لكل واحدة خطوة تنفيذ بمدّة ٢ أسبوعان،
-                    مع تواريخ متتابعة (١-٢، ٣-٤، ٥-٦…). يمكنك تعديل التواريخ بعد التوليد.
-                  </div>
+                  {eisenReady === false ? (
+                    // أيزنهاور غير جاهز → أرشِد للخطوات السابقة بدل زرّ يُخفق.
+                    <div className="mt-3 rounded-lg border-2 border-rose-300 bg-white/70 p-3">
+                      <div className="text-xs font-bold text-rose-900">
+                        لا توجد مهام «افعل الآن» في أيزنهاور بعد — أكمل الخطوتين السابقتين أوّلاً بالترتيب:
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          to={`/risk-map?client=${companyId}&from=emergency`}
+                          className="inline-flex items-center gap-1 rounded-lg border-2 border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 transition hover:-translate-y-0.5 hover:border-rose-500"
+                        >
+                          ① ⚠️ سجّل مخاطرك
+                        </Link>
+                        <Link
+                          to={`/eisenhower?client=${companyId}&from=emergency`}
+                          className="inline-flex items-center gap-1 rounded-lg border-2 border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 transition hover:-translate-y-0.5 hover:border-rose-500"
+                        >
+                          ② 🎯 افرزها في أيزنهاور
+                        </Link>
+                      </div>
+                      <div className="mt-2 text-[11px] text-rose-800/80">
+                        بعد فرز المخاطر ووضع بعضها في «افعل الآن» بأيزنهاور، ارجع هنا ويصير زرّ توليد الجدول جاهزاً.
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <Button
+                          onClick={generateRescueTimeline}
+                          disabled={generating || eisenReady === null}
+                          size="lg"
+                          className="bg-rose-600 hover:bg-rose-700"
+                        >
+                          {generating ? 'جاري التوليد…' : eisenReady === null ? 'جارٍ التحقّق…' : '🚨 ولّد جدول الإنقاذ الآن'}
+                        </Button>
+                        <Link to="/execute?tab=projects&from=emergency" className="text-xs text-rose-700 underline-offset-4 hover:underline">
+                          أو أنشئ خطوة يدوياً ←
+                        </Link>
+                      </div>
+                      <div className="mt-3 rounded-lg border border-rose-300 bg-rose-100/60 p-2 text-[11px] text-rose-900">
+                        <b>💡 كيف يعمل؟</b> يقرأ artifact `EISENHOWER` → يأخذ أوّل ٦ مهام «افعل الآن» → ينشئ لكل واحدة خطوة تنفيذ بمدّة ٢ أسبوعان،
+                        مع تواريخ متتابعة (١-٢، ٣-٤، ٥-٦…). يمكنك تعديل التواريخ بعد التوليد.
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
