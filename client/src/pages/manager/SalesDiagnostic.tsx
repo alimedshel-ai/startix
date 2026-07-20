@@ -1,40 +1,53 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { PageHeader } from '@/components/PageHeader'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { apiErrorMessage } from '@/lib/api'
 import {
-  SALES_AXES, ZONE_META,
-  allAxesComplete, axisComplete, axisFlow, computeResults, overallScore, zoneOf,
-  type AxisResult, type DiagAnswers, type DiagQuestion, type SalesAxisKey,
-} from '@/lib/salesDiagnostic'
-import { getProOverview } from '@/lib/proApi'
+  SM_AXES, SM_CLASSIFY, SM_LEVEL_META, SM_QUESTIONS,
+  classifyComplete, isB2C, smAllAnswered, smAnsweredScored, smLevelOf, smOverall, smResults,
+  type SmAnswers, type SmAxisResult, type SmQuestion,
+} from '@/lib/salesMaturity'
 import { createInitiative, getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
-import { Button } from '@/components/ui/button'
-import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
 
-// ─── تشخيص المبيعات التكيّفي (المرحلة ٢: المعالج) ───────────────────
-// يحلّ محلّ التحليل العميق للمبيعات. wizard تكيّفي: كل إجابة تكشف التالي،
-// ومعها التشخيص + الحلّ. يُخزَّن في DEPT_DEEP_FULL بشكل متوافق (answers)
-// حتى لا يكسر مستهلكيه (SWOT/PESTEL/البيئة الداخليّة).
+// ─── نضج المبيعات الموزون داخل التطبيق (لكل عميل) ───────────────────
+// يحلّ محلّ التحليل العميق للمبيعات. تصنيف تكيّفي (قطاع→نوع→عميل) ثم ١٧
+// سؤالاً على ٥ محاور بأوزان → نضج موزون + تقرير + مبادرات لأضعف المحاور.
+// يُخزَّن في DEPT_DEEP_FULL: answers (نصوص للمستهلكين) + answerIdx (للمحرّك).
 
-interface DiagData {
+interface SmArtifactData {
   deptCode: string
-  answers: DiagAnswers
-  scores?: Record<string, number | null>
+  answers?: Record<string, string>       // تسميات — لتوافق SWOT/PESTEL
+  answerIdx?: SmAnswers                   // فهارس — للمحرّك
+  overallPct?: number
   diagnosticVersion?: string
+}
+
+// نبني خريطة تسميات (qid → نصّ الخيار) للتخزين المتوافق.
+function labelMap(answers: SmAnswers): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const q of SM_CLASSIFY) {
+    const idx = answers[q.id]
+    if (idx != null) out[q.id] = q.optionsFor(answers)[idx]?.label ?? ''
+  }
+  for (const q of SM_QUESTIONS) {
+    const idx = answers[q.id]
+    if (idx != null) out[q.id] = q.options[idx]?.label ?? ''
+  }
+  return out
 }
 
 export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {}) {
   const scope = useClientScopedCompany()
   const company = scope.company
-  const [answers, setAnswers] = useState<DiagAnswers>({})
+  const [answers, setAnswers] = useState<SmAnswers>({})
   const [loading, setLoading] = useState(true)
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [auditHealth, setAuditHealth] = useState<number | null>(null)
   const [generating, setGenerating] = useState(false)
   const [generatedCount, setGeneratedCount] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -49,14 +62,12 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     skipFirst.current = true
     ;(async () => {
       try {
-        const art = await getArtifact<DiagData>(company.id, 'DEPT_DEEP_FULL')
+        const art = await getArtifact<SmArtifactData>(company.id, 'DEPT_DEEP_FULL')
         if (cancel) return
-        if (art?.data?.deptCode === 'SALES' && art.data.answers && typeof art.data.answers === 'object') {
-          // نأخذ فقط قيم النصوص المطابقة لمفاتيح التشخيص (تجاهل أي شكل قديم).
-          const clean: DiagAnswers = {}
-          for (const [k, v] of Object.entries(art.data.answers)) {
-            if (typeof v === 'string') clean[k] = v
-          }
+        const idx = art?.data?.deptCode === 'SALES' ? art.data.answerIdx : null
+        if (idx && typeof idx === 'object') {
+          const clean: SmAnswers = {}
+          for (const [k, v] of Object.entries(idx)) if (typeof v === 'number') clean[k] = v
           setAnswers(clean)
         }
       } catch (err) {
@@ -68,7 +79,6 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     return () => { cancel = true }
   }, [company, scope.loading])
 
-  // حفظ آلي بعد 1000ms — يخزّن الإجابات + الدرجات المحسوبة.
   useEffect(() => {
     if (!company || loading) return
     if (skipFirst.current) { skipFirst.current = false; return }
@@ -76,46 +86,27 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     timer.current = setTimeout(async () => {
       setAutosave('saving')
       try {
-        const scores = Object.fromEntries(computeResults(answers).map((r) => [r.axis, r.score]))
-        const payload: DiagData = { deptCode: 'SALES', answers, scores, diagnosticVersion: 'sales-adaptive' }
-        await upsertArtifact<DiagData>(company.id, 'DEPT_DEEP_FULL', payload)
+        const payload: SmArtifactData = {
+          deptCode: 'SALES', answerIdx: answers, answers: labelMap(answers),
+          overallPct: smOverall(answers), diagnosticVersion: 'sales-maturity',
+        }
+        await upsertArtifact<SmArtifactData>(company.id, 'DEPT_DEEP_FULL', payload)
         setAutosave('saved')
-      } catch {
-        setAutosave('error')
-      }
+      } catch { setAutosave('error') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [answers, company, loading])
 
-  // مصالحة عرضيّة مع صحّة التدقيق (بلا دمج رقمي) — best-effort.
-  useEffect(() => {
-    if (!company) return
-    let cancel = false
-    getProOverview()
-      .then((res) => {
-        if (cancel) return
-        const c = res.clients.find((x) => x.companyId === company.id)
-        setAuditHealth(c?.healthPct ?? null)
-      })
-      .catch(() => undefined)
-    return () => { cancel = true }
-  }, [company])
-
-  const results = useMemo(() => computeResults(answers), [answers])
-  const overall = overallScore(answers)
-  const completedAxes = SALES_AXES.filter((a) => axisComplete(a.key, answers)).length
-  const allComplete = allAxesComplete(answers)
-
-  function choose(qid: string, value: string) {
-    // تغيير إجابة أعلى قد يُيتّم إجابات أعمق — لكنها تُتجاهَل تلقائياً في
-    // axisFlow/axisScore (لا تُعرَض ولا تُحسَب)، فلا حاجة لمسحها يدوياً.
-    setAnswers((prev) => (prev[qid] === value ? prev : { ...prev, [qid]: value }))
+  function choose(qid: string, optionIndex: number) {
+    setAnswers((prev) => (prev[qid] === optionIndex ? prev : { ...prev, [qid]: optionIndex }))
     setGeneratedCount(null)
   }
 
-  // ─── المرحلة ٤: توليد خطة ٩٠ يوم كمبادرات فعليّة ─────────────────
-  // كل حلّ في المحاور الحمراء/الصفراء → مبادرة (الأولويّة من شدّة المحور).
-  // تتدفّق بعدها للمهام عبر «اجلب حسب الأولويّة» الذي بنيناه. تجاهُل المكرّر.
+  const results = useMemo(() => smResults(answers), [answers])
+  const overall = smOverall(answers)
+  const classified = classifyComplete(answers)
+  const b2c = isB2C(answers)
+
   async function generatePlan() {
     if (!company) return
     setGenerating(true)
@@ -123,50 +114,43 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
       const existing = await listInitiatives(company.id).catch(() => [])
       const existingTitles = new Set(existing.map((i) => i.title.trim()))
       const targets = results
-        .filter((r) => r.zone === 'red' || r.zone === 'yellow')
-        .sort((a, b) => (a.score ?? 100) - (b.score ?? 100))
-      const seen = new Set<string>()
+        .filter((r) => r.answered > 0 && (r.level === 'start' || r.level === 'growth'))
+        .sort((a, b) => a.pct - b.pct)
       let created = 0
       for (const r of targets) {
-        for (const sol of r.solutions) {
-          const title = sol.trim()
-          if (!title || seen.has(title) || existingTitles.has(title)) continue
-          seen.add(title)
-          try {
-            await createInitiative({
-              companyId: company.id,
-              title: title.slice(0, 120),
-              description: `من تشخيص المبيعات — المحور ${r.labelAr} (${r.score}٪ · ${r.zone === 'red' ? 'حرج' : 'متوسّط'})`,
-              priority: r.zone === 'red' ? 'critical' : 'high',
-              level: 'operational',
-            })
-            created++
-          } catch { /* skip */ }
-        }
+        const title = `تحسين ${r.labelAr}: ${r.recommendation}`.slice(0, 120)
+        if (existingTitles.has(title)) continue
+        try {
+          await createInitiative({
+            companyId: company.id,
+            title,
+            description: `من نضج المبيعات — المحور «${r.labelAr}» (${r.pct}٪ · ${SM_LEVEL_META[r.level].labelAr})`,
+            priority: r.level === 'start' ? 'critical' : 'high',
+            level: 'operational',
+          })
+          created++
+        } catch { /* skip */ }
       }
       setGeneratedCount(created)
-      if (created > 0) toast.success(`📥 ولّدت ${created} مبادرة من التشخيص — رتّبها ونفّذها من صفحة المبادرات.`)
-      else toast.message('كل مبادرات التشخيص موجودة سلفاً.')
+      if (created > 0) toast.success(`📥 ولّدت ${created} مبادرة لأضعف محاورك — نفّذها من المبادرات.`)
+      else toast.message('كل المبادرات موجودة سلفاً.')
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر توليد الخطة'))
-    } finally {
-      setGenerating(false)
-    }
+    } finally { setGenerating(false) }
   }
 
   if (scope.loading || loading) {
     return (
       <div className="flex flex-col gap-6">
-        {!embedded && <PageHeader title="🔬 تشخيص المبيعات" />}
+        {!embedded && <PageHeader title="🔬 نضج المبيعات" />}
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" label="جاري التحميل…" /></div>
       </div>
     )
   }
-
   if (!company) {
     return (
       <div className="flex flex-col gap-6">
-        {!embedded && <PageHeader title="🔬 تشخيص المبيعات" />}
+        {!embedded && <PageHeader title="🔬 نضج المبيعات" />}
         <Card className="border-rose-200 bg-rose-50/50">
           <CardHeader>
             <CardTitle className="text-rose-900">لا يوجد عميل محدّد</CardTitle>
@@ -177,73 +161,87 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
     )
   }
 
+  const overallLevel = SM_LEVEL_META[smLevelOf(overall)]
+  const hasWeak = results.some((r) => r.answered > 0 && (r.level === 'start' || r.level === 'growth'))
+
   return (
     <div className="flex flex-col gap-6">
       {!embedded && (
-        <PageHeader
-          title="🔬 تشخيص المبيعات التكيّفي"
-          description="خمسة محاور تُكشف تدريجياً — كل إجابة تفتح التالية، ومعها التشخيص والحلّ."
-        />
+        <PageHeader title="🔬 نضج المبيعات" description="تصنيف نشاطك ثم تقييم موزون على ٥ محاور → نضج وتقرير وخطّة." />
       )}
 
-      {/* شريط التقدّم + الدرجة الكليّة الحيّة */}
+      {/* شريط النضج الموزون الحيّ */}
       <Card className="border-primary/30 bg-gradient-to-l from-primary/5 to-transparent">
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div>
-            <div className="text-sm font-bold">تقدّم التشخيص</div>
-            <div className="text-xs text-muted-foreground">
-              أكملت <b className="text-foreground tabular-nums">{completedAxes}</b> من {SALES_AXES.length} محاور
+        <CardContent className="p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-bold">نضج المبيعات (موزون)</div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">
+                {autosave === 'saving' ? '⏳ حفظ…' : autosave === 'saved' ? '✓ محفوظ' : autosave === 'error' ? '⚠️ فشل' : ''}
+              </span>
+              <span className={`rounded-full border px-3 py-1 text-sm font-bold tabular-nums ${overallLevel.cls}`}>
+                {overallLevel.emoji} {overall}٪ · {overallLevel.labelAr}
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">
-              {autosave === 'saving' ? '⏳ حفظ…' : autosave === 'saved' ? '✓ محفوظ' : autosave === 'error' ? '⚠️ فشل الحفظ' : ''}
-            </span>
-            {overall != null && (
-              <span className={`rounded-full border px-3 py-1 text-sm font-bold tabular-nums ${ZONE_META[zoneOf(overall)!].cls}`}>
-                {ZONE_META[zoneOf(overall)!].emoji} {overall}٪
-              </span>
-            )}
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-gradient-to-l from-primary to-emerald-500 transition-all" style={{ width: `${overall}%` }} />
           </div>
         </CardContent>
       </Card>
 
-      {SALES_AXES.map((axis) => (
-        <AxisCard
-          key={axis.key}
-          axisKey={axis.key}
-          icon={axis.icon}
-          labelAr={axis.labelAr}
-          answers={answers}
-          onChoose={choose}
-          score={results.find((r) => r.axis === axis.key)?.score ?? null}
-        />
-      ))}
+      {/* التصنيف التكيّفي */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">🏷️ تصنيف نشاطك</CardTitle>
+          <CardDescription className="text-xs">يخصّص صياغة الأسئلة (لا يدخل في الدرجة).</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {SM_CLASSIFY.map((cq, i) => {
+            // نكشف السؤال فقط إذا سبقه مُجاب (تكيّفي).
+            if (i > 0 && answers[SM_CLASSIFY[i - 1].id] == null) return null
+            const opts = cq.optionsFor(answers)
+            return (
+              <div key={cq.id} className="rounded-xl border bg-card p-3">
+                <div className="mb-2 text-sm font-medium">{cq.prompt}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {opts.map((o, idx) => (
+                    <button key={o.value} type="button" onClick={() => choose(cq.id, idx)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${answers[cq.id] === idx ? 'border-primary bg-primary/10 font-medium' : 'bg-card hover:border-primary/40 hover:bg-muted/40'}`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
 
-      <ReportCard results={results} overall={overall} auditHealth={auditHealth} allComplete={allComplete} />
+      {/* المحاور المُسجَّلة — تظهر بعد اكتمال التصنيف */}
+      {classified && SM_AXES.map((axis) => {
+        const r = results.find((x) => x.key === axis.key)!
+        return (
+          <AxisCard key={axis.key} axis={axis} result={r} answers={answers} b2c={b2c} onChoose={choose} />
+        )
+      })}
 
-      {/* المرحلة ٤: توليد الخطة كمبادرات */}
-      {results.some((r) => r.zone === 'red' || r.zone === 'yellow') && (
+      {classified && <ReportCard results={results} overall={overall} allComplete={smAllAnswered(answers)} answeredScored={smAnsweredScored(answers)} />}
+
+      {hasWeak && (
         <Card className="overflow-hidden border-2 border-emerald-300 bg-emerald-50/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="min-w-0">
-              <div className="text-sm font-bold text-emerald-900">🗓️ حوّل التشخيص إلى خطّة ٩٠ يوم</div>
-              <p className="mt-0.5 text-xs text-emerald-800/80">
-                نُنشئ مبادرة لكل حلّ في المحاور الحمراء/الصفراء (الأولويّة من شدّة المحور)،
-                ثم تجلبها كمهام من صفحة المبادرات.
-                {!allComplete && <b> أكمل كل المحاور أوّلاً لخطّة شاملة.</b>}
-              </p>
+              <div className="text-sm font-bold text-emerald-900">🗓️ حوّل أضعف محاورك إلى خطّة</div>
+              <p className="mt-0.5 text-xs text-emerald-800/80">مبادرة لكل محور «بداية/نمو» (الأولويّة من شدّته) → تُجلب كمهام.</p>
               {generatedCount != null && generatedCount > 0 && (
                 <div className="mt-1 text-xs font-medium text-emerald-800">
-                  ✓ أُنشئت {generatedCount} مبادرة ·{' '}
-                  <Link to={`/priority?tab=initiatives&client=${company.id}`} className="underline underline-offset-2">
-                    افتح المبادرات ←
-                  </Link>
+                  ✓ أُنشئت {generatedCount} مبادرة · <Link to={`/priority?tab=initiatives&client=${company.id}`} className="underline underline-offset-2">افتح المبادرات ←</Link>
                 </div>
               )}
             </div>
             <Button onClick={generatePlan} disabled={generating} size="lg" className="bg-emerald-600 hover:bg-emerald-700">
-              {generating ? 'جاري التوليد…' : '📥 ولّد الخطة كمبادرات'}
+              {generating ? 'جاري التوليد…' : '📥 ولّد خطّة التحسين'}
             </Button>
           </CardContent>
         </Card>
@@ -252,159 +250,103 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
   )
 }
 
-// ─── تقرير النتيجة — بطاقة أداء المحاور الخمسة (المرحلة ٣) ───────────
-function ReportCard({
-  results, overall, auditHealth, allComplete,
-}: {
-  results: AxisResult[]
-  overall: number | null
-  auditHealth: number | null
-  allComplete: boolean
+function AxisCard({ axis, result, answers, b2c, onChoose }: {
+  axis: (typeof SM_AXES)[number]
+  result: SmAxisResult
+  answers: SmAnswers
+  b2c: boolean
+  onChoose: (qid: string, idx: number) => void
 }) {
-  const scored = results.filter((r) => r.score != null)
-  if (scored.length === 0) return null
-  // ترتيب الأولويّة: الأحمر أوّلاً ثم الأصفر (الأدنى درجةً أعلى أولويّة).
-  const ranked = [...scored].sort((a, b) => (a.score ?? 100) - (b.score ?? 100))
-
+  const started = result.answered > 0
+  const m = SM_LEVEL_META[result.level]
+  const questions = axis.questionIds.map((id) => SM_QUESTIONS.find((q) => q.id === id)!).filter(Boolean)
   return (
-    <Card className="overflow-hidden border-2 border-primary/40">
-      <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-sky-500" />
+    <Card className={`overflow-hidden border-2 ${started ? m.cls.split(' ')[0] : 'border-border'}`}>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          📊 تقرير تشخيص المبيعات
-          {overall != null && zoneOf(overall) && (
-            <span className={`rounded-full border px-2.5 py-0.5 text-sm font-bold tabular-nums ${ZONE_META[zoneOf(overall)!].cls}`}>
-              الإجمالي {ZONE_META[zoneOf(overall)!].emoji} {overall}٪
-            </span>
+          <span aria-hidden>{axis.icon}</span>
+          <span>المحور {axis.labelAr}</span>
+          <span className="rounded-full border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">وزن {axis.weight}٪</span>
+          {started && (
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums ${m.cls}`}>{m.emoji} {result.pct}٪</span>
           )}
         </CardTitle>
-        <CardDescription>
-          {allComplete ? 'التشخيص مكتمل — مرتّب حسب الأولويّة (الأحمر أوّلاً).' : `أكملت ${scored.length}/${SALES_AXES.length} محاور — أكمل الباقي لتقرير كامل.`}
-        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {ranked.map((r) => (
-          <div key={r.axis} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${r.zone ? ZONE_META[r.zone].cls.split(' ')[0] : ''}`}>
-            <span className="text-lg" aria-hidden>{r.icon}</span>
-            <span className="min-w-[90px] text-sm font-semibold">{r.labelAr}</span>
-            {r.zone && (
-              <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums ${ZONE_META[r.zone].cls}`}>
-                {ZONE_META[r.zone].emoji} {r.score}٪ · {ZONE_META[r.zone].labelAr}
-              </span>
-            )}
-            {r.solutions.length > 0 && (
-              <span className="flex-1 text-xs text-muted-foreground">
-                <b className="text-foreground">أولى الخطوات:</b> {r.solutions[0]}
-              </span>
-            )}
-          </div>
+      <CardContent className="grid gap-3">
+        {questions.map((q) => (
+          <QuestionRow key={q.id} q={q} b2c={b2c} selected={answers[q.id] ?? null} onChoose={(idx) => onChoose(q.id, idx)} />
         ))}
+      </CardContent>
+    </Card>
+  )
+}
 
-        {/* مصالحة عرضيّة مع التدقيق — بلا دمج رقمي */}
-        {auditHealth != null && (
-          <div className="mt-1 rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-            🔗 للسياق: <b className="text-foreground tabular-nums">تدقيقك العام {Math.round(auditHealth)}٪</b> —
-            التشخيص أعلاه يفصّلها على ٥ محاور مبيعات (رقمان مستقلّان، لا يُدمَجان).
+function QuestionRow({ q, b2c, selected, onChoose }: {
+  q: SmQuestion; b2c: boolean; selected: number | null; onChoose: (idx: number) => void
+}) {
+  const prompt = b2c && q.promptB2C ? q.promptB2C : q.prompt
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <div className="mb-2 text-sm font-medium">{prompt}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {q.options.map((o, idx) => (
+          <button key={idx} type="button" onClick={() => onChoose(idx)}
+            className={`rounded-lg border px-3 py-1.5 text-xs transition ${selected === idx ? 'border-primary bg-primary/10 font-medium' : 'bg-card hover:border-primary/40 hover:bg-muted/40'}`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ReportCard({ results, overall, allComplete, answeredScored }: {
+  results: SmAxisResult[]; overall: number; allComplete: boolean; answeredScored: number
+}) {
+  const scored = results.filter((r) => r.answered > 0)
+  if (scored.length === 0) return null
+  const level = SM_LEVEL_META[smLevelOf(overall)]
+  const priorities = [...scored].sort((a, b) => a.pct - b.pct).filter((r) => r.level === 'start' || r.level === 'growth')
+  return (
+    <Card className="overflow-hidden border-2 border-primary/40">
+      <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-emerald-500" />
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          📊 تقرير نضج المبيعات
+          <span className={`rounded-full border px-2.5 py-0.5 text-sm font-bold tabular-nums ${level.cls}`}>{level.emoji} {overall}٪ · {level.labelAr}</span>
+        </CardTitle>
+        <CardDescription>{allComplete ? 'التقييم مكتمل — نضج موزون على ٥ محاور.' : `أجبت ${answeredScored}/${SM_QUESTIONS.length} سؤالاً — أكمل لتقرير دقيق.`}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          {results.map((r) => {
+            const m = SM_LEVEL_META[r.level]
+            return (
+              <div key={r.key} className="flex items-center gap-2">
+                <span className="w-28 shrink-0 truncate text-xs font-medium">{r.icon} {r.labelAr}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div className={`h-full ${m.cls.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'}`} style={{ width: `${r.pct}%` }} />
+                </div>
+                <span className="w-10 shrink-0 text-center text-[10px] text-muted-foreground">و{r.weight}٪</span>
+                <span className={`w-14 shrink-0 rounded border px-1 py-0.5 text-center text-[10px] font-bold tabular-nums ${m.cls}`}>{m.emoji} {r.pct}٪</span>
+              </div>
+            )
+          })}
+        </div>
+        {priorities.length > 0 && (
+          <div className="rounded-lg border border-dashed bg-muted/30 p-3">
+            <div className="mb-1.5 text-xs font-bold">⚠️ أولويّات التحسين (الأضعف أوّلاً):</div>
+            <ol className="space-y-1.5 text-xs text-muted-foreground">
+              {priorities.map((r, i) => (
+                <li key={r.key} className="flex items-start gap-2">
+                  <span className="font-bold text-foreground tabular-nums">{i + 1}.</span>
+                  <span><b className="text-foreground">{r.labelAr} ({r.pct}٪):</b> {r.recommendation}</span>
+                </li>
+              ))}
+            </ol>
           </div>
         )}
       </CardContent>
     </Card>
-  )
-}
-
-// ─── بطاقة محور — تعرض تسلسل أسئلته التكيّفي ────────────────────────
-function AxisCard({
-  axisKey, icon, labelAr, answers, onChoose, score,
-}: {
-  axisKey: SalesAxisKey
-  icon: string
-  labelAr: string
-  answers: DiagAnswers
-  onChoose: (qid: string, value: string) => void
-  score: number | null
-}) {
-  const flow = axisFlow(axisKey, answers)
-  const zone = zoneOf(score)
-  const complete = axisComplete(axisKey, answers)
-
-  return (
-    <Card className={`overflow-hidden border-2 ${zone ? ZONE_META[zone].cls.split(' ')[0] : 'border-border'}`}>
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          <span aria-hidden>{icon}</span>
-          <span>المحور {labelAr}</span>
-          {score != null && zone && (
-            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums ${ZONE_META[zone].cls}`}>
-              {ZONE_META[zone].emoji} {score}٪
-            </span>
-          )}
-          {complete && <span className="text-[11px] text-emerald-600">✓ مكتمل</span>}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        {flow.map((q, i) => (
-          <QuestionBlock
-            key={q.id}
-            q={q}
-            index={i}
-            selected={answers[q.id] ?? null}
-            onChoose={(v) => onChoose(q.id, v)}
-          />
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
-function QuestionBlock({
-  q, index, selected, onChoose,
-}: {
-  q: DiagQuestion
-  index: number
-  selected: string | null
-  onChoose: (value: string) => void
-}) {
-  const chosen = selected ? q.options.find((o) => o.value === selected) : undefined
-  return (
-    <div className={`rounded-xl border p-3 ${index > 0 ? 'bg-muted/20' : 'bg-card'}`}>
-      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-        {index > 0 && <span className="text-[10px] text-muted-foreground">↳ عمّق أكثر</span>}
-        <span>{q.prompt}</span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {q.options.map((o) => {
-          const active = selected === o.value
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onChoose(o.value)}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-right text-sm transition ${
-                active ? 'border-primary bg-primary/10 font-medium' : 'bg-card hover:border-primary/40 hover:bg-muted/40'
-              }`}
-            >
-              <span className={`grid size-4 shrink-0 place-items-center rounded-full border ${active ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>
-                {active && <span className="size-1.5 rounded-full bg-primary-foreground" />}
-              </span>
-              <span className="flex-1">{o.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* التشخيص + الحلّ بعد الاختيار */}
-      {chosen && (chosen.hint || chosen.solution) && (
-        <div className="mt-2 space-y-1.5">
-          {chosen.hint && (
-            <div className="rounded-lg border bg-card px-3 py-1.5 text-xs text-muted-foreground">{chosen.hint}</div>
-          )}
-          {chosen.solution && (
-            <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-1.5 text-xs text-emerald-900">
-              <b>💡 الحلّ:</b> {chosen.solution}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
   )
 }
