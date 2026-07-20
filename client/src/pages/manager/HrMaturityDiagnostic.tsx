@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   HR_LEVEL_META, HR_SECTIONS,
-  computeHrOverall, computeHrResults, levelOf,
+  computeHrOverall, computeHrResults, hrAllAnswered, levelOf,
   type HrAnswers, type HrQuestion, type HrSection,
 } from '@/lib/hrMaturity'
 
@@ -129,5 +129,84 @@ function QuestionRow({
         })}
       </div>
     </div>
+  )
+}
+
+// ─── تقرير النضج (المرحلة ٣) ────────────────────────────────────────
+// يعرض: النضج الكلّي + التصنيف · أقوى/أضعف قسم · شريط لكل قسم مرتّب
+// بالأضعف أوّلاً · توصيات تلقائيّة لأضعف الأقسام.
+export function HrMaturityReport({ answers }: { answers: HrAnswers }) {
+  const results = computeHrResults(answers)
+  const overall = computeHrOverall(answers)
+  if (overall.answeredTotal === 0) return null
+  const level = HR_LEVEL_META[overall.level]
+  const ranked = [...results].sort((a, b) => a.pct - b.pct) // الأضعف أوّلاً
+  const complete = hrAllAnswered(answers)
+  // توصيات: أضعف ٣ أقسام (ناشئة/ضعيفة).
+  const weakRecs = ranked.filter((r) => r.level === 'weak' || r.level === 'emerging').slice(0, 3)
+
+  return (
+    <Card className="overflow-hidden border-2 border-primary/40">
+      <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-emerald-500" />
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          📊 تقرير نضج الموارد البشريّة
+          <span className={`rounded-full border px-2.5 py-0.5 text-sm font-bold tabular-nums ${level.cls}`}>
+            {level.emoji} {overall.maturityPct}٪ · {level.labelAr}
+          </span>
+        </CardTitle>
+        <CardDescription>
+          {complete ? 'التقييم مكتمل — الأقسام مرتّبة بالأضعف أوّلاً.' : `أجبت ${overall.answeredTotal}/${overall.totalQuestions} — أكمل لتقرير دقيق.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* أقوى / أضعف */}
+        <div className="flex flex-wrap gap-2 text-xs">
+          {overall.strongest && (
+            <span className="rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-1.5 text-emerald-900">
+              💪 الأقوى: <b>{overall.strongest.labelAr}</b> ({overall.strongest.pct}٪)
+            </span>
+          )}
+          {overall.weakest && (
+            <span className="rounded-lg border border-rose-300 bg-rose-50/60 px-3 py-1.5 text-rose-900">
+              🎯 الأضعف: <b>{overall.weakest.labelAr}</b> ({overall.weakest.pct}٪)
+            </span>
+          )}
+        </div>
+
+        {/* أشرطة الأقسام */}
+        <div className="space-y-1.5">
+          {ranked.map((r) => {
+            const m = HR_LEVEL_META[r.level]
+            return (
+              <div key={r.key} className="flex items-center gap-2">
+                <span className="w-32 shrink-0 truncate text-xs font-medium">{r.icon} {r.labelAr}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div className={`h-full ${m.cls.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'}`} style={{ width: `${r.pct}%` }} />
+                </div>
+                <span className={`w-16 shrink-0 rounded border px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums ${m.cls}`}>
+                  {m.emoji} {r.pct}٪
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* توصيات تلقائيّة */}
+        {weakRecs.length > 0 && (
+          <div className="rounded-lg border border-dashed bg-muted/30 p-3">
+            <div className="mb-1.5 text-xs font-bold">💡 توصيات الأولويّة (أضعف الأقسام):</div>
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {weakRecs.map((r) => (
+                <li key={r.key} className="flex items-start gap-2">
+                  <span aria-hidden>{r.icon}</span>
+                  <span><b className="text-foreground">{r.labelAr} ({r.pct}٪):</b> {r.recommendation}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
