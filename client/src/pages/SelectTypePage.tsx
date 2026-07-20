@@ -121,6 +121,8 @@ export function SelectTypePage() {
 
   const chooseSpecialty = (s: SpecialtyDeptType) => {
     setSelectedSpecialty(s)
+    // HR: جرّب تقييم النضج «قبل التسجيل» أوّلاً (التخصّص محفوظ فيلتقطه /join لاحقاً).
+    if (s === 'HR') { navigate('/diagnostic/hr'); return }
     navigate('/join')
   }
 
