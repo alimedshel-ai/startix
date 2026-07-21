@@ -400,22 +400,14 @@ function Editor({ companyId }: { companyId: string }) {
           <b className="text-foreground">{total}</b> استراتيجيّة موزّعة على ٤ أرباع
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* روابط «التالي» المكرّرة تُخفى للمدير المستقل — بطاقة الخطوة التالية
-              أعلى الصفحة هي الإجراء الواحد (§٤). يبقى زر الحفظ فقط. */}
-          {!guided && total > 0 && (
-            <Link
-              to={`/priority?tab=initiatives${clientQuery}`}
-              className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
-            >
-              💡 اذهب إلى المبادرات ←
-            </Link>
-          )}
+          {/* المدير المستقل: بطاقة الخطوة التالية أعلى الصفحة (واعية بالمسار) هي
+              الإجراء الواحد. غيره: زرّ «التالي» واحد واضح = التوجّه (المرحلة ③). */}
           {!guided && (
             <Link
               to={`/directions${clientQuery ? `?${clientQuery.slice(1)}` : ''}`}
-              className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
+              className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10"
             >
-              🧭 التوجّه ←
+              التالي: 🧭 التوجّه والخيارات ←
             </Link>
           )}
           <Button onClick={save} disabled={saving} size="lg">
