@@ -767,16 +767,26 @@ export function StrategicPlanPage() {
         )
       })()}
 
-      {/* ─── توصيات المسار — شبكة عمودين لتنظيم أوضح ─── */}
-      <div className="flex items-center gap-2 pt-1">
-        <span className="text-sm font-bold">📋 توصيات مسار {path.shortName}</span>
-        <span className="h-px flex-1 bg-border" />
+      {/* ─── توصيات المسار — المحتوى الجاهز لخطوات الإنقاذ (لا خطوات جديدة) ─── */}
+      <div className="pt-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold">📋 محتوى جاهز لخطوات {path.shortName}</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        {isEmergency && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            هذه ليست خطوات إضافيّة — بل <b className="text-foreground">ما تكتبه داخل</b> خطوات الإنقاذ أعلاه (كل بطاقة موسومة بخطوتها).
+          </p>
+        )}
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-2">
       {/* الأولويات — الآن ترتبط بأيزنهاور لفرزها كمهام */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">🎯 الأولويات — ما يجب التركيز عليه</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            🎯 الأولويات — ما يجب التركيز عليه
+            {isEmergency && <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-normal text-rose-700">🔗 مادّة الخطوة ٢ · أيزنهاور</span>}
+          </CardTitle>
           <CardDescription>مرتّبة حسب الأثر على مسار {path.shortName}.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -804,7 +814,10 @@ export function StrategicPlanPage() {
       {/* المبادرات المقترحة */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">💡 المبادرات المقترحة</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            💡 المبادرات المقترحة
+            {isEmergency && <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-normal text-rose-700">🔗 بعد الفرز — تُنشئها كمبادرات</span>}
+          </CardTitle>
           <CardDescription>مبادرات ملموسة تفعّلها من صفحة "المبادرات".</CardDescription>
         </CardHeader>
         <CardContent>
@@ -829,7 +842,10 @@ export function StrategicPlanPage() {
       {/* KPIs — الآن يرتبط بمركز القياس */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">📊 مؤشرات الأداء الموصى بها</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            📊 مؤشرات الأداء الموصى بها
+            {isEmergency && <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-normal text-rose-700">🔗 للمتابعة الأسبوعيّة</span>}
+          </CardTitle>
           <CardDescription>
             مقترحات لمسار {path.shortName}
             {kpiHints.length > 0 ? ' + معايير خاصّة بتخصّصك' : ''}.
@@ -872,7 +888,10 @@ export function StrategicPlanPage() {
       {/* المخاطر — الآن ترتبط بخريطة المخاطر مباشرةً */}
       <Card className={isEmergency ? 'border-rose-300 bg-rose-50/40' : 'border-amber-200 bg-amber-50/40'}>
         <CardHeader>
-          <CardTitle className="text-base">⚠️ مخاطر ينبغي الانتباه لها</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            ⚠️ مخاطر ينبغي الانتباه لها
+            {isEmergency && <span className="rounded-full border border-rose-400 bg-rose-100 px-2 py-0.5 text-[10px] font-normal text-rose-800">🔗 مادّة الخطوة ١ · خريطة المخاطر</span>}
+          </CardTitle>
           <CardDescription>راقب هذه المؤشرات أثناء تنفيذ الخطة.</CardDescription>
         </CardHeader>
         <CardContent>
