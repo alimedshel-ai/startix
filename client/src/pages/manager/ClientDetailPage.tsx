@@ -440,6 +440,21 @@ function ClientDetailContent(p: {
         </div>
       )}
 
+      {/* ═══ التسلسل الكامل والأدوات — مطويّ افتراضياً ═══════════════
+         قرار بنيويّ: أعلى الصفحة يعرض *مكاناً واحداً للبدء* (البطاقة
+         الموجّهة + شريط «أنت هنا»). كل بطاقات المراحل والأدوات المرقّمة
+         — التي كانت تتنافس بـ«ابدأ» متعدّدة — تنطوي هنا خلف زرّ واحد؛
+         متاحة عند الحاجة، بلا تشتيت المدير عن الخطوة الفوريّة. */}
+      <details className="group rounded-xl border bg-card/40">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold transition hover:bg-accent/40">
+          <span className="flex items-center gap-2">
+            🗺️ عرض التسلسل الكامل والأدوات
+            <span className="rounded-full border bg-card px-2 py-0.5 text-[10px] font-normal text-muted-foreground">١٠ مراحل مرقّمة + أدوات مساندة</span>
+          </span>
+          <span className="text-xs text-muted-foreground transition group-open:rotate-180">▼</span>
+        </summary>
+        <div className="space-y-6 border-t p-4">
+
       {/* ─── المسار الاستراتيجي الموصى به ─────────────────────────
          بطاقة تحدّد لو الوضع يحتاج خطة عاجلة (٩٠ يوم) أو تأسيسية
          (٦ أشهر) أو نموّ (١٢ شهر) أو تميّز (١٨ شهر). المدير الخبير
@@ -618,6 +633,9 @@ function ClientDetailContent(p: {
           />
         </div>
       </div>
+
+        </div>
+      </details>
 
       {/* ═══ أدوات متقدّمة (اختياريّة) — مطويّة افتراضياً لإزالة التشتّت ═══
          ليست جزءاً من التسلسل الأساسيّ المرقّم؛ تُعمّق التحليل حين يحتاجه
