@@ -230,6 +230,27 @@ export function ProjectDetailPage() {
     toast.success(added ? `أُضيفت ${added} مهمّة من التحليل` : 'كل المهام مضافة سلفاً')
   }
 
+  // يمسح المهام الحاليّة (غير المناسبة) ويُنشئها من مهامّ التحليل مباشرةً.
+  function bodyNoteFor(st: InitiativeBreakdown['subTasks'][number]): string {
+    return `⏱ متوقّع: ${st.estimate} · نوع: ${st.kind}${st.component && st.component !== 'مشترك' ? ` · ضمن: ${st.component}` : ''}`
+  }
+  async function replaceTasksWithBreakdown() {
+    if (!breakdown || !project || !companyId) return
+    if (!confirm(`سيُحذف ${tasks.length} مهمّة حاليّة وتُستبدل بـ ${breakdown.subTasks.length} مهمّة من التحليل. متابعة؟`)) return
+    try {
+      await Promise.all(tasks.map((t) => deleteTask(t.id).catch(() => null)))
+      const created = await Promise.all(breakdown.subTasks.map((st) => createTask({
+        companyId, projectId: project.id, title: st.title, status: 'todo', priority: 'medium',
+        description: serializeBody({ note: bodyNoteFor(st), steps: [] }),
+      }).catch(() => null)))
+      const ok = created.filter((c): c is Task => c != null)
+      setTasks(ok)
+      toast.success(`استُبدلت المهام — ${ok.length} مهمّة جديدة من التحليل`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر استبدال المهام'))
+    }
+  }
+
   async function addTask() {
     setCreatingTask(true)
     try {
@@ -617,7 +638,14 @@ export function ProjectDetailPage() {
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <span className="text-xs font-bold">✅ مهامّ فرعيّة مقترحة</span>
-                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addAllBreakdownTasks}>＋ أضِف الكل</Button>
+                      <div className="flex gap-1.5">
+                        {tasks.length > 0 && (
+                          <Button size="sm" variant="outline" className="h-7 border-rose-300 text-[11px] text-rose-700 hover:bg-rose-50" onClick={replaceTasksWithBreakdown}>
+                            🗑️ امسح القديمة واستبدل
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addAllBreakdownTasks}>＋ أضِف الكل</Button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {breakdown.subTasks.map((st, i) => {
