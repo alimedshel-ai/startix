@@ -537,6 +537,11 @@ export function ProjectDetailPage() {
 
             {breakdown && (
               <div className="mt-3 space-y-3 border-t border-primary/20 pt-3">
+                {breakdown.heuristic && (
+                  <div className="rounded-md border border-sky-300 bg-sky-50 p-2 text-[11px] leading-relaxed text-sky-900">
+                    📐 تحليل تقديريّ (بدون ذكاء Claude). لنتائج أدقّ، أضِف <code>ANTHROPIC_API_KEY</code> في <code>server/.env</code> وأعِد التشغيل.
+                  </div>
+                )}
                 {/* الفهم + الحجم */}
                 <div className="rounded-md bg-card/70 p-2.5">
                   <div className="flex flex-wrap items-center gap-2">

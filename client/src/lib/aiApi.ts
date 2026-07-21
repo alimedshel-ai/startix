@@ -102,6 +102,8 @@ export interface InitiativeBreakdown {
   estimatedCost: string
   costNotes: string
   subTasks: { title: string; component: string; kind: string; estimate: string }[]
+  /** true حين بُني تقديريّاً بلا Claude (بلا مفتاح API). */
+  heuristic?: boolean
 }
 
 /** يفكّك مبادرة (قد تضمّ عدّة مواضيع) إلى خطّة عمل ذكيّة: مكوّنات/أقسام/جهات/

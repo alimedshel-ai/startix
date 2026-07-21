@@ -674,14 +674,119 @@ interface InitiativeBreakdown {
   estimatedCost: string;
   costNotes: string;
   subTasks: { title: string; component: string; kind: string; estimate: string }[];
+  /** true حين يُبنى محليّاً بلا Claude (تقديريّ) — الواجهة تُظهر شارة. */
+  heuristic?: boolean;
+}
+
+// ─── تحليل تقديريّ محليّ (بلا Claude) — يتحلّل بأمان عند غياب المفتاح ─────────
+// يفكّك العنوان إلى مكوّنات، ويستنتج الأقسام/الجهات/الأدوات/التكلفة والمهامّ
+// الفرعيّة (شراء/دفع/دعم/تكامل) من كلمات مفتاحيّة. أقلّ ذكاءً من Claude لكنّه
+// يمنع الطريق المسدود ويعطي نقطة انطلاق حقيقيّة.
+const HEURISTIC_DEPTS: { kw: string[]; dept: string }[] = [
+  { kw: ['شراء', 'مشتريات', 'مورد', 'مورّد', 'توريد', 'عقد', 'عرض أسعار'], dept: 'المشتريات' },
+  { kw: ['رواتب', 'مالي', 'ماليّ', 'دفع', 'بنك', 'تأمين', 'فاتورة', 'فوتر', 'محاسب', 'تكلفة', 'ميزاني'], dept: 'المالية' },
+  { kw: ['توظيف', 'تعيين', 'موظف', 'موارد بشرية', 'تدريب', 'self-service', 'hr'], dept: 'الموارد البشرية' },
+  { kw: ['نظام', 'رقمي', 'رقمنة', 'تقني', 'تقنية', 'برمج', 'تكامل', 'dashboard', 'منصّة', 'منصة', 'لوحة', 'software', 'erp', 'api', 'سيرفر', 'أمن'], dept: 'تقنية المعلومات' },
+  { kw: ['تسويق', 'مبيعات', 'عميل', 'عملاء', 'حملة', 'علامة'], dept: 'التسويق والمبيعات' },
+  { kw: ['عمليات', 'إنتاج', 'جودة', 'مخزون', 'لوجست', 'تشغيل'], dept: 'العمليات' },
+];
+
+function heuristicDeptFor(text: string): string {
+  const t = text.toLowerCase();
+  for (const e of HEURISTIC_DEPTS) if (e.kw.some((k) => t.includes(k))) return e.dept;
+  return 'الإدارة العامة';
+}
+
+function splitComponents(title: string): string[] {
+  // أزل الشارة والبادئة «…:» ثم قسّم على الفواصل الصريحة (+ ، ثم) دون «و» المتّصلة.
+  const body = title.replace(/^🔧\s*/, '').replace(/^\[[^\]]+\]\s*/, '').replace(/^[^:：]{3,40}[:：]\s*/, '');
+  return body
+    .split(/\s*\+\s*|\s*،\s*|\s+ثم\s+|\s*;\s*/)
+    .map((s) => s.trim().replace(/[.،]$/, ''))
+    .filter((s) => s.length > 2)
+    .slice(0, 8);
+}
+
+function buildHeuristicBreakdown(title: string, description?: string): InitiativeBreakdown {
+  const full = `${title} ${description ?? ''}`.toLowerCase();
+  const parts = splitComponents(title);
+  const components = (parts.length ? parts : [title]).map((p) => ({
+    title: p,
+    dept: heuristicDeptFor(p),
+    purpose: `تنفيذ «${p}» كجزء من المبادرة.`,
+  }));
+  const departments = Array.from(new Set(components.map((c) => c.dept)));
+
+  const needs = (kws: string[]) => kws.some((k) => full.includes(k));
+  const involvesSystem = needs(['نظام', 'رقمي', 'تقني', 'تكامل', 'dashboard', 'منصّة', 'منصة', 'برمج', 'erp', 'api', 'self-service']);
+  const involvesBuy = needs(['شراء', 'مشتريات', 'مورد', 'مورّد', 'توريد', 'عقد', 'ترخيص', 'اشتراك']);
+  const involvesPay = needs(['دفع', 'رواتب', 'بنك', 'فاتورة', 'فوتر', 'تكلفة', 'اشتراك', 'مالي']);
+  const involvesHR = needs(['توظيف', 'تعيين', 'تدريب', 'موظف', 'موارد بشرية']);
+
+  const stakeholders = new Set<string>(['إدارة العميل']);
+  if (involvesBuy || involvesSystem) { stakeholders.add('المشتريات'); stakeholders.add('مورّد/مزوّد النظام'); }
+  if (involvesPay) { stakeholders.add('الإدارة المالية'); stakeholders.add('البنك'); }
+  if (full.includes('تأمين')) stakeholders.add('التأمينات الاجتماعية (GOSI)');
+  if (involvesHR) stakeholders.add('الموارد البشرية');
+  if (involvesSystem) stakeholders.add('الدعم الفنّي/تقنية المعلومات');
+
+  const tools = new Set<string>();
+  if (involvesSystem) { tools.add('نظام/منصّة مناسبة (SaaS أو داخليّة)'); tools.add('واجهة تكامل (API)'); }
+  if (full.includes('dashboard') || full.includes('لوحة')) tools.add('لوحة مؤشّرات (Dashboard)');
+  if (involvesPay || full.includes('رواتب')) tools.add('نظام رواتب/مالي');
+  if (involvesBuy) tools.add('نموذج طلب شراء + مقارنة عروض');
+  if (!tools.size) tools.add('أدوات مكتبيّة (Excel/Sheets) + قالب متابعة');
+
+  const n = components.length;
+  const size = n >= 4 ? 'كبيرة' : n >= 2 ? 'متوسطة' : 'صغيرة';
+  const estimatedCost = n >= 4 ? '150,000–400,000 ريال' : n >= 2 ? '40,000–150,000 ريال' : '5,000–40,000 ريال';
+
+  const subTasks: InitiativeBreakdown['subTasks'] = [];
+  // مهمّة تنفيذ ملموسة لكل مكوّن.
+  for (const c of components) {
+    subTasks.push({ title: `حدّد متطلّبات «${c.title}» ونطاق تسليمه`, component: c.title, kind: 'تنفيذ', estimate: 'يوم' });
+  }
+  // مهامّ عابرة للمكوّنات — الشراء/الدفع/الدعم التي سأل عنها المستخدم صراحةً.
+  if (involvesBuy || involvesSystem) {
+    subTasks.push({ title: 'اطلب عروض أسعار من ٣ مورّدين وقارنها', component: 'مشترك', kind: 'شراء', estimate: 'يومان' });
+    subTasks.push({ title: 'ارفع طلب شراء واعتمد المورّد', component: 'مشترك', kind: 'موافقة', estimate: 'يوم' });
+  }
+  if (involvesPay) {
+    subTasks.push({ title: 'جهّز الدفعة الأولى ونفّذ الدفع للمورّد', component: 'مشترك', kind: 'دفع', estimate: 'نصف يوم' });
+  }
+  if (involvesSystem) {
+    subTasks.push({ title: 'اطلب دعم التكامل والربط مع الأنظمة القائمة', component: 'مشترك', kind: 'تكامل', estimate: '٣ أيام' });
+    subTasks.push({ title: 'نفّذ تشغيلاً تجريبيّاً ثم درّب المستخدمين', component: 'مشترك', kind: 'تدريب', estimate: 'يومان' });
+  }
+  subTasks.push({ title: 'عرّف مسؤول التشغيل والدعم بعد الإطلاق', component: 'مشترك', kind: 'دعم', estimate: 'ساعة' });
+
+  return {
+    understanding: `المبادرة تضمّ ${n} ${n === 1 ? 'مكوّناً' : 'مكوّنات'} رئيسيّة تشارك فيها ${departments.length} ${departments.length === 1 ? 'إدارة' : 'إدارات'}. الخطة أدناه تقديريّة لترتيب التنفيذ.`,
+    size,
+    sizeReason: `اشتُقّ الحجم من عدد المكوّنات (${n}) والجهات المشاركة (${stakeholders.size}).`,
+    components,
+    departments,
+    stakeholders: Array.from(stakeholders),
+    tools: Array.from(tools),
+    estimatedCost,
+    costNotes: 'تقدير مبدئيّ يعتمد على حجم المبادرة — يُراجَع بعد عروض الأسعار.',
+    subTasks,
+    heuristic: true,
+  };
 }
 
 export const initiativeBreakdown: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
-    ensureClaude();
     const body = initiativeBreakdownSchema.parse(req.body);
     await assertCompanyAccess(req.auth.sub, body.companyId);
+
+    // بلا مفتاح Claude → تحليل تقديريّ محليّ (لا طريق مسدود).
+    if (!claudeConfigured()) {
+      res.json(buildHeuristicBreakdown(body.title, body.description));
+      return;
+    }
+
     const { ctx, latestPath } = await loadCompanyContext(body.companyId);
 
     const prompt = [
@@ -707,13 +812,17 @@ export const initiativeBreakdown: RequestHandler = async (req, res, next) => {
       '{"understanding":"...","size":"...","sizeReason":"...","components":[{"title":"...","dept":"...","purpose":"..."}],"departments":["..."],"stakeholders":["..."],"tools":["..."],"estimatedCost":"...","costNotes":"...","subTasks":[{"title":"...","component":"...","kind":"...","estimate":"..."}]}',
     ].filter(Boolean).join('\n');
 
-    const result = await claudeJSON<InitiativeBreakdown>({
-      system: 'أرجع JSON خالصاً بالعربية بلا نصّ خارجي. كن واقعيّاً ومحدّداً. المهامّ الفرعيّة مباشرة قابلة للتنفيذ فوراً.',
-      prompt,
-      maxTokens: 2800,
-    });
-
-    res.json(result);
+    try {
+      const result = await claudeJSON<InitiativeBreakdown>({
+        system: 'أرجع JSON خالصاً بالعربية بلا نصّ خارجي. كن واقعيّاً ومحدّداً. المهامّ الفرعيّة مباشرة قابلة للتنفيذ فوراً.',
+        prompt,
+        maxTokens: 2800,
+      });
+      res.json(result);
+    } catch {
+      // تعذّر Claude (خطأ/تجاوز حصّة) → نتحلّل للتحليل التقديري بدل الفشل.
+      res.json(buildHeuristicBreakdown(body.title, body.description));
+    }
   } catch (err) {
     next(err);
   }
