@@ -214,6 +214,33 @@ function promptsFor(specialty: SpecialtyDeptType | null | undefined): DeepPrompt
   return (specialty && DEPT_PROMPTS[specialty]) || GENERIC_PROMPTS
 }
 
+/** يستخرج تسميات نقاط الضعف من بيانات DEPT_DEEP_ANSWERS — لمولّد المبادرات.
+   يفضّل حقل weaknesses الجاهز؛ وإن غاب (بيانات محفوظة قبل إضافته) يعيد بناءه
+   من answers عبر بنك الأسئلة، فلا يحتاج المستخدم لإعادة الحفظ. */
+export function weaknessesFromDeepAnswers(
+  specialty: SpecialtyDeptType | null | undefined,
+  data: {
+    weaknesses?: string[]
+    answers?: Record<string, { selected?: string[]; other?: string } | string>
+  } | null | undefined,
+): string[] {
+  if (!data) return []
+  if (data.weaknesses?.length) return data.weaknesses
+  const prompts = promptsFor(specialty)
+  const out: string[] = []
+  for (const [idxStr, raw] of Object.entries(data.answers ?? {})) {
+    const p = prompts[Number(idxStr)]
+    if (!p) continue
+    if (typeof raw === 'string') { if (raw.trim()) out.push(raw.trim()); continue }
+    for (const key of raw.selected ?? []) {
+      const opt = p.options.find((o) => o.key === key)
+      if (opt) out.push(opt.label)
+    }
+    if (raw.other?.trim()) out.push(raw.other.trim())
+  }
+  return out
+}
+
 interface DeepAnswer {
   selected: string[]
   other: string

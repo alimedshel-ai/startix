@@ -17,6 +17,7 @@ import {
   type Initiative, type Objective, type PlanLevel,
 } from '@/lib/strategicApi'
 import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
+import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
@@ -338,8 +339,11 @@ function Editor({ companyId }: { companyId: string }) {
       // يُصلح المسار: صفحة dept-deep تَعِد بأن «التشخيص يولّد مبادرات» — وهنا
       // نُوفي بالوعد بدل الوصول لطريق مسدود في هذه الصفحة.
       try {
-        const dArt = await getArtifact<{ weaknesses?: string[] }>(companyId, 'DEPT_DEEP_ANSWERS')
-        for (const w of (dArt?.data?.weaknesses ?? [])) {
+        const dArt = await getArtifact<{ weaknesses?: string[]; answers?: Record<string, { selected?: string[]; other?: string } | string> }>(companyId, 'DEPT_DEEP_ANSWERS')
+        // نُعيد بناء نقاط الضعف حتى من البيانات القديمة (قبل حقل weaknesses).
+        // سقف ١٢ لتفادي إغراق القائمة حين يُختار كل الخيارات.
+        const weaknesses = weaknessesFromDeepAnswers(specialty, dArt?.data).slice(0, 12)
+        for (const w of weaknesses) {
           if (!w?.trim()) continue
           const clean = cleanInitiativeTitle(w.trim())
           if (!clean) continue
