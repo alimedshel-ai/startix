@@ -36,6 +36,19 @@ const TASK_STATUS_META: Record<string, { labelAr: string; icon: string; chipClas
   blocked:     { labelAr: 'متعطلة',      icon: '⛔', chipClass: 'border-rose-400 bg-rose-50 text-rose-800' },
 }
 
+// ─── بنك أفكار مهام تنفيذ خطّة — خطوات قياسيّة لأي مشروع ──────────
+// نقرة تُضيف المهمّة؛ تُخفى إن أُضيفت سلفاً. تُوزَّع بعدها على الجهات.
+const PROJECT_TASK_IDEAS: string[] = [
+  'تحديد المسؤول والفريق المنفّذ',
+  'اجتماع انطلاق وتحديد النطاق والمخرجات',
+  'تحديد المعايير ومؤشّرات النجاح',
+  'جدولة زمنيّة بمعالم (milestones)',
+  'حصر المخاطر والاعتماديّات',
+  'تأمين الموارد/الميزانية المطلوبة',
+  'مراجعة منتصف المدّة والتقدّم',
+  'تقرير الإنجاز والإغلاق والدروس المستفادة',
+]
+
 function fmtDate(iso?: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -152,26 +165,34 @@ export function ProjectDetailPage() {
     }
   }
 
+  async function createTaskWithTitle(title: string): Promise<boolean> {
+    if (!project || !companyId) return false
+    const t = title.trim()
+    if (!t) return false
+    if (tasks.some((x) => x.title.trim() === t)) { toast.message('المهمّة موجودة سلفاً.'); return false }
+    const created = await createTask({ companyId, projectId: project.id, title: t, status: 'todo', priority: 'medium' })
+    setTasks((p) => [...p, created])
+    return true
+  }
+
   async function addTask() {
-    if (!project || !companyId) return
-    const title = newTaskTitle.trim()
-    if (!title) return
     setCreatingTask(true)
     try {
-      const t = await createTask({
-        companyId,
-        projectId: project.id,
-        title,
-        status: 'todo',
-        priority: 'medium',
-      })
-      setTasks((p) => [...p, t])
-      setNewTaskTitle('')
-      toast.success('أُضيفت المهمّة')
+      if (await createTaskWithTitle(newTaskTitle)) { setNewTaskTitle(''); toast.success('أُضيفت المهمّة') }
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل الإضافة'))
     } finally {
       setCreatingTask(false)
+    }
+  }
+
+  // توزيع: تعيين الجهة المنفّذة لمهمّة (نصّ حرّ + قائمة الجهات السابقة).
+  async function changeTaskOwner(taskId: string, owner: string) {
+    try {
+      const updated = await updateTask(taskId, { owner: owner || null })
+      setTasks((p) => p.map((t) => (t.id === taskId ? updated : t)))
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر تعيين الجهة'))
     }
   }
 
@@ -428,6 +449,36 @@ export function ProjectDetailPage() {
             </Button>
           </form>
 
+          {/* 💡 أفكار مهام جاهزة — نقرة تُضيف، والباقي بعد الإضافة يُوزَّع على الجهات */}
+          {(() => {
+            const available = PROJECT_TASK_IDEAS.filter((idea) => !tasks.some((t) => t.title.trim() === idea))
+            if (available.length === 0) return null
+            return (
+              <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
+                <div className="mb-2 text-xs font-bold">💡 أفكار مهام لهذه الخطة — نقرة تُضيفها:</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {available.map((idea) => (
+                    <button
+                      key={idea}
+                      type="button"
+                      onClick={() => createTaskWithTitle(idea)}
+                      className="rounded-md border bg-card px-2.5 py-1 text-xs transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
+                    >
+                      ＋ {idea}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* قائمة الجهات المنفّذة السابقة — لتسريع التوزيع */}
+          <datalist id="project-task-owners">
+            {Array.from(new Set(tasks.map((t) => t.owner?.trim()).filter(Boolean) as string[])).map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
+
           {tasks.length === 0 ? (
             <p className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
               لا مهام بعد — أضِف أوّل مهمّة أعلاه.
@@ -451,6 +502,7 @@ export function ProjectDetailPage() {
                           key={t.id}
                           task={t}
                           onStatusChange={(s) => changeTaskStatus(t.id, s)}
+                          onOwnerChange={(o) => changeTaskOwner(t.id, o)}
                           onRemove={() => removeTask(t.id)}
                         />
                       ))}
@@ -527,15 +579,29 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 }
 
 function TaskRow({
-  task, onStatusChange, onRemove,
-}: { task: Task; onStatusChange: (s: string) => void; onRemove: () => void }) {
+  task, onStatusChange, onOwnerChange, onRemove,
+}: { task: Task; onStatusChange: (s: string) => void; onOwnerChange: (o: string) => void; onRemove: () => void }) {
   const sm = TASK_STATUS_META[task.status] ?? TASK_STATUS_META.todo
   return (
-    <li className="flex items-center gap-2 rounded-lg border bg-card p-2">
+    <li className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
       <span className={`inline-flex size-6 items-center justify-center rounded-full border text-xs ${sm.chipClass}`}>
         {sm.icon}
       </span>
-      <span className="flex-1 text-sm">{task.title}</span>
+      <span className="min-w-[120px] flex-1 text-sm">{task.title}</span>
+      {/* توزيع: الجهة المنفّذة */}
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        👤
+        <input
+          className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
+          placeholder="الجهة المنفّذة"
+          defaultValue={task.owner ?? ''}
+          list="project-task-owners"
+          onBlur={(e) => {
+            const v = e.target.value.trim()
+            if (v !== (task.owner?.trim() ?? '')) onOwnerChange(v)
+          }}
+        />
+      </span>
       <select
         value={task.status}
         onChange={(e) => onStatusChange(e.target.value)}
