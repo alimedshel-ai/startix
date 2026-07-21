@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { PageHeader, type BreadcrumbItem } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +40,17 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
       {guided
         ? ready && <JourneyProgress companyId={company!.id} clientQuery={clientQuery} />
         : <StageBanner clientQuery={clientQuery} />}
+
+      {/* رابط القمرة — عودة سريعة للشاشة الموجّهة من أي أداة (تفادي التشتّت). */}
+      {guided && ready && (
+        <Link
+          to={`/manager/clients/${company!.id}/run`}
+          className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs transition hover:bg-primary/10"
+        >
+          <span className="font-medium">🧭 تُهت؟ كل خطواتك في شاشة واحدة — القمرة الموجّهة</span>
+          <span className="shrink-0 font-bold text-primary">تابِع المسار ←</span>
+        </Link>
+      )}
 
       {/* §٤ — بوصلة الإجراء الواحد مرفوعة للأعلى للمدير المستقل. */}
       {guided && ready && <NextStepCard clientQuery={clientQuery} companyId={company!.id} />}
