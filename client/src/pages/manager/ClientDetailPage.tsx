@@ -377,6 +377,18 @@ function ClientDetailContent(p: {
         hasDepartment={hasDepartment}
       />
 
+      {/* 🧭 القمرة — الشاشة الموجّهة: مكان واحد لتشغيل المسار خطوةً-خطوة */}
+      <Link
+        to={`/manager/clients/${client.companyId}/run`}
+        className="flex items-center justify-between gap-3 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/15 to-primary/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+      >
+        <div>
+          <div className="flex items-center gap-2 text-sm font-bold">🧭 <span>افتح القمرة الموجّهة</span></div>
+          <p className="mt-0.5 text-xs text-muted-foreground">شاشة واحدة: أنت هنا · الخطوة التالية · التقدّم — بلا تشتّت.</p>
+        </div>
+        <span className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">تابِع المسار ←</span>
+      </Link>
+
       {/* 🎯 ابدأ من هنا — بطاقة كبيرة موحّدة تُخبر المدير بالخطوة القادمة الفوريّة */}
       <StartHereBeacon
         companyId={client.companyId}

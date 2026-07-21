@@ -89,6 +89,7 @@ import { ProDashboardPage } from '@/pages/manager/ProDashboardPage'
 import { ClientsPage } from '@/pages/manager/ClientsPage'
 import { ClientDetailPage } from '@/pages/manager/ClientDetailPage'
 import { JourneyPage } from '@/pages/manager/JourneyPage'
+import { RunCockpitPage } from '@/pages/manager/RunCockpitPage'
 import { DeptDeepPage } from '@/pages/manager/DeptDeepPage'
 import { DeepAnalysisPage } from '@/pages/manager/DeepAnalysisPage'
 import { ContradictionsPage } from '@/pages/manager/ContradictionsPage'
@@ -225,6 +226,7 @@ export const router = createBrowserRouter([
               { path: '/manager/clients/add', element: <AddCompanyPage /> },
               { path: '/manager/journey-map', element: <ManagerJourneyMapPage /> },
               { path: '/manager/clients/:companyId', element: <ClientDetailPage /> },
+              { path: '/manager/clients/:companyId/run', element: <RunCockpitPage /> },
               { path: '/manager/clients/:companyId/journey', element: <JourneyPage /> },
               { path: '/manager/dept-deep', element: <DeptDeepPage /> },
               { path: '/manager/deep-analysis', element: <DeepAnalysisPage /> },
