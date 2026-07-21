@@ -677,7 +677,14 @@ export function StrategicPlanPage() {
 
       {/* 🛠️ الأدوات الفعليّة التي تدعم هذا المسار — مع حالة الاستخدام */}
       {(() => {
-        const statuses = tools.map((t) => toolStatus(t.to, specialty ?? null, usageData))
+        // في الطوارئ: الأربع الأولى معروضة سلفاً في خطة الإنقاذ أعلاه — نستبعدها
+        // هنا فلا تكرار؛ يبقى القسم للأدوات المساندة فقط.
+        const RESCUE_PATHS = ['/risk-map', '/eisenhower', '/raci', '/gantt-chart']
+        const shownTools = isEmergency
+          ? tools.filter((t) => !RESCUE_PATHS.some((p) => t.to.startsWith(p)))
+          : tools
+        if (shownTools.length === 0) return null
+        const statuses = shownTools.map((t) => toolStatus(t.to, specialty ?? null, usageData))
         const trackable = statuses.filter((s) => !s.hideStatus)
         const doneCount = trackable.filter((s) => s.done).length
         const trackableCount = trackable.length
@@ -686,7 +693,7 @@ export function StrategicPlanPage() {
           <details className="group rounded-xl border bg-card shadow-sm">
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-4 text-base font-semibold transition hover:bg-accent/40">
               <span className="flex flex-wrap items-center gap-2">
-                🛠️ كل أدوات هذه الخطة (اختياريّ)
+                {isEmergency ? '🛠️ أدوات مساندة إضافيّة (اختياريّ)' : '🛠️ كل أدوات هذه الخطة (اختياريّ)'}
                 {trackableCount > 0 && (
                   <span className="rounded-full border bg-card px-2 py-0.5 text-xs font-medium tabular-nums">
                     {doneCount}/{trackableCount} مُستخدَمة ({pct}٪)
@@ -698,10 +705,13 @@ export function StrategicPlanPage() {
             </summary>
             <div className="border-t p-4">
               <p className="mb-3 text-xs text-muted-foreground">
-                {tools.length} أداة مُختارة لمسار {path.shortName}. لا تحتاج فتحها كلّها — اتبع «الخطوة التالية» أعلى الصفحة، وارجع هنا عند الحاجة فقط. «✓ مُستخدَمة» = حُفظت بيانات لهذا العميل.
+                {isEmergency
+                  ? `${shownTools.length} أداة مساندة — ليست من خطة الإنقاذ الأربع أعلاه. افتحها لاحقاً بعد الخروج من المنطقة الحمراء.`
+                  : `${shownTools.length} أداة مُختارة لمسار ${path.shortName}. لا تحتاج فتحها كلّها — اتبع «الخطوة التالية» أعلى الصفحة، وارجع هنا عند الحاجة فقط.`}
+                {' '}«✓ مُستخدَمة» = حُفظت بيانات لهذا العميل.
               </p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {tools.map((t, idx) => {
+                {shownTools.map((t, idx) => {
                   const st = statuses[idx]
                   // في وضع الطوارئ: أضف &from=emergency لتفعيل RescueContextBanner في الوجهة
                   const linkTo = isEmergency && !t.to.includes('from=') ? `${t.to}&from=emergency` : t.to
@@ -713,12 +723,6 @@ export function StrategicPlanPage() {
                         st.done ? 'border-emerald-300 bg-emerald-50/40' : isEmergency ? 'border-rose-200 bg-rose-50/30' : 'bg-card'
                       }`}
                     >
-                      {/* في الطوارئ: ترقيم أولويّة العلاج (١، ٢، ٣، ٤) */}
-                      {isEmergency && idx < 4 && (
-                        <span className="absolute -top-2 -right-2 inline-flex size-5 items-center justify-center rounded-full border-2 border-rose-500 bg-white text-[10px] font-bold text-rose-700 shadow-sm">
-                          {idx + 1}
-                        </span>
-                      )}
                       <span className="text-xl leading-none">{t.icon}</span>
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
