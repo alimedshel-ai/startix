@@ -293,3 +293,14 @@ export const STAGE_LEVEL_LABEL: Record<StrategyPath, string> = {
   MEDIUM: 'تكتيكي',
   LONG:   'استراتيجي',
 }
+
+// ─── مطابقة اكتمال واعية بالإدارة ────────────────────────────────
+// أدوات المدير المستقل تُخزَّن بأنواع مقيّدة بالإدارة (PESTEL_HR،
+// STAKEHOLDERS_HR…). فمطابقة النوع الأساس بالتساوي فقط تُفوّت اكتمالها
+// وتُظهر «لم تُنجَز» خطأً. نقبل النوع الأساس أو أي متغيّر `<base>_<DEPT>`.
+export function artifactSatisfies(artifactTypes: Set<string>, baseType: string): boolean {
+  if (artifactTypes.has(baseType)) return true
+  const prefix = baseType + '_'
+  for (const a of artifactTypes) if (a.startsWith(prefix)) return true
+  return false
+}

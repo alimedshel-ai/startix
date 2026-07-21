@@ -9,9 +9,22 @@ import { apiErrorMessage } from '@/lib/api'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { buildJourneyPayload, type JourneyPayload } from '@/lib/journeyPayload'
 import {
-  JOURNEY_STAGES, canOpenStage, overallProgressPct, isStageInPath,
+  JOURNEY_STAGES, artifactSatisfies, canOpenStage, overallProgressPct, isStageInPath,
   type StageId, type JourneyStage,
 } from '@/lib/journeyStages'
+
+// أسماء ودّية لمصادر الاكتمال (بدل الأنواع الخام مثل STAKEHOLDERS).
+const ARTIFACT_LABEL: Record<string, string> = {
+  INTERNAL_ENV: 'البيئة الداخلية 7S', PESTEL: 'PESTEL', PORTER: 'بورتر',
+  BENCHMARK: 'المقارنة المرجعية', STAKEHOLDERS: 'أصحاب المصلحة', ORG_DNA: 'DNA المنظّمة',
+  VALUE_CHAIN: 'سلسلة القيمة', CORE_CAPABILITIES: 'القدرات الجوهرية',
+  DEPT_DEEP_ANSWERS: 'التحليل العميق', DEPT_DEEP_FULL: 'التحليل العميق',
+  DIRECTIONS: 'التوجّهات', BMC: 'BMC', GAP_ANALYSIS: 'تحليل الفجوة',
+  THREE_HORIZONS: 'الآفاق الثلاثة', CHOICES: 'الخيارات', BCG: 'BCG', ANSOFF: 'أنسوف',
+  OGSM: 'OGSM', ANNUAL_PLAN: 'الخطة السنوية', BSC: 'BSC',
+  PRIORITY_MATRIX: 'مصفوفة الأولوية', RISK_REGISTER: 'سجل المخاطر',
+  EISENHOWER: 'أيزنهاور', RACI: 'RACI',
+}
 import { getSWOT } from '@/lib/strategicApi'
 import { listAllArtifacts } from '@/lib/strategicApi'
 import { listObjectives, listKPIs } from '@/lib/strategicApi'
@@ -111,7 +124,8 @@ export function JourneyPage() {
     for (const stage of JOURNEY_STAGES) {
       const matched: string[] = []
       for (const t of stage.completionArtifacts) {
-        if (artifactTypes.has(t)) matched.push(t)
+        // واعٍ بالإدارة: PESTEL_HR يُرضي PESTEL (المدير المستقل يخزّن مقيّداً).
+        if (artifactSatisfies(artifactTypes, t)) matched.push(ARTIFACT_LABEL[t] ?? t)
       }
       // مصادر خاصة لكل مرحلة (SWOT/Objectives/KPIs):
       if (stage.id === 'synthesis' && hasSwot) matched.push('SWOT')

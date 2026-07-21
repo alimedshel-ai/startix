@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import type { StageId } from '@/lib/journeyStages'
-import { JOURNEY_STAGES } from '@/lib/journeyStages'
+import { JOURNEY_STAGES, artifactSatisfies } from '@/lib/journeyStages'
 import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strategicApi'
 
 // ─── قراءة اكتمال المراحل للعميل النشط ───────────────────────────
@@ -55,7 +55,7 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
 
         const completions: Record<StageId, boolean> = { ...EMPTY }
         for (const stage of JOURNEY_STAGES) {
-          let done = stage.completionArtifacts.some((t) => artifactTypes.has(t))
+          let done = stage.completionArtifacts.some((t) => artifactSatisfies(artifactTypes, t))
           if (stage.id === 'synthesis' && hasSwot)   done = true
           if (stage.id === 'indicators' && hasObjectives) done = true
           if (stage.id === 'indicators' && hasKpis)  done = true
