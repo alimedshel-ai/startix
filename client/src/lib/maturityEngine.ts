@@ -7,7 +7,16 @@
 // نسب الأقسام. التصنيف من فئات الـconfig.
 
 export interface MaturityOption { label: string; points: number }
-export interface MaturityQuestion { id: string; text: string; options: MaturityOption[] }
+/** خطر سؤال — يُعرَض حين تُختار الإجابة الأسوأ (points=0). اختياريّ تماماً. */
+export interface QuestionRisk {
+  /** high=🔴 · med=🟡. */
+  severity: 'high' | 'med'
+  /** العقوبة/الأثر (نصّ سعوديّ محدّد). */
+  label: string
+  /** ☠️ يقلب المحور إلى حرج فوراً مهما كانت النسبة (تجاوز العتبة). */
+  killer?: boolean
+}
+export interface MaturityQuestion { id: string; text: string; options: MaturityOption[]; risk?: QuestionRisk }
 export interface MaturitySection {
   key: string
   labelAr: string
@@ -122,4 +131,34 @@ export function allAnswered(config: MaturityConfig, answers: MaturityAnswers): b
 // ─── مساعدة مشتركة للألوان: أوّل صنف bg- في cls ──────────────────────
 export function barBgOf(level: MaturityLevel): string {
   return level.cls.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'
+}
+
+// ─── التنبيهات الحرجة: أسئلة أُجيبت بالخيار الأسوأ (points=0) ولها خطر ──
+// «تتجاوز النسبة» — تُبرَز مستقلّةً عن نسبة المحور. القاتلة أوّلاً.
+export interface RiskFlag {
+  questionId: string
+  sectionKey: string
+  sectionLabel: string
+  text: string
+  severity: 'high' | 'med'
+  label: string
+  killer: boolean
+}
+
+export function riskFlags(config: MaturityConfig, answers: MaturityAnswers): RiskFlag[] {
+  const out: RiskFlag[] = []
+  for (const s of config.sections) {
+    for (const q of s.questions) {
+      if (!q.risk) continue
+      const idx = answers[q.id]
+      if (idx == null) continue
+      if ((q.options[idx]?.points ?? 1) !== 0) continue // فقط الإجابة الأسوأ
+      out.push({
+        questionId: q.id, sectionKey: s.key, sectionLabel: s.labelAr, text: q.text,
+        severity: q.risk.severity, label: q.risk.label, killer: !!q.risk.killer,
+      })
+    }
+  }
+  const rank = (r: RiskFlag) => (r.killer ? 0 : r.severity === 'high' ? 1 : 2)
+  return out.sort((a, b) => rank(a) - rank(b))
 }

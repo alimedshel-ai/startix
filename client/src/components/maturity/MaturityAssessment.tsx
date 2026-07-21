@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  allAnswered, barBgOf, computeOverall, computeResults, levelOf,
+  allAnswered, barBgOf, computeOverall, computeResults, levelOf, riskFlags,
   type MaturityAnswers, type MaturityConfig, type MaturityQuestion, type MaturitySection,
 } from '@/lib/maturityEngine'
 
@@ -18,6 +18,7 @@ export function MaturityAssessment({
   const results = computeResults(config, answers)
   const overall = computeOverall(config, answers)
   const overallLevel = levelOf(config, overall.maturityPct)
+  const alerts = riskFlags(config, answers)
 
   return (
     <div className="flex flex-col gap-5">
@@ -37,6 +38,27 @@ export function MaturityAssessment({
           </div>
         </CardContent>
       </Card>
+
+      {alerts.length > 0 && (
+        <Card className="border-2 border-rose-300 bg-rose-50/50">
+          <CardContent className="p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-rose-900">
+              ⚠️ تنبيهات حرجة تتجاوز النسبة ({alerts.length})
+            </div>
+            <ul className="space-y-1.5">
+              {alerts.map((a) => (
+                <li key={a.questionId} className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className={a.killer ? 'text-base' : 'text-sm'}>{a.killer ? '☠️' : a.severity === 'high' ? '🔴' : '🟡'}</span>
+                  <span className="font-medium text-rose-900">{a.text}</span>
+                  <span className="text-rose-700/80">— {a.label}</span>
+                  {a.killer && <span className="rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">قاتل</span>}
+                  <span className="rounded-full border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">{a.sectionLabel}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {config.sections.map((section) => {
         const r = results.find((x) => x.key === section.key)!
@@ -91,8 +113,10 @@ function QuestionRow({
   selected: number | null
   onSelect: (optionIndex: number) => void
 }) {
+  // الخطر يظهر حين تُختار الإجابة الأسوأ (points=0) ولهذا السؤال خطر مُعرَّف.
+  const showRisk = question.risk != null && selected != null && (question.options[selected]?.points ?? 1) === 0
   return (
-    <div className="rounded-xl border bg-card p-3">
+    <div className={`rounded-xl border bg-card p-3 ${showRisk ? 'border-rose-300' : ''}`}>
       <div className="mb-2 text-sm font-medium">
         <span className="text-muted-foreground tabular-nums">{index + 1}.</span> {question.text}
       </div>
@@ -107,6 +131,13 @@ function QuestionRow({
           )
         })}
       </div>
+      {showRisk && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-rose-700">
+          <span>{question.risk!.killer ? '☠️' : question.risk!.severity === 'high' ? '🔴' : '🟡'}</span>
+          <span>الخطر: {question.risk!.label}</span>
+          {question.risk!.killer && <span className="rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">قاتل</span>}
+        </div>
+      )}
     </div>
   )
 }
