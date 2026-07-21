@@ -467,6 +467,8 @@ function Editor({ companyId }: { companyId: string }) {
   //   ٤) التشخيص العام  → دمج شامل من السيرفر
   const [generatingAll, setGeneratingAll] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // عند محاولة التوليد بلا مصادر: نعرض بطاقة روابط بدل رسالة مسدودة.
+  const [noSources, setNoSources] = useState(false)
 
   async function generateAll() {
     setGeneratingAll(true)
@@ -493,9 +495,11 @@ function Editor({ companyId }: { companyId: string }) {
         total.skipped_duplicates += r.skipped_duplicates
       }
       if (!any) {
-        toast.error('لا مصادر جاهزة بعد (PESTEL / التحليل العميق / الفجوة) — املأ إحداها أوّلاً.')
+        setNoSources(true)
+        toast.error('لا مصادر جاهزة بعد — افتح إحداها من البطاقة أعلى الصفحة.')
         return
       }
+      setNoSources(false)
       toast.success(`✨ ${summarizeMerge(total, 'كل المصادر')} — راجعها ثم احفظ.`)
     } finally {
       setGeneratingAll(false)
@@ -509,6 +513,23 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      {/* 🧭 مصادر SWOT غير جاهزة — روابط مباشرة بدل طريق مسدود */}
+      {noSources && (
+        <Card className="border-2 border-amber-300 bg-amber-50/50">
+          <CardContent className="p-4">
+            <div className="text-sm font-bold text-amber-900">لبناء SWOT تلقائياً، أكمِل أحد مصادر التحليل أوّلاً:</div>
+            <p className="mt-1 text-xs leading-relaxed text-amber-800/80">
+              SWOT يُوَلَّف من مخرجات مرحلة التحليل — افتح إحداها، أجب عليها، ثم ارجع هنا واضغط «ولّد».
+              (أو أضِف البنود يدوياً في الأرباع الأربعة أدناه.)
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <Link to={sourceToUrl('PESTEL', companyId) ?? '#'} className="inline-flex items-center gap-1 rounded-lg border-2 border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:-translate-y-0.5 hover:border-amber-500">🌐 PESTEL</Link>
+              <Link to={sourceToUrl('التحليل العميق', companyId) ?? '#'} className="inline-flex items-center gap-1 rounded-lg border-2 border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:-translate-y-0.5 hover:border-amber-500">🔬 التحليل العميق</Link>
+              <Link to={sourceToUrl('الفجوة', companyId) ?? '#'} className="inline-flex items-center gap-1 rounded-lg border-2 border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:-translate-y-0.5 hover:border-amber-500">📐 تحليل الفجوة</Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* 🚨 تحذير: خارج مسار الإنقاذ الرباعيّ (يظهر عند القدوم من الطوارئ) */}
       {isRescueMode && (
         <OutsideRescueBanner
