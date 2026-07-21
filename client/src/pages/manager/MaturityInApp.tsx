@@ -162,6 +162,34 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
           </CardContent>
         </Card>
       )}
+
+      <NextAfterDiagnostic companyId={company.id} />
     </div>
+  )
+}
+
+// ─── بوصلة «الخطوة التالية» بعد التشخيص ─────────────────────────────
+// هذا التشخيص يغذّي المبادرات مباشرةً — فالتالي: رتّبها ثم نفّذها.
+export function NextAfterDiagnostic({ companyId }: { companyId: string }) {
+  const q = `?client=${companyId}`
+  return (
+    <Card className="border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="min-w-0">
+          <div className="text-sm font-bold">🧭 الخطوة التالية بعد التشخيص</div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            التشخيص يولّد مبادرات التحسين — <b className="text-foreground">رتّبها بالأولويّة</b> ثم <b className="text-foreground">حوّلها لمهام ونفّذها</b>.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link to={`/priority${q}&tab=initiatives`} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90">
+            💡 المبادرات ←
+          </Link>
+          <Link to={`/execute${q}`} className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent">
+            🚀 التنفيذ ←
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

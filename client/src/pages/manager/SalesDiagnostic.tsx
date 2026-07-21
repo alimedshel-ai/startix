@@ -14,6 +14,7 @@ import {
   type SmAnswers, type SmAxisResult, type SmQuestion,
 } from '@/lib/salesMaturity'
 import { createInitiative, getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
+import { NextAfterDiagnostic } from './MaturityInApp'
 
 // ─── نضج المبيعات الموزون داخل التطبيق (لكل عميل) ───────────────────
 // يحلّ محلّ التحليل العميق للمبيعات. تصنيف تكيّفي (قطاع→نوع→عميل) ثم ١٧
@@ -246,6 +247,8 @@ export function SalesDiagnostic({ embedded = false }: { embedded?: boolean } = {
           </CardContent>
         </Card>
       )}
+
+      {classified && <NextAfterDiagnostic companyId={company.id} />}
     </div>
   )
 }
