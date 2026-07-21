@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { taskIdeasFor } from '@/lib/taskPlaybook'
 import {
   createTask, deleteProject, deleteTask, listInitiatives, listProjects, listTasks,
   updateProject, updateTask,
@@ -38,19 +39,6 @@ const TASK_STATUS_META: Record<string, { labelAr: string; icon: string; chipClas
 
 // ─── بنك أفكار مهام تنفيذ خطّة — خطوات قياسيّة لأي مشروع ──────────
 // نقرة تُضيف المهمّة؛ تُخفى إن أُضيفت سلفاً. تُوزَّع بعدها على الجهات.
-// أفكار مهام مباشرة: فعل واحد ملموس + وقت متوقّع — لا مصطلحات نظريّة.
-// كلٌّ صيغته «المطلوب: افعل X» ويمكن تفريعه لخطوات أدقّ عبر «تفريعات».
-interface TaskIdea { t: string; time: string }
-const PROJECT_TASK_IDEAS: TaskIdea[] = [
-  { t: 'عيّن مسؤولاً واحداً عن هذه الخطة واكتب اسمه', time: '١٥ د' },
-  { t: 'اكتب هدف الخطة في جملة واحدة قابلة للقياس', time: '٢٠ د' },
-  { t: 'حدّد أوّل إجراء ملموس يبدأ غداً صباحاً', time: '١٥ د' },
-  { t: 'قسّم الخطة إلى ٣-٥ خطوات تنفيذ مباشرة', time: '٣٠ د' },
-  { t: 'احصر ما تحتاجه (أداة/ميزانية/موافقة) في قائمة', time: '٢٠ د' },
-  { t: 'حدّد تاريخ بداية ونهاية واقعيّين للخطة', time: '١٠ د' },
-  { t: 'اكتب مؤشّراً رقميّاً واحداً يثبت أنها نجحت', time: '١٥ د' },
-  { t: 'ثبّت موعد مراجعة أسبوعيّ ١٥ دقيقة للتقدّم', time: '٥ د' },
-]
 
 // ─── تفريعات المهمّة (sub-steps) — مخزَّنة في description كـ JSON ────
 // نحفظ { note?, steps: [{t, done}] }. النصّ الحرّ القديم يُحفَظ كـ note.
@@ -485,13 +473,14 @@ export function ProjectDetailPage() {
             </Button>
           </form>
 
-          {/* 💡 أفكار مهام مباشرة — فعل واحد + وقت متوقّع، نقرة تُضيفها */}
+          {/* 💡 خطوات معالجة عمليّة — مشتقّة من موضوع المبادرة، نقرة تُضيفها */}
           {(() => {
-            const available = PROJECT_TASK_IDEAS.filter((idea) => !tasks.some((t) => t.title.trim() === idea.t))
+            const ideas = taskIdeasFor(project.title)
+            const available = ideas.filter((idea) => !tasks.some((t) => t.title.trim() === idea.t))
             if (available.length === 0) return null
             return (
               <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
-                <div className="mb-2 text-xs font-bold">💡 مهام مباشرة لهذه الخطة — المطلوب + الوقت المتوقّع (نقرة تُضيفها):</div>
+                <div className="mb-2 text-xs font-bold">🛠️ خطوات معالجة عمليّة لهذه المبادرة — المطلوب + الوقت المتوقّع (نقرة تُضيفها):</div>
                 <div className="flex flex-wrap gap-1.5">
                   {available.map((idea) => (
                     <button
