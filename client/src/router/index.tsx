@@ -230,7 +230,6 @@ export const router = createBrowserRouter([
               { path: '/manager/deep-analysis', element: <DeepAnalysisPage /> },
               { path: '/manager/analysis-wizard', element: <AnalysisWizardPage /> },
               { path: '/manager/projects-dashboard', element: <ProjectsDashboardPage /> },
-              { path: '/manager/projects/:projectId', element: <ProjectDetailPage /> },
               { path: '/manager/contradictions', element: <ContradictionsPage /> },
               { path: '/manager/strategic-plan', element: <StrategicPlanPage /> },
               { path: '/manager/dept-smart', element: <DeptSmartPage /> },
@@ -319,6 +318,9 @@ export const router = createBrowserRouter([
               { path: '/priority', element: <PriorityHubPage /> },
               // Hub — مركز التنفيذ (Projects + Gantt + Tasks) للمرحلة ⑥.
               { path: '/execute', element: <ExecuteHubPage /> },
+              // تفصيل المشروع (المحلّل الذكي + التفريعات) — مشترك OWNER+MANAGER.
+              // نُقل من كتلة المدير لأن المالك يربط إليه أصلاً (كان يرتدّ لـ/).
+              { path: '/manager/projects/:projectId', element: <ProjectDetailPage /> },
             ],
           },
         ],
