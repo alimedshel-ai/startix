@@ -11,7 +11,6 @@ import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
 import { aiInitiativeBreakdown, type InitiativeBreakdown } from '@/lib/aiApi'
-import { taskIdeasFor } from '@/lib/taskPlaybook'
 import {
   createTask, deleteProject, deleteTask, listInitiatives, listProjects, listTasks,
   updateProject, updateTask,
@@ -672,31 +671,6 @@ export function ProjectDetailPage() {
               </div>
             )}
           </div>
-
-          {/* 💡 خطوات معالجة عمليّة — مشتقّة من موضوع المبادرة، نقرة تُضيفها */}
-          {(() => {
-            const ideas = taskIdeasFor(project.title)
-            const available = ideas.filter((idea) => !tasks.some((t) => t.title.trim() === idea.t))
-            if (available.length === 0) return null
-            return (
-              <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
-                <div className="mb-2 text-xs font-bold">🛠️ خطوات معالجة عمليّة لهذه المبادرة — المطلوب + الوقت المتوقّع (نقرة تُضيفها):</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {available.map((idea) => (
-                    <button
-                      key={idea.t}
-                      type="button"
-                      onClick={() => createTaskWithTitle(idea.t, `⏱ الوقت المتوقّع: ${idea.time}`)}
-                      className="group/idea flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
-                    >
-                      <span>＋ {idea.t}</span>
-                      <span className="rounded-full border bg-muted px-1.5 text-[10px] text-muted-foreground">⏱ {idea.time}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
 
           {/* قائمة الجهات المنفّذة السابقة — لتسريع التوزيع */}
           <datalist id="project-task-owners">
