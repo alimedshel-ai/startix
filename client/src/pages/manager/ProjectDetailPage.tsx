@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
+import { aiInitiativeBreakdown, type InitiativeBreakdown } from '@/lib/aiApi'
 import { taskIdeasFor } from '@/lib/taskPlaybook'
 import {
   createTask, deleteProject, deleteTask, listInitiatives, listProjects, listTasks,
@@ -91,6 +92,9 @@ export function ProjectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [creatingTask, setCreatingTask] = useState(false)
+  const [breakdown, setBreakdown] = useState<InitiativeBreakdown | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [breakdownError, setBreakdownError] = useState<string | null>(null)
 
   // نسخة قابلة للتحرير من المشروع.
   const [draft, setDraft] = useState<Partial<Project>>({})
@@ -187,6 +191,43 @@ export function ProjectDetailPage() {
     const created = await createTask({ companyId, projectId: project.id, title: t, status: 'todo', priority: 'medium', description })
     setTasks((p) => [...p, created])
     return true
+  }
+
+  async function analyzeInitiative() {
+    if (!project || !companyId) return
+    setAnalyzing(true)
+    setBreakdownError(null)
+    try {
+      const b = await aiInitiativeBreakdown({
+        companyId,
+        title: project.title,
+        description: initiative?.description ?? project.description ?? undefined,
+      })
+      setBreakdown(b)
+    } catch (err) {
+      const msg = apiErrorMessage(err, 'تعذّر تحليل المبادرة')
+      setBreakdownError(msg)
+      toast.error(msg)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  async function addBreakdownTask(st: InitiativeBreakdown['subTasks'][number]): Promise<boolean> {
+    const note = `⏱ متوقّع: ${st.estimate}${st.kind ? ` · نوع: ${st.kind}` : ''}${st.component ? ` · ضمن: ${st.component}` : ''}`
+    const ok = await createTaskWithTitle(st.title, note)
+    if (ok) toast.success('أُضيفت المهمّة')
+    return ok
+  }
+
+  async function addAllBreakdownTasks() {
+    if (!breakdown) return
+    let added = 0
+    for (const st of breakdown.subTasks) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await createTaskWithTitle(st.title, `⏱ متوقّع: ${st.estimate}${st.kind ? ` · نوع: ${st.kind}` : ''}`)) added++
+    }
+    toast.success(added ? `أُضيفت ${added} مهمّة من التحليل` : 'كل المهام مضافة سلفاً')
   }
 
   async function addTask() {
@@ -472,6 +513,132 @@ export function ProjectDetailPage() {
               {creatingTask ? 'جاري…' : '＋ إضافة'}
             </Button>
           </form>
+
+          {/* 🧠 تحليل ذكي للمبادرة — يفكّكها لمكوّنات/أقسام/جهات/تكلفة/مهامّ فرعيّة */}
+          <div className="rounded-lg border-2 border-primary/40 bg-gradient-to-l from-primary/10 to-transparent p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-sm font-bold">🧠 تحليل ذكيّ للمبادرة</div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  المبادرة قد تضمّ عدّة مواضيع — يفكّكها إلى مكوّنات، ويقدّر حجمها والأقسام والجهات والتكلفة، ويقترح المهامّ الفرعيّة (دفع/شراء/دعم).
+                </p>
+              </div>
+              <Button size="sm" onClick={analyzeInitiative} disabled={analyzing}>
+                {analyzing ? 'جاري التحليل…' : breakdown ? '↻ أعِد التحليل' : '✨ حلّل المبادرة'}
+              </Button>
+            </div>
+
+            {breakdownError && (
+              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900">
+                {breakdownError}
+                <div className="mt-0.5 text-amber-800/80">يمكنك دائماً استخدام «خطوات المعالجة العمليّة» أدناه مباشرة.</div>
+              </div>
+            )}
+
+            {breakdown && (
+              <div className="mt-3 space-y-3 border-t border-primary/20 pt-3">
+                {/* الفهم + الحجم */}
+                <div className="rounded-md bg-card/70 p-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">الحجم: {breakdown.size}</span>
+                    <span className="text-[11px] text-muted-foreground">{breakdown.sizeReason}</span>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed">{breakdown.understanding}</p>
+                </div>
+
+                {/* مؤشّرات سريعة */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { icon: '🧩', label: 'مكوّنات', value: breakdown.components.length },
+                    { icon: '🏢', label: 'أقسام', value: breakdown.departments.length },
+                    { icon: '🤝', label: 'جهات مساعِدة', value: breakdown.stakeholders.length },
+                    { icon: '✅', label: 'مهامّ فرعيّة', value: breakdown.subTasks.length },
+                  ].map((m) => (
+                    <div key={m.label} className="rounded-md border bg-card p-2 text-center">
+                      <div className="text-lg font-bold tabular-nums">{m.icon} {m.value}</div>
+                      <div className="text-[10px] text-muted-foreground">{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* التكلفة */}
+                <div className="rounded-md border bg-card p-2.5 text-xs">
+                  <span className="font-bold">💰 التكلفة التقديريّة: </span>{breakdown.estimatedCost}
+                  {breakdown.costNotes && <span className="text-muted-foreground"> — {breakdown.costNotes}</span>}
+                </div>
+
+                {/* المكوّنات */}
+                {breakdown.components.length > 0 && (
+                  <div>
+                    <div className="mb-1.5 text-xs font-bold">🧩 مكوّنات المبادرة</div>
+                    <div className="space-y-1.5">
+                      {breakdown.components.map((c, i) => (
+                        <div key={i} className="rounded-md border bg-card p-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold">{c.title}</span>
+                            <span className="rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">🏢 {c.dept}</span>
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{c.purpose}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* الجهات + الأدوات */}
+                {(breakdown.stakeholders.length > 0 || breakdown.tools.length > 0) && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {breakdown.stakeholders.length > 0 && (
+                      <div className="rounded-md border bg-card p-2">
+                        <div className="mb-1 text-[11px] font-bold">🤝 جهات مساعِدة</div>
+                        <div className="flex flex-wrap gap-1">
+                          {breakdown.stakeholders.map((s, i) => <span key={i} className="rounded-full border bg-muted px-1.5 py-0.5 text-[10px]">{s}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    {breakdown.tools.length > 0 && (
+                      <div className="rounded-md border bg-card p-2">
+                        <div className="mb-1 text-[11px] font-bold">🧰 أدوات مطلوبة</div>
+                        <div className="flex flex-wrap gap-1">
+                          {breakdown.tools.map((s, i) => <span key={i} className="rounded-full border bg-muted px-1.5 py-0.5 text-[10px]">{s}</span>)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* المهامّ الفرعيّة المقترحة */}
+                {breakdown.subTasks.length > 0 && (
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold">✅ مهامّ فرعيّة مقترحة</span>
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addAllBreakdownTasks}>＋ أضِف الكل</Button>
+                    </div>
+                    <div className="space-y-1">
+                      {breakdown.subTasks.map((st, i) => {
+                        const exists = tasks.some((t) => t.title.trim() === st.title.trim())
+                        return (
+                          <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2 text-xs">
+                            <span className="rounded border bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{st.kind}</span>
+                            <span className="min-w-0 flex-1">{st.title}</span>
+                            <span className="rounded-full border bg-muted px-1.5 text-[10px] text-muted-foreground">⏱ {st.estimate}</span>
+                            <button
+                              type="button"
+                              onClick={() => addBreakdownTask(st)}
+                              disabled={exists}
+                              className="rounded border bg-background px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-40"
+                            >
+                              {exists ? '✓ مضافة' : '＋ أضِف'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* 💡 خطوات معالجة عمليّة — مشتقّة من موضوع المبادرة، نقرة تُضيفها */}
           {(() => {

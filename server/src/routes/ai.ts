@@ -11,6 +11,7 @@ import {
   getPredictions,
   runSimulation,
   generateAssessment,
+  initiativeBreakdown,
 } from '../controllers/ai';
 
 // خريطة الحماية:
@@ -28,5 +29,8 @@ router.post('/smart-guide', requireAuth, smartGuide); // free hint
 router.get('/predictions/:companyId', requireAuth, pro, getPredictions);
 router.post('/simulate', requireAuth, pro, runSimulation);
 router.post('/generate-assessment', requireAuth, pro, generateAssessment);
+// في صميم مسار تنفيذ المدير المستقلّ (مبادرة→مشروع→مهام) — متاح للمصادَق حتى
+// BASIC (كـ smart-guide) لتفادي حائط دفع وسط التدفّق؛ ensureClaude يتحلّل بأمان.
+router.post('/initiative-breakdown', requireAuth, initiativeBreakdown);
 
 export default router;

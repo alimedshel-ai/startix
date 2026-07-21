@@ -91,6 +91,26 @@ export async function aiPresentation(payload: { companyId: string }) {
   return data as { title: string; slides: { title: string; bullets: string[] }[] }
 }
 
+export interface InitiativeBreakdown {
+  understanding: string
+  size: string
+  sizeReason: string
+  components: { title: string; dept: string; purpose: string }[]
+  departments: string[]
+  stakeholders: string[]
+  tools: string[]
+  estimatedCost: string
+  costNotes: string
+  subTasks: { title: string; component: string; kind: string; estimate: string }[]
+}
+
+/** يفكّك مبادرة (قد تضمّ عدّة مواضيع) إلى خطّة عمل ذكيّة: مكوّنات/أقسام/جهات/
+   تكلفة/مهامّ فرعيّة (دفع/شراء/دعم). PROFESSIONAL+. */
+export async function aiInitiativeBreakdown(payload: { companyId: string; title: string; description?: string }) {
+  const { data } = await api.post('/api/ai/initiative-breakdown', payload)
+  return data as InitiativeBreakdown
+}
+
 export async function aiPainScreen(payload: { companyId: string; answers: { question: string; answer: string }[] }) {
   const { data } = await api.post('/api/ai/pain-screen', payload)
   return data as { pains: { title: string; severity: number; rootCause?: string; recommendedTools: { label: string; to: string }[] }[] }

@@ -651,3 +651,70 @@ export const generateAssessment: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── POST /api/ai/initiative-breakdown ───────────────────────────────────────
+// يفكّك مبادرةً (قد تضمّ عدّة مواضيع مدمجة) إلى خطّة عمل ذكيّة: فهمها، حجمها،
+// مكوّناتها، الأقسام والجهات المشاركة، الأدوات، التكلفة التقديريّة، والمهام
+// الفرعيّة الملموسة (دفع/شراء/دعم/تكامل…). يساعد المدير على ترتيب أفكاره.
+
+const initiativeBreakdownSchema = z.object({
+  companyId: z.string().uuid(),
+  title: z.string().min(3).max(500),
+  description: z.string().max(2000).optional(),
+});
+
+interface InitiativeBreakdown {
+  understanding: string;
+  size: string;
+  sizeReason: string;
+  components: { title: string; dept: string; purpose: string }[];
+  departments: string[];
+  stakeholders: string[];
+  tools: string[];
+  estimatedCost: string;
+  costNotes: string;
+  subTasks: { title: string; component: string; kind: string; estimate: string }[];
+}
+
+export const initiativeBreakdown: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    ensureClaude();
+    const body = initiativeBreakdownSchema.parse(req.body);
+    await assertCompanyAccess(req.auth.sub, body.companyId);
+    const { ctx, latestPath } = await loadCompanyContext(body.companyId);
+
+    const prompt = [
+      'أنت مستشار تنفيذي خبير. أمامك «مبادرة» قد تضمّ عدّة مواضيع مدمجة في جملة واحدة.',
+      'مهمّتك تفكيكها إلى خطّة عمل ذكيّة تساعد المدير على ترتيب أفكاره وفهم ما يلزم لإنجاحها.',
+      '',
+      companyDescriptor(ctx, latestPath),
+      '',
+      `عنوان المبادرة: ${body.title}`,
+      body.description ? `تفاصيل إضافيّة: ${body.description}` : '',
+      '',
+      'حلّلها وأعِد النتائج التالية بواقعيّة للسوق السعودي:',
+      '1) understanding: فهم المبادرة في جملتين واضحتين.',
+      '2) size + sizeReason: الحجم (صغيرة | متوسطة | كبيرة) وسبب مختصر.',
+      '3) components: المواضيع/المكوّنات المستقلّة داخلها (فكّك المبادرة المركّبة) — لكلٍّ: title، dept (القسم المسؤول)، purpose (الغرض).',
+      '4) departments: الأقسام التي ستشارك في التنفيذ.',
+      '5) stakeholders: الجهات المساعِدة داخليّة وخارجيّة (المالية، المشتريات، مورّد، بنك، جهة حكوميّة، مزوّد نظام…).',
+      '6) tools: الأدوات/الأنظمة المطلوبة لنجاح المبادرة.',
+      '7) estimatedCost + costNotes: نطاق تكلفة تقديريّ بالريال السعودي + ملاحظة موجزة عن أساس التقدير.',
+      '8) subTasks: مهام فرعيّة ملموسة تُفتَح لتنفيذها. غطِّ صراحةً — عند الحاجة — مهامّ الدفع، الشراء/طلبات الشراء، والدعم/التكامل. لكل مهمّة: title (فعل مباشر)، component (لأيّ مكوّن تتبع)، kind (تنفيذ|شراء|دفع|دعم|تدريب|تكامل|موافقة)، estimate (وقت متوقّع).',
+      '',
+      'أعِد JSON فقط بهذا الشكل تماماً بلا أيّ نصّ خارجي:',
+      '{"understanding":"...","size":"...","sizeReason":"...","components":[{"title":"...","dept":"...","purpose":"..."}],"departments":["..."],"stakeholders":["..."],"tools":["..."],"estimatedCost":"...","costNotes":"...","subTasks":[{"title":"...","component":"...","kind":"...","estimate":"..."}]}',
+    ].filter(Boolean).join('\n');
+
+    const result = await claudeJSON<InitiativeBreakdown>({
+      system: 'أرجع JSON خالصاً بالعربية بلا نصّ خارجي. كن واقعيّاً ومحدّداً. المهامّ الفرعيّة مباشرة قابلة للتنفيذ فوراً.',
+      prompt,
+      maxTokens: 2800,
+    });
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
