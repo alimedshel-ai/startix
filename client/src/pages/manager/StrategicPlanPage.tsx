@@ -909,12 +909,35 @@ export function StrategicPlanPage() {
         <CardContent>
           <Timeline days={path.durationDays} pathName={path.shortName} accent={style.chip} />
           <div className="mt-3 flex justify-end">
-            <Link
-              to={`/gantt-chart?client=${client.companyId}${isEmergency ? '&from=emergency' : ''}`}
-              className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
-            >
-              📅 ابنِ هذه الخارطة على مخطّط جانت ←
-            </Link>
+            {(() => {
+              // في الطوارئ جانت آخر خطوة (٤) — يُقفَل حتى تتمّ ١-٣ (مخاطر→أيزنهاور→RACI).
+              const hasRisk = usageData.artifactTypes.has('RISK_REGISTER')
+              const hasEis = usageData.artifactTypes.has('EISENHOWER')
+              const hasRaci = usageData.artifactTypes.has('RACI')
+              const ganttReady = !isEmergency || (hasRisk && hasEis && hasRaci)
+              if (!ganttReady) {
+                const nextPre = !hasRisk ? { to: 'risk-map', label: 'خريطة المخاطر' }
+                  : !hasEis ? { to: 'eisenhower', label: 'أيزنهاور' }
+                  : { to: 'raci', label: 'RACI' }
+                return (
+                  <Link
+                    to={`/${nextPre.to}?client=${client.companyId}&from=emergency`}
+                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100"
+                    title="جانت آخر خطوة — أكمل المخاطر ثم أيزنهاور ثم RACI أوّلاً"
+                  >
+                    🔒 جانت يُفتح بعد الخطوات السابقة — أكمل «{nextPre.label}» أوّلاً ←
+                  </Link>
+                )
+              }
+              return (
+                <Link
+                  to={`/gantt-chart?client=${client.companyId}${isEmergency ? '&from=emergency' : ''}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                >
+                  📅 ابنِ هذه الخارطة على مخطّط جانت ←
+                </Link>
+              )
+            })()}
           </div>
         </CardContent>
       </Card>
