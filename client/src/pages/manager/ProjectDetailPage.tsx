@@ -38,15 +38,18 @@ const TASK_STATUS_META: Record<string, { labelAr: string; icon: string; chipClas
 
 // ─── بنك أفكار مهام تنفيذ خطّة — خطوات قياسيّة لأي مشروع ──────────
 // نقرة تُضيف المهمّة؛ تُخفى إن أُضيفت سلفاً. تُوزَّع بعدها على الجهات.
-const PROJECT_TASK_IDEAS: string[] = [
-  'تحديد المسؤول والفريق المنفّذ',
-  'اجتماع انطلاق وتحديد النطاق والمخرجات',
-  'تحديد المعايير ومؤشّرات النجاح',
-  'جدولة زمنيّة بمعالم (milestones)',
-  'حصر المخاطر والاعتماديّات',
-  'تأمين الموارد/الميزانية المطلوبة',
-  'مراجعة منتصف المدّة والتقدّم',
-  'تقرير الإنجاز والإغلاق والدروس المستفادة',
+// أفكار مهام مباشرة: فعل واحد ملموس + وقت متوقّع — لا مصطلحات نظريّة.
+// كلٌّ صيغته «المطلوب: افعل X» ويمكن تفريعه لخطوات أدقّ عبر «تفريعات».
+interface TaskIdea { t: string; time: string }
+const PROJECT_TASK_IDEAS: TaskIdea[] = [
+  { t: 'عيّن مسؤولاً واحداً عن هذه الخطة واكتب اسمه', time: '١٥ د' },
+  { t: 'اكتب هدف الخطة في جملة واحدة قابلة للقياس', time: '٢٠ د' },
+  { t: 'حدّد أوّل إجراء ملموس يبدأ غداً صباحاً', time: '١٥ د' },
+  { t: 'قسّم الخطة إلى ٣-٥ خطوات تنفيذ مباشرة', time: '٣٠ د' },
+  { t: 'احصر ما تحتاجه (أداة/ميزانية/موافقة) في قائمة', time: '٢٠ د' },
+  { t: 'حدّد تاريخ بداية ونهاية واقعيّين للخطة', time: '١٠ د' },
+  { t: 'اكتب مؤشّراً رقميّاً واحداً يثبت أنها نجحت', time: '١٥ د' },
+  { t: 'ثبّت موعد مراجعة أسبوعيّ ١٥ دقيقة للتقدّم', time: '٥ د' },
 ]
 
 // ─── تفريعات المهمّة (sub-steps) — مخزَّنة في description كـ JSON ────
@@ -186,12 +189,14 @@ export function ProjectDetailPage() {
     }
   }
 
-  async function createTaskWithTitle(title: string): Promise<boolean> {
+  async function createTaskWithTitle(title: string, note?: string): Promise<boolean> {
     if (!project || !companyId) return false
     const t = title.trim()
     if (!t) return false
     if (tasks.some((x) => x.title.trim() === t)) { toast.message('المهمّة موجودة سلفاً.'); return false }
-    const created = await createTask({ companyId, projectId: project.id, title: t, status: 'todo', priority: 'medium' })
+    // نحفظ الوقت المتوقّع كملاحظة في جسم المهمّة (يظهر تحت العنوان).
+    const description = note ? serializeBody({ note, steps: [] }) : undefined
+    const created = await createTask({ companyId, projectId: project.id, title: t, status: 'todo', priority: 'medium', description })
     setTasks((p) => [...p, created])
     return true
   }
@@ -480,22 +485,23 @@ export function ProjectDetailPage() {
             </Button>
           </form>
 
-          {/* 💡 أفكار مهام جاهزة — نقرة تُضيف، والباقي بعد الإضافة يُوزَّع على الجهات */}
+          {/* 💡 أفكار مهام مباشرة — فعل واحد + وقت متوقّع، نقرة تُضيفها */}
           {(() => {
-            const available = PROJECT_TASK_IDEAS.filter((idea) => !tasks.some((t) => t.title.trim() === idea))
+            const available = PROJECT_TASK_IDEAS.filter((idea) => !tasks.some((t) => t.title.trim() === idea.t))
             if (available.length === 0) return null
             return (
               <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
-                <div className="mb-2 text-xs font-bold">💡 أفكار مهام لهذه الخطة — نقرة تُضيفها:</div>
+                <div className="mb-2 text-xs font-bold">💡 مهام مباشرة لهذه الخطة — المطلوب + الوقت المتوقّع (نقرة تُضيفها):</div>
                 <div className="flex flex-wrap gap-1.5">
                   {available.map((idea) => (
                     <button
-                      key={idea}
+                      key={idea.t}
                       type="button"
-                      onClick={() => createTaskWithTitle(idea)}
-                      className="rounded-md border bg-card px-2.5 py-1 text-xs transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
+                      onClick={() => createTaskWithTitle(idea.t, `⏱ الوقت المتوقّع: ${idea.time}`)}
+                      className="group/idea flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
                     >
-                      ＋ {idea}
+                      <span>＋ {idea.t}</span>
+                      <span className="rounded-full border bg-muted px-1.5 text-[10px] text-muted-foreground">⏱ {idea.time}</span>
                     </button>
                   ))}
                 </div>
