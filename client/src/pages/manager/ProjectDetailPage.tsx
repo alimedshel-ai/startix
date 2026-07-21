@@ -49,6 +49,27 @@ const PROJECT_TASK_IDEAS: string[] = [
   'تقرير الإنجاز والإغلاق والدروس المستفادة',
 ]
 
+// ─── تفريعات المهمّة (sub-steps) — مخزَّنة في description كـ JSON ────
+// نحفظ { note?, steps: [{t, done}] }. النصّ الحرّ القديم يُحفَظ كـ note.
+interface SubStep { t: string; done: boolean }
+interface TaskBody { note?: string; steps: SubStep[] }
+
+function parseBody(desc?: string | null): TaskBody {
+  if (!desc) return { steps: [] }
+  try {
+    const o = JSON.parse(desc) as { note?: unknown; steps?: unknown }
+    if (o && Array.isArray(o.steps)) {
+      return {
+        note: typeof o.note === 'string' ? o.note : undefined,
+        steps: o.steps.filter((s): s is SubStep => !!s && typeof (s as SubStep).t === 'string')
+          .map((s) => ({ t: s.t, done: !!s.done })),
+      }
+    }
+  } catch { /* نصّ حرّ قديم */ }
+  return { note: desc, steps: [] }
+}
+const serializeBody = (b: TaskBody): string => JSON.stringify({ note: b.note, steps: b.steps })
+
 function fmtDate(iso?: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -193,6 +214,16 @@ export function ProjectDetailPage() {
       setTasks((p) => p.map((t) => (t.id === taskId ? updated : t)))
     } catch (err) {
       toast.error(apiErrorMessage(err, 'تعذّر تعيين الجهة'))
+    }
+  }
+
+  // التفريعات: تُخزَّن في description كـ JSON — نحفظ التغيير ونحدّث محلياً.
+  async function changeTaskBody(taskId: string, description: string) {
+    setTasks((p) => p.map((t) => (t.id === taskId ? { ...t, description } : t))) // تفاؤليّ
+    try {
+      await updateTask(taskId, { description })
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر حفظ التفريعات'))
     }
   }
 
@@ -503,6 +534,7 @@ export function ProjectDetailPage() {
                           task={t}
                           onStatusChange={(s) => changeTaskStatus(t.id, s)}
                           onOwnerChange={(o) => changeTaskOwner(t.id, o)}
+                          onBodyChange={(d) => changeTaskBody(t.id, d)}
                           onRemove={() => removeTask(t.id)}
                         />
                       ))}
@@ -579,47 +611,108 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 }
 
 function TaskRow({
-  task, onStatusChange, onOwnerChange, onRemove,
-}: { task: Task; onStatusChange: (s: string) => void; onOwnerChange: (o: string) => void; onRemove: () => void }) {
+  task, onStatusChange, onOwnerChange, onBodyChange, onRemove,
+}: {
+  task: Task
+  onStatusChange: (s: string) => void
+  onOwnerChange: (o: string) => void
+  onBodyChange: (description: string) => void
+  onRemove: () => void
+}) {
   const sm = TASK_STATUS_META[task.status] ?? TASK_STATUS_META.todo
+  const body = parseBody(task.description)
+  const [open, setOpen] = useState(body.steps.length > 0)
+  const [draft, setDraft] = useState('')
+  const doneCount = body.steps.filter((s) => s.done).length
+
+  const save = (next: TaskBody) => onBodyChange(serializeBody(next))
+  const addStep = () => { const t = draft.trim(); if (!t) return; save({ ...body, steps: [...body.steps, { t, done: false }] }); setDraft('') }
+  const toggle = (i: number) => save({ ...body, steps: body.steps.map((s, j) => (j === i ? { ...s, done: !s.done } : s)) })
+  const removeStep = (i: number) => save({ ...body, steps: body.steps.filter((_, j) => j !== i) })
+
   return (
-    <li className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
-      <span className={`inline-flex size-6 items-center justify-center rounded-full border text-xs ${sm.chipClass}`}>
-        {sm.icon}
-      </span>
-      <span className="min-w-[120px] flex-1 text-sm">{task.title}</span>
-      {/* توزيع: الجهة المنفّذة */}
-      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-        👤
-        <input
-          className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
-          placeholder="الجهة المنفّذة"
-          defaultValue={task.owner ?? ''}
-          list="project-task-owners"
-          onBlur={(e) => {
-            const v = e.target.value.trim()
-            if (v !== (task.owner?.trim() ?? '')) onOwnerChange(v)
-          }}
-        />
-      </span>
-      <select
-        value={task.status}
-        onChange={(e) => onStatusChange(e.target.value)}
-        className="h-7 rounded border bg-background px-2 text-[11px]"
-      >
-        <option value="todo">للقيام</option>
-        <option value="in_progress">قيد التنفيذ</option>
-        <option value="done">منجزة</option>
-        <option value="blocked">متعطلة</option>
-      </select>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded p-1 text-xs text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
-        title="حذف"
-      >
-        🗑️
-      </button>
+    <li className="rounded-lg border bg-card">
+      <div className="flex flex-wrap items-center gap-2 p-2">
+        <span className={`inline-flex size-6 items-center justify-center rounded-full border text-xs ${sm.chipClass}`}>
+          {sm.icon}
+        </span>
+        <div className="min-w-[120px] flex-1">
+          <div className="text-sm">{task.title}</div>
+          {body.note && <div className="text-[10px] leading-relaxed text-muted-foreground">{body.note}</div>}
+        </div>
+        {/* تفريعات — كسر المهمّة إلى خطوات مباشرة */}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`rounded-md border px-2 py-1 text-[11px] transition hover:bg-accent ${body.steps.length > 0 ? 'border-primary/30 bg-primary/5 text-primary' : 'text-muted-foreground'}`}
+          title="تفريعات المهمّة"
+        >
+          {open ? '▾' : '▸'} تفريعات{body.steps.length > 0 ? ` ${doneCount}/${body.steps.length}` : ''}
+        </button>
+        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          👤
+          <input
+            className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
+            placeholder="الجهة المنفّذة"
+            defaultValue={task.owner ?? ''}
+            list="project-task-owners"
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              if (v !== (task.owner?.trim() ?? '')) onOwnerChange(v)
+            }}
+          />
+        </span>
+        <select
+          value={task.status}
+          onChange={(e) => onStatusChange(e.target.value)}
+          className="h-7 rounded border bg-background px-2 text-[11px]"
+        >
+          <option value="todo">للقيام</option>
+          <option value="in_progress">قيد التنفيذ</option>
+          <option value="done">منجزة</option>
+          <option value="blocked">متعطلة</option>
+        </select>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded p-1 text-xs text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
+          title="حذف"
+        >
+          🗑️
+        </button>
+      </div>
+
+      {open && (
+        <div className="space-y-1.5 border-t bg-muted/20 p-2.5">
+          {body.steps.length > 0 && (
+            <div className="h-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-emerald-400 transition-all" style={{ width: `${Math.round((doneCount / body.steps.length) * 100)}%` }} />
+            </div>
+          )}
+          <ul className="space-y-1">
+            {body.steps.map((s, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={s.done} onChange={() => toggle(i)} className="size-3.5" />
+                <span className={`flex-1 ${s.done ? 'text-muted-foreground line-through' : ''}`}>{s.t}</span>
+                <button type="button" onClick={() => removeStep(i)} className="text-muted-foreground hover:text-destructive">×</button>
+              </li>
+            ))}
+            {body.steps.length === 0 && (
+              <li className="text-[11px] text-muted-foreground">اكسر المهمّة إلى خطوات مباشرة أدناه.</li>
+            )}
+          </ul>
+          <div className="flex gap-1">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addStep())}
+              placeholder="خطوة مباشرة…"
+              className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+            />
+            <button type="button" onClick={addStep} disabled={!draft.trim()} className="rounded border bg-background px-2.5 text-xs hover:bg-accent disabled:opacity-50">＋</button>
+          </div>
+        </div>
+      )}
     </li>
   )
 }
