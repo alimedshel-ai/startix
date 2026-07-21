@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import type { StageId } from '@/lib/journeyStages'
 import { JOURNEY_STAGES, artifactSatisfies } from '@/lib/journeyStages'
+import { listDepartments } from '@/lib/deptApi'
 import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strategicApi'
 
 // ─── قراءة اكتمال المراحل للعميل النشط ───────────────────────────
@@ -36,11 +37,12 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
     setState((s) => ({ ...s, loading: true }))
     ;(async () => {
       try {
-        const [arts, swot, objectives, kpis] = await Promise.allSettled([
+        const [arts, swot, objectives, kpis, depts] = await Promise.allSettled([
           listAllArtifacts(companyId),
           getSWOT(companyId).catch(() => null),
           listObjectives(companyId).catch(() => []),
           listKPIs(companyId).catch(() => []),
+          listDepartments(companyId).catch(() => []),
         ])
         if (!alive) return
         const artifactTypes = new Set<string>(
@@ -52,10 +54,14 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
         )
         const hasObjectives = objectives.status === 'fulfilled' && objectives.value.length > 0
         const hasKpis = kpis.status === 'fulfilled' && kpis.value.length > 0
+        // تدقيق الإدارة (DeptAuditPage) يُحفَظ في جداول الإدارة لا كـartifact —
+        // فنعدّه اكتمالاً لمرحلة «البيئة» (①): أيّ إدارة لها درجة تدقيق فعليّة.
+        const hasDeptAudit = depts.status === 'fulfilled' && depts.value.some((d) => d.auditScore != null)
 
         const completions: Record<StageId, boolean> = { ...EMPTY }
         for (const stage of JOURNEY_STAGES) {
           let done = stage.completionArtifacts.some((t) => artifactSatisfies(artifactTypes, t))
+          if (stage.id === 'environment' && hasDeptAudit) done = true
           if (stage.id === 'synthesis' && hasSwot)   done = true
           if (stage.id === 'indicators' && hasObjectives) done = true
           if (stage.id === 'indicators' && hasKpis)  done = true
