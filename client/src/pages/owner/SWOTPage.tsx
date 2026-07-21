@@ -19,6 +19,8 @@ import {
   type TaggedItem,
 } from '@/lib/taggedItem'
 import { DEPT_QUESTIONS } from '@/lib/deptQuestions'
+import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
+import { computeResults } from '@/lib/maturityEngine'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── ربط شارة المصدر بصفحة المنشأ ─────────────────────────────
@@ -383,6 +385,26 @@ function Editor({ companyId }: { companyId: string }) {
     return { strengths, weaknesses }
   }
 
+  // ─── ترابط: تقييم النضج (HR/المالية) → SWOT (S/W) ────────────────
+  // تخصّصات النضج تستبدل التحليل العميق بتقييم مُسجَّل. نُغذّي SWOT منه:
+  // الأقسام الناضجة (≥٧٠٪) قوّة، والضعيفة (<٥٠٪) ضعف.
+  async function buildFromMaturity(): Promise<Incoming | null> {
+    if (!specialty) return null
+    const config = MATURITY_BY_SPECIALTY[specialty]
+    if (!config) return null
+    const art = await getArtifact<{ answers?: Record<string, number> }>(companyId, 'MATURITY')
+    const answers = art?.data?.answers
+    if (!answers || typeof answers !== 'object') return null
+    const results = computeResults(config, answers).filter((r) => r.answered > 0)
+    if (results.length === 0) return null
+    const strengths = results.filter((r) => r.pct >= 70)
+      .map((r) => ({ text: `${r.labelAr}: نضج جيّد (${r.pct}٪)`, reason: 'من تقييم النضج — قسم ناضج يُبنى عليه.' }))
+    const weaknesses = results.filter((r) => r.pct < 50)
+      .map((r) => ({ text: `${r.labelAr}: نضج منخفض (${r.pct}٪)`, reason: r.recommendation }))
+    if (strengths.length === 0 && weaknesses.length === 0) return null
+    return { strengths, weaknesses }
+  }
+
   async function seedFromDeepAnalysis() {
     if (!specialty) {
       toast.error('لا تخصّص محدّد — يعمل هذا الزر للمدير المستقل فقط.')
@@ -474,15 +496,16 @@ function Editor({ companyId }: { companyId: string }) {
     setGeneratingAll(true)
     try {
       // نبني كل المصادر بالتوازي (نقيّة، بلا لمس حالة) — الفشل في واحد لا يُوقف الآخرين.
-      const [deep, gap, pestel] = await Promise.all([
+      const [deep, gap, pestel, maturity] = await Promise.all([
         buildDeep().catch(() => null),
         buildGap().catch(() => null),
         buildPESTEL().catch(() => null),
+        buildFromMaturity().catch(() => null),
       ])
       // نطبّق بالتسلسل (silent) — dataRef يبقي كل خطوة على أحدث نسخة فلا تُطمس السابقة.
       const total: MergeResult = { merged: [], kept: 0, replaced: 0, added: 0, skipped_duplicates: 0 }
       const sources: [string, Incoming | null][] = [
-        ['التحليل العميق', deep], ['تحليل الفجوة', gap], ['PESTEL', pestel],
+        ['التحليل العميق', deep], ['تحليل الفجوة', gap], ['PESTEL', pestel], ['تقييم النضج', maturity],
       ]
       let any = false
       for (const [src, inc] of sources) {
