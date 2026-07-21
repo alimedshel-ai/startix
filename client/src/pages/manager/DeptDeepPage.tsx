@@ -221,6 +221,9 @@ interface DeepAnswer {
 
 interface DeepAnswers {
   answers: Record<string, DeepAnswer | string>
+  /** تسميات نقاط الضعف/القيود المختارة (+ نصّ «أخرى») — يقرأها مولّد المبادرات
+     في /priority ليحوّل التشخيص إلى مبادرات تحسين فعليّة (لا طريق مسدود). */
+  weaknesses?: string[]
 }
 
 type AnswersState = Record<number, DeepAnswer>
@@ -431,6 +434,17 @@ function QuickAnalysisSection() {
     }
     setSaving(true)
     try {
+      // تسطيح نقاط الضعف المختارة إلى تسميات مقروءة — ليحوّلها مولّد
+      // المبادرات إلى مبادرات تحسين (يُصلح المسار: «التشخيص يولّد مبادرات»).
+      const weaknesses: string[] = []
+      prompts.forEach((p, i) => {
+        const a = answers[i] ?? emptyAnswer()
+        for (const key of a.selected) {
+          const opt = p.options.find((o) => o.key === key)
+          if (opt) weaknesses.push(opt.label)
+        }
+        if (a.other.trim()) weaknesses.push(a.other.trim())
+      })
       const payload: DeepAnswers = {
         answers: Object.fromEntries(
           prompts.map((_, i) => {
@@ -438,6 +452,7 @@ function QuickAnalysisSection() {
             return [String(i), { selected: a.selected, other: a.other.trim() }]
           }).filter(([, v]) => (v as DeepAnswer).selected.length > 0 || (v as DeepAnswer).other.length > 0)
         ),
+        weaknesses,
       }
       const saved = await upsertArtifact<DeepAnswers>(company.id, 'DEPT_DEEP_ANSWERS', payload)
       setSavedAt(saved.updatedAt)

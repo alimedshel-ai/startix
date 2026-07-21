@@ -334,8 +334,25 @@ function Editor({ companyId }: { companyId: string }) {
         }
       } catch { /* skip */ }
 
+      // 🔬 التشخيص السريع للإدارة — نقاط الضعف المختارة → مبادرات معالجة.
+      // يُصلح المسار: صفحة dept-deep تَعِد بأن «التشخيص يولّد مبادرات» — وهنا
+      // نُوفي بالوعد بدل الوصول لطريق مسدود في هذه الصفحة.
+      try {
+        const dArt = await getArtifact<{ weaknesses?: string[] }>(companyId, 'DEPT_DEEP_ANSWERS')
+        for (const w of (dArt?.data?.weaknesses ?? [])) {
+          if (!w?.trim()) continue
+          const clean = cleanInitiativeTitle(w.trim())
+          if (!clean) continue
+          const title = `🔧 معالجة: ${clean.slice(0, 80)}${clean.length > 80 ? '…' : ''}`
+          const key = titleKey(title)
+          if (existing.has(key)) continue
+          toCreate.push({ title, description: `مبادرة تحسين من التشخيص السريع للإدارة — نقطة ضعف: ${w.trim()}`, priority: 'high', source: 'التشخيص' })
+          existing.add(key)
+        }
+      } catch { /* skip */ }
+
       if (toCreate.length === 0) {
-        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
+        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: التشخيص السريع/SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
         return
       }
       // إنشاء المبادرات بالتوازي.
