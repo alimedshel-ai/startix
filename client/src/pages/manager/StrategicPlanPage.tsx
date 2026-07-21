@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { NextActionCard } from '@/components/manager/NextActionCard'
 import { PageHeader } from '@/components/PageHeader'
+import { JourneyNextStep } from '@/journey/shared/JourneyNextStep'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { apiErrorMessage } from '@/lib/api'
@@ -352,6 +353,19 @@ export function StrategicPlanPage() {
           { label: 'الخطة' },
         ]}
       />
+
+      {/* 🧭 وجهة واحدة واضحة — تفادي تشتّت الأيقونات: القمرة + الخطوة التالية */}
+      <Link
+        to={`/manager/clients/${client.companyId}/run`}
+        className="flex items-center justify-between gap-3 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/15 to-primary/5 p-3.5 shadow-sm transition hover:-translate-y-0.5"
+      >
+        <div>
+          <div className="flex items-center gap-2 text-sm font-bold">🧭 <span>تُهت بين الأدوات؟ افتح القمرة الموجّهة</span></div>
+          <p className="mt-0.5 text-xs text-muted-foreground">خطوة واحدة واضحة في كل مرّة — بدل الاختيار بين عشرات الأيقونات.</p>
+        </div>
+        <span className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">تابِع المسار ←</span>
+      </Link>
+      <JourneyNextStep companyId={client.companyId} clientQuery={`?client=${client.companyId}`} />
 
       {/* 🚨 بانر الطوارئ — يظهر عند EMERGENCY أو صحّة حرجة */}
       {(isEmergency || isCriticalHealth) && (
