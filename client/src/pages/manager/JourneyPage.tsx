@@ -223,7 +223,7 @@ export function JourneyPage() {
         <CardContent>
           <div className="h-3 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-gradient-to-l from-primary to-violet-500 transition-all"
+              className="h-full bg-primary transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -273,7 +273,7 @@ function StageCard({ status, clientQ, inPath }: { status: StageStatus; clientQ: 
   if (pathLocked) {
     return (
       <Card className="overflow-hidden border-dashed opacity-70">
-        <div className={`h-1 bg-gradient-to-l from-${stage.accent}-500 to-transparent`} />
+        <div className="h-1 bg-muted" />
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
@@ -301,8 +301,8 @@ function StageCard({ status, clientQ, inPath }: { status: StageStatus; clientQ: 
 
   const stateLabel =
     complete   ? { text: '✓ مكتَملة', class: 'bg-emerald-500 text-white' }
-  : !inPath    ? { text: '🔓 مفتوحة يدوياً', class: 'bg-amber-100 text-amber-800' }
-  : canOpen    ? { text: 'متاحة',      class: 'bg-sky-100 text-sky-800' }
+  : !inPath    ? { text: '🔓 مفتوحة يدوياً', class: 'bg-muted text-muted-foreground' }
+  : canOpen    ? { text: 'متاحة',      class: 'bg-primary/10 text-primary' }
   : { text: '🔒 مقفلة',    class: 'bg-muted text-muted-foreground' }
 
   // المكتملة تبرز بإطار أخضر بدل التلاشي؛ المقفلة بالتسلسل تبقى باهتة.
@@ -312,7 +312,7 @@ function StageCard({ status, clientQ, inPath }: { status: StageStatus; clientQ: 
 
   return (
     <Card className={cardClass}>
-      <div className={`h-1 bg-gradient-to-l from-${stage.accent}-500 to-transparent`} />
+      <div className={`h-1 ${complete ? 'bg-emerald-400' : canOpen ? 'bg-primary/50' : 'bg-muted'}`} />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
