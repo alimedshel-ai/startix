@@ -683,23 +683,23 @@ export function StrategicPlanPage() {
         const trackableCount = trackable.length
         const pct = trackableCount > 0 ? Math.round((doneCount / trackableCount) * 100) : 0
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                🛠️ الأدوات المستخدمة في هذه الخطة
+          <details className="group rounded-xl border bg-card shadow-sm">
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-4 text-base font-semibold transition hover:bg-accent/40">
+              <span className="flex flex-wrap items-center gap-2">
+                🛠️ كل أدوات هذه الخطة (اختياريّ)
                 {trackableCount > 0 && (
                   <span className="rounded-full border bg-card px-2 py-0.5 text-xs font-medium tabular-nums">
                     {doneCount}/{trackableCount} مُستخدَمة ({pct}٪)
                   </span>
                 )}
                 {usageLoading && <span className="text-[10px] text-muted-foreground">جاري قراءة الاستخدام…</span>}
-              </CardTitle>
-              <CardDescription>
-                {tools.length} أداة داخل المنصّة مُختارة خصيصاً لمسار {path.shortName}.
-                {' '}الشارة الخضراء «✓ مُستخدَمة» تعني أنّ الأداة حُفظ فيها بيانات لهذا العميل.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              </span>
+              <span className="text-xs text-muted-foreground transition group-open:rotate-180">▼</span>
+            </summary>
+            <div className="border-t p-4">
+              <p className="mb-3 text-xs text-muted-foreground">
+                {tools.length} أداة مُختارة لمسار {path.shortName}. لا تحتاج فتحها كلّها — اتبع «الخطوة التالية» أعلى الصفحة، وارجع هنا عند الحاجة فقط. «✓ مُستخدَمة» = حُفظت بيانات لهذا العميل.
+              </p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {tools.map((t, idx) => {
                   const st = statuses[idx]
@@ -752,8 +752,8 @@ export function StrategicPlanPage() {
                   الأدوات «بلا حالة» (مثل التحليل المالي، السيناريوهات) لا تُخزّن مخرَجاً قابلاً للقياس.
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </details>
         )
       })()}
 
