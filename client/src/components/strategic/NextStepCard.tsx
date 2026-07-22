@@ -223,4 +223,6 @@ const TOOL_LABELS: Record<string, string> = {
   '/gantt-chart': 'جانت', '/tasks': 'المهام', '/ai-center': 'مركز الذكاء',
   '/bmc': 'نموذج الأعمال Canvas', '/bsc': 'Balanced Scorecard',
   '/raci': 'RACI', '/eisenhower': 'أيزنهاور',
+  // مراكز المراحل (hubs) — كانت تُظهر مقطع المسار الإنجليزيّ الخام (execute…).
+  '/execute': 'التنفيذ والمتابعة', '/priority': 'المبادرات والأولويّات', '/measure': 'القياس والأهداف',
 }
