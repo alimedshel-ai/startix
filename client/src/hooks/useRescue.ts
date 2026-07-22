@@ -22,14 +22,18 @@ export interface RescueView {
   criticalPct: number | null
   /** مسار إعادة تدقيق الإدارة الحرجة — «الخروج» يتأكّد بإعادة القياس لا بفعل الخطوات. */
   reauditPath: string | null
+  /** صحّة الإدارة الأساسيّة — يغذّي classifyClient (المستوى المتكيّف). */
+  health: { hasAudit: boolean; healthPct: number | null; dangerZone: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null }
 }
 
+const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null } as const
+
 export function useRescue(companyId: string | null): RescueView {
-  const [state, setState] = useState<RescueView>({ loading: !!companyId, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null })
+  const [state, setState] = useState<RescueView>({ loading: !!companyId, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH })
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null })
+      setState({ loading: false, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH })
       return
     }
     let alive = true
@@ -43,9 +47,10 @@ export function useRescue(companyId: string | null): RescueView {
       if (!alive) return
       // الحالة الحرجة: أدنى درجة تدقيق إدارة < ٤٠٪. «الخروج» لا يتحقّق بفعل خطوات
       // الإنقاذ — بل بإعادة التدقيق التي تُظهر تعافياً (auditScore ≥ ٤٠).
-      const criticalDept = depts.status === 'fulfilled'
-        ? depts.value.find((d) => d.auditScore != null && d.auditScore < 40)
-        : undefined
+      const deptList = depts.status === 'fulfilled' ? depts.value : []
+      const criticalDept = deptList.find((d) => d.auditScore != null && d.auditScore < 40)
+      // الإدارة الأساسيّة (أوّل من لها تدقيق) — لصحّة classifyClient المتكيّفة.
+      const primaryDept = deptList.find((d) => d.auditScore != null)
       const criticalHealth = !!criticalDept
       const types = new Set<string>(arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [])
       const done: RescueDone = {
@@ -60,6 +65,11 @@ export function useRescue(companyId: string | null): RescueView {
         done,
         criticalPct: criticalDept?.auditScore ?? null,
         reauditPath: criticalDept ? auditRouteFor(criticalDept.type) : null,
+        health: {
+          hasAudit: !!primaryDept,
+          healthPct: primaryDept?.auditScore ?? null,
+          dangerZone: primaryDept?.auditData?.dangerZone ?? null,
+        },
       })
     })()
     return () => { alive = false }
