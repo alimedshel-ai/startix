@@ -49,9 +49,9 @@ export function RiskFastPathBanner({ companyId, healthPct, dangerZone }: {
   // على المسار السريع سلفاً → تأكيد لطيف بدل التوصية.
   if (alreadyQuick) {
     return (
-      <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/50 p-3 text-xs leading-relaxed text-emerald-900">
+      <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/50 p-4 text-base leading-relaxed text-emerald-900">
         ✓ أنت على <b>المسار السريع</b> المناسب لحالة الخطر الحاليّة — أوقف النزيف عبر خطة الإنقاذ قبل أي تخطيط أطول.{' '}
-        <Link to={rescueHref} className="font-medium underline underline-offset-4">افتح خطة الإنقاذ ←</Link>
+        <Link to={rescueHref} className="mt-2 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white no-underline hover:opacity-90">افتح خطة الإنقاذ ←</Link>
       </div>
     )
   }
