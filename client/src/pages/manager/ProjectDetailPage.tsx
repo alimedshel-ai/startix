@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
+import { auditRouteFor } from '@/journey'
 import { apiErrorMessage } from '@/lib/api'
 import { aiInitiativeBreakdown, type InitiativeBreakdown } from '@/lib/aiApi'
 import {
@@ -16,6 +17,7 @@ import {
   updateProject, updateTask,
   type Initiative, type Project, type Task,
 } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
 
 // ─── صفحة تفصيل مشروع واحد ────────────────────────────────────────
 // URL: /manager/projects/:projectId?client=<companyId>
@@ -81,12 +83,13 @@ export function ProjectDetailPage() {
   const [params] = useSearchParams()
   const companyId = params.get('client')
   const navigate = useNavigate()
+  const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
 
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [initiative, setInitiative] = useState<Initiative | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -98,15 +101,12 @@ export function ProjectDetailPage() {
   // نسخة قابلة للتحرير من المشروع.
   const [draft, setDraft] = useState<Partial<Project>>({})
 
+  // الـeffect لا يستدعي setState متزامناً — فقط بعد await. loading/error يُشتقّان
+  // أثناء الرندر من مطابقة loadedKey ↔ المفتاح الحاليّ (نمط «you might not need an effect»).
   useEffect(() => {
-    if (!projectId || !companyId) {
-      setError('مسار غير صالح — تحتاج projectId + client في الرابط.')
-      setLoading(false)
-      return
-    }
+    if (!projectId || !companyId) return
+    const k = `${projectId}|${companyId}`
     let alive = true
-    setLoading(true)
-    setError(null)
     ;(async () => {
       try {
         const [allProjects, allTasks, allInitiatives] = await Promise.all([
@@ -117,22 +117,32 @@ export function ProjectDetailPage() {
         if (!alive) return
         const found = allProjects.find((p) => p.id === projectId)
         if (!found) {
-          setError('خطة التنفيذ غير موجودة — قد تكون مُحذَفة أو تغيّر العميل.')
+          setFetchError('خطة التنفيذ غير موجودة — قد تكون مُحذَفة أو تغيّر العميل.')
+          setLoadedKey(k)
           return
         }
         setProject(found)
         setDraft(found)
         setTasks(allTasks.filter((t) => t.projectId === projectId))
         setInitiative(allInitiatives.find((i) => i.id === found.initiativeId) ?? null)
+        setFetchError(null)
+        setLoadedKey(k)
       } catch (err) {
         if (!alive) return
-        setError(apiErrorMessage(err, 'تعذّر تحميل خطة التنفيذ'))
-      } finally {
-        if (alive) setLoading(false)
+        setFetchError(apiErrorMessage(err, 'تعذّر تحميل خطة التنفيذ'))
+        setLoadedKey(k)
       }
     })()
     return () => { alive = false }
   }, [projectId, companyId])
+
+  // ── مشتقّ أثناء الرندر (بلا setState متزامن) ──
+  const invalidPath = !projectId || !companyId
+  const currentKey = projectId && companyId ? `${projectId}|${companyId}` : null
+  const loading = !invalidPath && loadedKey !== currentKey
+  const error = invalidPath
+    ? 'مسار غير صالح — تحتاج projectId + client في الرابط.'
+    : (loadedKey === currentKey ? fetchError : null)
 
   const stats = useMemo(() => {
     const total = tasks.length
@@ -223,7 +233,6 @@ export function ProjectDetailPage() {
     if (!breakdown) return
     let added = 0
     for (const st of breakdown.subTasks) {
-      // eslint-disable-next-line no-await-in-loop
       if (await createTaskWithTitle(st.title, `⏱ متوقّع: ${st.estimate}${st.kind ? ` · نوع: ${st.kind}` : ''}`)) added++
     }
     toast.success(added ? `أُضيفت ${added} مهمّة من التحليل` : 'كل المهام مضافة سلفاً')
@@ -390,6 +399,31 @@ export function ProjectDetailPage() {
           <Progress value={stats.pct} className="mt-3 h-2" />
         </CardHeader>
       </Card>
+
+      {/* 🔁 إغلاق الحلقة — عند الاكتمال، أعِد القياس ليتكيّف المستوى (المنهجيّة) */}
+      {(stats.pct === 100 && stats.total > 0) || project.status === 'done' ? (
+        (() => {
+          const reauditHref = auditRouteFor(specialty)
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-emerald-300 bg-gradient-to-l from-emerald-50 to-transparent p-4 shadow-sm">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-bold text-emerald-900">✅ اكتملت خطة التنفيذ — أغلِق الحلقة</div>
+                <p className="mt-0.5 text-xs leading-relaxed text-emerald-800/80">
+                  لتقيس التحسّن الفعليّ، <b>أعِد تدقيق الإدارة</b>. إن ارتفعت الصحّة، يرتقي مستواك تلقائيّاً (طوارئ → تأسيسي → نموّ → تميّز).
+                </p>
+              </div>
+              {reauditHref && companyId && (
+                <Link
+                  to={`${reauditHref}?client=${companyId}`}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+                >
+                  🔁 أعِد التدقيق لقياس التحسّن ←
+                </Link>
+              )}
+            </div>
+          )
+        })()
+      ) : null}
 
       {/* بطاقات الإحصاء */}
       <div className="grid gap-3 sm:grid-cols-4">
