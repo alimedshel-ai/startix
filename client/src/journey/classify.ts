@@ -66,3 +66,43 @@ export function classifyClient(s: ClassifyState): ClientClass {
     reasonAr: `الصحّة ${Math.round(h)}٪ — إدارة ناضجة. حسّن للتميّز (سيناريوهات + تحسين مستمرّ + قياس دوريّ).`,
   }
 }
+
+// ─── مصالحة الآليّ ↔ اليدويّ + كشف التقادم (جوهر التكيّف) ─────────────
+// المشتقّ من الصحّة (auto) قد يفارق اختيار المستخدم اليدويّ (user.strategyPath).
+// حين يفارقه: is_stale = صحيح، والاتّجاه يكشف «تحسّنت → ترقَّ» أو «تراجعت → تنبيه».
+// هذا ما كان غائباً: إشارة «مستواك اليدويّ لم يعد يطابق بياناتك».
+
+export type StaleDirection = 'upgrade' | 'downgrade' | null
+
+const PATH_WEIGHT: Record<StrategyPath, number> = { QUICK: 1, MEDIUM: 2, LONG: 3 }
+const PATH_LABEL: Record<StrategyPath, string> = { QUICK: 'تشغيلي (قصير)', MEDIUM: 'تكتيكي (متوسّط)', LONG: 'استراتيجي (طويل)' }
+
+export interface LevelResolution {
+  /** التصنيف الآليّ المشتقّ من الصحّة. */
+  auto: ClientClass
+  /** المسار الذي يقود فعلاً: اليدويّ إن وُجد، وإلّا المشتقّ. */
+  activePath: StrategyPath
+  /** هل اليدويّ فارق المشتقّ؟ */
+  isStale: boolean
+  /** upgrade = بياناتك تحسّنت فوق مسارك · downgrade = تراجعت تحته. */
+  direction: StaleDirection
+  why: string
+}
+
+export function reconcileLevel(auto: ClientClass, manualPath: StrategyPath | null): LevelResolution {
+  const autoPath = auto.journeyPath // null حين assess (لا تدقيق بعد)
+
+  // لا يدويّ أو لا آليّ (قبل القياس) → لا تقادم؛ المشتقّ (أو اليدويّ) يقود.
+  if (!manualPath || !autoPath) {
+    return { auto, activePath: manualPath ?? autoPath ?? 'LONG', isStale: false, direction: null, why: auto.reasonAr }
+  }
+  if (autoPath === manualPath) {
+    return { auto, activePath: manualPath, isStale: false, direction: null, why: 'مسارك اليدويّ يطابق وضع الإدارة الحاليّ.' }
+  }
+  const direction: StaleDirection = PATH_WEIGHT[autoPath] > PATH_WEIGHT[manualPath] ? 'upgrade' : 'downgrade'
+  const why = direction === 'upgrade'
+    ? `تحسّنت بيانات إدارتك — يسمح وضعك بالترقّي من «${PATH_LABEL[manualPath]}» إلى «${PATH_LABEL[autoPath]}».`
+    : `تنبيه: بياناتك تشير إلى وضع أدنى («${PATH_LABEL[autoPath]}») من مسارك اليدويّ «${PATH_LABEL[manualPath]}» — راجِع.`
+  // اليدويّ يبقى «الفعّال» (لا نغيّره تلقائيّاً) — نعرض الإشارة ليقرّر المستخدم.
+  return { auto, activePath: manualPath, isStale: true, direction, why }
+}

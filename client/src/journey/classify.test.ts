@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { classifyClient, type ClassifyState } from './classify'
+import { classifyClient, reconcileLevel, type ClassifyState } from './classify'
 
 function st(over: Partial<ClassifyState> = {}): ClassifyState {
   return { hasAudit: true, healthPct: 50, dangerZone: null, ...over }
@@ -44,5 +44,39 @@ describe('classifyClient — التكيّف مع التحسّن (جوهر الم
     expect(classifyClient(st({ healthPct: 40 })).level).toBe('foundation')
     expect(classifyClient(st({ healthPct: 60 })).level).toBe('growth')
     expect(classifyClient(st({ healthPct: 80 })).level).toBe('excellence')
+  })
+})
+
+describe('reconcileLevel — مصالحة الآليّ ↔ اليدويّ + كشف التقادم', () => {
+  it('لا يدويّ → لا تقادم، المشتقّ يقود', () => {
+    const auto = classifyClient(st({ healthPct: 70 })) // growth → MEDIUM
+    const r = reconcileLevel(auto, null)
+    expect(r.isStale).toBe(false)
+    expect(r.activePath).toBe('MEDIUM')
+  })
+
+  it('يدويّ يطابق المشتقّ → لا تقادم', () => {
+    const auto = classifyClient(st({ healthPct: 70 })) // MEDIUM
+    expect(reconcileLevel(auto, 'MEDIUM').isStale).toBe(false)
+  })
+
+  it('upgrade: تحسّنت البيانات فوق مسارك اليدويّ (LONG آليّ vs QUICK يدويّ)', () => {
+    const auto = classifyClient(st({ healthPct: 85 })) // excellence → LONG
+    const r = reconcileLevel(auto, 'QUICK')
+    expect(r.isStale).toBe(true)
+    expect(r.direction).toBe('upgrade')
+    expect(r.activePath).toBe('QUICK') // اليدويّ يبقى الفعّال حتى يقرّر المستخدم
+  })
+
+  it('downgrade: تراجعت البيانات تحت مسارك اليدويّ (QUICK آليّ vs LONG يدويّ)', () => {
+    const auto = classifyClient(st({ healthPct: 25 })) // emergency → QUICK
+    const r = reconcileLevel(auto, 'LONG')
+    expect(r.isStale).toBe(true)
+    expect(r.direction).toBe('downgrade')
+  })
+
+  it('assess (لا تدقيق) → لا تقادم', () => {
+    const auto = classifyClient(st({ hasAudit: false, healthPct: null }))
+    expect(reconcileLevel(auto, 'MEDIUM').isStale).toBe(false)
   })
 })
