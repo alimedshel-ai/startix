@@ -2,8 +2,13 @@ import { Link, useLocation } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
+import { useRescue } from '@/hooks/useRescue'
 import { filterToolsForUser, isStageInPath, JOURNEY_STAGES, type JourneyStage } from '@/lib/journeyStages'
 import { useAuthStore } from '@/store/authStore'
+
+function ar(n: number): string {
+  return String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d])
+}
 
 // ─── S3 — بطاقة «الخطوة التالية» أسفل كل أداة استراتيجية ──────────
 // المبدأ: نتقدّم دائماً للأمام — لا نُعيد المدير لأدوات مُتوازية في
@@ -75,6 +80,35 @@ export function NextStepCard({ clientQuery = '', companyId }: Props) {
     user?.userType === 'MANAGER' &&
     user?.managerType === 'INDEPENDENT_PRO' &&
     user?.specialtyDeptType != null
+
+  // وعي الطوارئ (طبقة فوق المحرّك) — يُجلب فقط للمدير الموجّه (غيره null → لا جلب).
+  // صحّة حرجة → «التالي» = خطوة الإنقاذ، لا مرحلة المسار (يزيل تناقض SWOT مع الخطة العاجلة).
+  const { rescue } = useRescue(isDeptScoped ? (companyId ?? null) : null)
+  if (rescue.kind === 'rescue' && rescue.step) {
+    const s = rescue.step
+    return (
+      <Card className="border-rose-300 bg-gradient-to-l from-rose-100/60 to-transparent">
+        <CardHeader className="pb-2">
+          <CardDescription className="text-xs font-medium text-rose-700">
+            🚨 خطة إنقاذ عاجلة · الخطوة {ar(rescue.doneCount + 1)}/{ar(rescue.total)}
+          </CardDescription>
+          <CardTitle className="flex items-center gap-2 text-base text-rose-950">
+            <span aria-hidden>{s.icon}</span><span>{s.label} — {s.tool}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="max-w-md text-xs text-rose-900/70">{s.why}</p>
+          <Link
+            to={`${s.toolPath}${clientQuery}&from=emergency`}
+            className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
+          >
+            افتحها الآن ←
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const cur = findStage(pathname)
   if (!cur) return null
 
