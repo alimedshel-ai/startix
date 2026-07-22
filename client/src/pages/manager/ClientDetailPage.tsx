@@ -11,6 +11,7 @@ import { DEPT_ICON, DEPT_LABEL, dangerZoneColor, type DangerZone, type DeptCode 
 import { isToolVisible, visibleTools } from '@/lib/goalGating'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { getArtifact, getSWOT, getTaggedTOWS, listAllArtifacts, listProjects } from '@/lib/strategicApi'
+import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── PRO-5 — لوحة العميل الواحد (workspace) ──────────────────────────────────
@@ -59,33 +60,30 @@ export function ClientDetailPage() {
   const { companyId } = useParams<{ companyId: string }>()
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [client, setClient] = useState<OverviewClient | null>(null)
-
   const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+  const [data, setData] = useState<{ forId: string | null; client: OverviewClient | null; error: string | null }>({ forId: null, client: null, error: null })
 
   useEffect(() => {
     if (!isPro || !companyId) return
     let alive = true
-    setLoading(true)
-    setError(null)
+    // الـeffect لا يستدعي setState متزامناً — فقط setData بعد await (then/catch).
     getProOverview()
       .then((res) => {
         if (!alive) return
         const found = res.clients.find((c) => c.companyId === companyId) ?? null
-        setClient(found)
-        if (!found) setError('لم نجد هذا العميل في قائمتك.')
+        setData({ forId: companyId, client: found, error: found ? null : 'لم نجد هذا العميل في قائمتك.' })
       })
       .catch((err: unknown) => {
         if (!alive) return
-        setError(apiErrorMessage(err, 'تعذّر تحميل بيانات العميل'))
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
+        setData({ forId: companyId, client: null, error: apiErrorMessage(err, 'تعذّر تحميل بيانات العميل') })
       })
     return () => { alive = false }
   }, [isPro, companyId])
+
+  // مشتقّ أثناء الرندر — loading/error/client بلا setState متزامن في الـeffect.
+  const loading = isPro && !!companyId && data.forId !== companyId
+  const client = data.forId === companyId ? data.client : null
+  const error = data.forId === companyId ? data.error : null
 
   if (!isPro) {
     return (
@@ -173,6 +171,9 @@ function ClientDetailContent(p: {
   user: ReturnType<typeof useAuthStore.getState>['user']
 }) {
   const { client, companyName, specialty, sector, size, stage, healthPct, dangerZone, lastAuditAt, daysSinceLastAudit, hasAnyAudit, hasDepartment, clientQ, extras, mutedFor, user } = p
+
+  // مصالحة الآليّ↔اليدويّ — شارة التقادم (توقظ منطق reconcileLevel النائم).
+  const { resolution } = useGuidedNext(client.companyId)
 
   // ⭐ قراءة اكتمال كل أداة على حدة عبر artifact الخاصّ بها
   // (بدل completions المرحلة الواحدة التي تعتبر كل الأدوات مكتملة إذا كمُلت واحدة)
@@ -364,6 +365,23 @@ function ClientDetailContent(p: {
           {user.strategyPath === 'LONG'   && <span className="rounded-full border border-purple-300 bg-purple-50 px-2 py-0.5 font-medium text-purple-800">🔭 استراتيجي (طويل · ١٢–٣٦+ شهر)</span>}
           <span className="text-muted-foreground">·</span>
           <Link to="/settings/path" className="text-muted-foreground underline-offset-4 hover:underline">تغيير</Link>
+        </div>
+      )}
+
+      {/* ⚠️ شارة التقادم — بياناتك (الآليّ) فارقت مسارك اليدويّ. توقظ reconcileLevel. */}
+      {resolution?.isStale && (
+        <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 text-xs ${
+          resolution.direction === 'upgrade'
+            ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+            : 'border-rose-300 bg-rose-50 text-rose-900'
+        }`}>
+          <span className="flex items-center gap-1.5 font-medium">
+            <span>{resolution.direction === 'upgrade' ? '⬆️' : '⚠️'}</span>
+            {resolution.why}
+          </span>
+          <Link to="/settings/path" className="shrink-0 rounded-md border bg-card px-2.5 py-1 font-semibold underline-offset-4 hover:bg-accent">
+            {resolution.direction === 'upgrade' ? 'رقِّ مسارك ←' : 'راجِع مسارك ←'}
+          </Link>
         </div>
       )}
 

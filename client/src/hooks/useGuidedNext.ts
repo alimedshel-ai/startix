@@ -1,5 +1,5 @@
 import { auditRouteFor } from '@/journey'
-import { classifyClient, type ClientClass } from '@/journey/classify'
+import { classifyClient, reconcileLevel, type ClientClass, type LevelResolution } from '@/journey/classify'
 import { getNextStep } from '@/journey/nextStep'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useRescue } from '@/hooks/useRescue'
@@ -36,6 +36,8 @@ export interface GuidedResult {
   next: GuidedNext | null
   /** المستوى المتكيّف المُشتقّ من الصحّة — لمؤشّر «مستواك الآن». */
   classification: ClientClass | null
+  /** مصالحة الآليّ↔اليدويّ + كشف التقادم (شارة «ترقَّ/تنبيه»). */
+  resolution: LevelResolution | null
 }
 
 export function useGuidedNext(companyId: string | null): GuidedResult {
@@ -47,23 +49,25 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
   const clientQ = companyId ? `?client=${companyId}` : ''
 
-  if (cLoading || rLoading) return { loading: true, next: null, classification: null }
+  if (cLoading || rLoading) return { loading: true, next: null, classification: null, resolution: null }
 
   // ─── صنّف: المستوى يُشتقّ من الصحّة ويتكيّف (لا اختيار يدويّ ثابت) ───
   const classification = classifyClient(health)
+  // مصالحة المشتقّ (آليّ) مع اختيار المستخدم (يدويّ) → شارة التقادم.
+  const resolution = reconcileLevel(classification, user?.strategyPath ?? null)
   // المسار المُشتقّ يقود المحرّك؛ يسقط على اليدويّ حين لا تدقيق بعد (assess).
   const path = classification.journeyPath ?? user?.strategyPath ?? 'LONG'
 
   // ١) الطوارئ أوّلاً — تتجاوز مراحل المسار.
   if (rescue.kind === 'rescue' && rescue.step) {
     const s = rescue.step
-    return { loading: false, classification, next: {
+    return { loading: false, classification, resolution, next: {
       kind: 'rescue', icon: '🚨', label: `${s.label} — ${s.tool}`, reason: s.why,
       to: `${s.toolPath}${clientQ}&from=emergency`,
     } }
   }
   if (rescue.kind === 'rescue-done') {
-    return { loading: false, classification, next: {
+    return { loading: false, classification, resolution, next: {
       kind: 'reaudit', icon: '🔁',
       label: `أعِد تدقيق الإدارة${criticalPct != null ? ` — الصحّة ما زالت ${criticalPct}٪` : ''}`,
       reason: 'الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥٤٠٪)، لا بمجرّد فعل خطوات الإنقاذ.',
@@ -78,7 +82,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
     isPro, activeCompanyId: companyId, completions, path, specialty,
     signals: { swotSourcesReady, usesDiagnostic },
   })
-  return { loading: false, classification, next: {
+  return { loading: false, classification, resolution, next: {
     kind: r.kind, icon: r.icon, label: r.label, reason: r.reason,
     to: r.toolPath ? `${r.toolPath}${clientQ}` : null,
     unlockHint: r.unlockHint,
