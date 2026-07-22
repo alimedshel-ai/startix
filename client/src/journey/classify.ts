@@ -106,3 +106,21 @@ export function reconcileLevel(auto: ClientClass, manualPath: StrategyPath | nul
   // اليدويّ يبقى «الفعّال» (لا نغيّره تلقائيّاً) — نعرض الإشارة ليقرّر المستخدم.
   return { auto, activePath: manualPath, isStale: true, direction, why }
 }
+
+// ─── قفل الفروع في الطوارئ فقط (قرار #٣) — وفاء الواجهة للمحرّك ──────────
+// القاعدة الواحدة: في الطوارئ يُقفَل كل فرع غير موصى (رماديّ + تفسير)، فلا
+// تناقض «سطح ضد محرّك». في كل مستوى آخر: حرّية كاملة (التوصية إرشاد لا إلزام).
+// المخرج في الطوارئ ليس تخطّي التوصية، بل تجاوز *المستوى* يدويّاً (الباب الصحيح).
+
+export interface BranchLock {
+  isLocked: boolean
+  /** تفسير القفل (لا منع صامت) — null حين غير مقفل. */
+  lockReason: string | null
+}
+
+export function branchLock(level: ClientLevel, isRecommended: boolean): BranchLock {
+  if (level === 'emergency' && !isRecommended) {
+    return { isLocked: true, lockReason: '🔒 متاح بعد استقرار الوضع الحرج — أو غيّر المستوى يدويّاً إن كان التصنيف خاطئاً.' }
+  }
+  return { isLocked: false, lockReason: null }
+}

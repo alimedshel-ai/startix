@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { classifyClient, reconcileLevel, type ClassifyState } from './classify'
+import { branchLock, classifyClient, reconcileLevel, type ClassifyState } from './classify'
 
 function st(over: Partial<ClassifyState> = {}): ClassifyState {
   return { hasAudit: true, healthPct: 50, dangerZone: null, ...over }
@@ -78,5 +78,29 @@ describe('reconcileLevel — مصالحة الآليّ ↔ اليدويّ + كش
   it('assess (لا تدقيق) → لا تقادم', () => {
     const auto = classifyClient(st({ hasAudit: false, healthPct: null }))
     expect(reconcileLevel(auto, 'MEDIUM').isStale).toBe(false)
+  })
+})
+
+describe('branchLock — قفل غير الموصى في الطوارئ فقط (قرار #٣)', () => {
+  it('الطوارئ: الموصى حرّ، غير الموصى مقفل بتفسير', () => {
+    expect(branchLock('emergency', true).isLocked).toBe(false)
+    const locked = branchLock('emergency', false)
+    expect(locked.isLocked).toBe(true)
+    expect(locked.lockReason).toContain('الوضع الحرج')
+  })
+
+  it('السيناريو الحرج: «طوارئ ينقر tows» (غير موصى) → مقفل', () => {
+    expect(branchLock('emergency', false).isLocked).toBe(true)
+  })
+
+  it('كل مستوى آخر: حرّية كاملة (موصى وغير موصى)', () => {
+    for (const level of ['foundation', 'growth', 'excellence', 'assess'] as const) {
+      expect(branchLock(level, true).isLocked).toBe(false)
+      expect(branchLock(level, false).isLocked).toBe(false) // غير الموصى حرّ خارج الطوارئ
+    }
+  })
+
+  it('القفل لا يتسرّب: نمو + غير موصى (tows في نمو) → حرّ', () => {
+    expect(branchLock('growth', false).isLocked).toBe(false)
   })
 })
