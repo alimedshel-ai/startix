@@ -28,7 +28,7 @@ export function RunCockpitPage() {
   const cid = companyId ?? null
   const clientQuery = cid ? `?client=${cid}` : ''
   const { loading, path, steps, total, currentIndex, progressPct, nextStage } = useJourney(cid)
-  const { loading: rLoading, rescue, done: rescueDone } = useRescue(cid)
+  const { loading: rLoading, rescue, done: rescueDone, criticalPct, reauditPath } = useRescue(cid)
 
   if (!cid) {
     return <EmptyState title="لا عميل محدّد" description="افتح القمرة من صفحة عميل." icon={<span className="text-4xl">👥</span>} />
@@ -37,15 +37,15 @@ export function RunCockpitPage() {
     return <div className="flex justify-center py-16"><LoadingSpinner size="lg" label="جاري تحميل المسار…" /></div>
   }
 
-  // وعي الطوارئ (طبقة فوق المحرّك): صحّة حرجة → القمرة تعرض تسلسل الإنقاذ
-  // بدل مراحل المسار (يزيل تناقض «التالي SWOT» بينما الخطة عاجلة).
-  if (rescue.kind === 'rescue') {
-    return <RescueCockpit cid={cid} clientQuery={clientQuery} rescueDone={rescueDone} step={rescue.step!} doneCount={rescue.doneCount} total={rescue.total} />
+  // وعي الطوارئ (طبقة فوق المحرّك): صحّة حرجة → القمرة تعرض تسلسل الإنقاذ بدل
+  // مراحل المسار. تبقى في وضع الإنقاذ حتى تُظهر إعادةُ التدقيق تعافياً (≥٤٠٪) —
+  // فعْلُ الخطوات لا يُخرِج من الحمراء.
+  if (rescue.kind === 'rescue' || rescue.kind === 'rescue-done') {
+    return <RescueCockpit cid={cid} clientQuery={clientQuery} rescueDone={rescueDone} step={rescue.step ?? null} doneCount={rescue.doneCount} total={rescue.total} criticalPct={criticalPct} reauditPath={reauditPath} />
   }
 
   const done = !nextStage
   const nextLocked = nextStage?.status === 'locked'
-  const rescueCleared = rescue.kind === 'rescue-done'
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row" dir="rtl">
@@ -84,14 +84,6 @@ export function RunCockpitPage() {
 
       {/* ─── لوحة التركيز: الخطوة الواحدة التالية ─── */}
       <main className="flex-1 space-y-4">
-        {rescueCleared && (
-          <div className="flex items-center gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-3">
-            <span className="text-2xl">✅</span>
-            <p className="text-xs leading-relaxed text-emerald-900">
-              <b>خرجت من المنطقة الحمراء</b> — أنجزت خطة الإنقاذ الأربع. تابِع الآن مسارك الطبيعيّ أدناه.
-            </p>
-          </div>
-        )}
         {done ? (
           <div className="flex flex-col items-center rounded-2xl border-2 border-emerald-300 bg-emerald-50/60 p-12 text-center">
             <span className="mb-4 text-6xl">🏁</span>
@@ -200,17 +192,20 @@ function TimelineStep({
 
 // ─── قمرة الطوارئ — تسلسل الإنقاذ حين الصحّة حرجة (طبقة فوق المحرّك) ─────
 function RescueCockpit({
-  cid, clientQuery, rescueDone, step, doneCount, total,
+  cid, clientQuery, rescueDone, step, doneCount, total, criticalPct, reauditPath,
 }: {
   cid: string
   clientQuery: string
   rescueDone: RescueDone
-  step: RescueStep
+  step: RescueStep | null
   doneCount: number
   total: number
+  criticalPct: number | null
+  reauditPath: string | null
 }) {
   const pct = Math.round((doneCount / total) * 100)
   const q = (to: string) => `${to}${clientQuery}&from=emergency`
+  const allDone = step == null // rescue-done: نُفِّذت الخطوات لكن الصحّة ما زالت حرجة
   return (
     <div className="flex flex-col gap-4 lg:flex-row" dir="rtl">
       {/* الخطّ الزمنيّ — خطوات الإنقاذ الأربع */}
@@ -230,7 +225,7 @@ function RescueCockpit({
             <div aria-hidden className="absolute bottom-3 right-[15px] top-3 w-px bg-rose-200" />
             {RESCUE_SEQUENCE.map((s, i) => {
               const isDone = rescueDone[s.id]
-              const isNext = s.id === step.id
+              const isNext = s.id === step?.id
               let dotCls = 'bg-card border-rose-200 text-rose-400'
               if (isDone) dotCls = 'bg-emerald-500 border-emerald-500 text-white'
               else if (isNext) dotCls = 'bg-rose-600 border-rose-600 text-white ring-4 ring-rose-200'
@@ -258,20 +253,36 @@ function RescueCockpit({
         </div>
       </aside>
 
-      {/* لوحة التركيز — خطوة الإنقاذ التالية */}
+      {/* لوحة التركيز — خطوة الإنقاذ التالية، أو (بعد إنجازها) إعادة التدقيق للتأكّد */}
       <main className="flex-1">
-        <div className="rounded-2xl border-2 border-rose-400 bg-gradient-to-l from-rose-100/70 to-transparent p-6 shadow-sm">
-          <div className="text-xs font-bold uppercase tracking-wider text-rose-700">خطوة الإنقاذ التالية · {ar(doneCount + 1)} من {ar(total)}</div>
-          <h1 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-bold text-rose-950">
-            <span aria-hidden>{step.icon}</span>{step.label} — {step.tool}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-rose-900/80">{step.why}</p>
-          <Link to={q(step.toolPath)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-600 px-8 py-3 text-base font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">افتحها الآن ←</Link>
-        </div>
+        {allDone ? (
+          <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-l from-amber-100/70 to-transparent p-6 shadow-sm">
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-700">أنجزت خطوات الإنقاذ · تأكّد من التعافي</div>
+            <h1 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-bold text-amber-950">
+              🔁 أعِد تدقيق الإدارة
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-amber-900/80">
+              نفّذتَ الخطوات الأربع — لكن <b>لم تخرج من المنطقة الحمراء بعد</b>: صحّة الإدارة ما زالت
+              {criticalPct != null ? <> <b>{ar(criticalPct)}٪</b></> : ' حرجة'}. الخروج يتأكّد بإعادة التدقيق التي تُظهر تحسّناً (≥ ٤٠٪) — لا بمجرّد فعل الخطوات.
+            </p>
+            <Link to={`${reauditPath ?? '/manager/clients/' + cid}${clientQuery}`} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-amber-600 px-8 py-3 text-base font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">أعِد التدقيق الآن ←</Link>
+          </div>
+        ) : (
+          <div className="rounded-2xl border-2 border-rose-400 bg-gradient-to-l from-rose-100/70 to-transparent p-6 shadow-sm">
+            <div className="text-xs font-bold uppercase tracking-wider text-rose-700">خطوة الإنقاذ التالية · {ar(doneCount + 1)} من {ar(total)}</div>
+            <h1 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-bold text-rose-950">
+              <span aria-hidden>{step!.icon}</span>{step!.label} — {step!.tool}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-rose-900/80">{step!.why}</p>
+            <Link to={q(step!.toolPath)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-600 px-8 py-3 text-base font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">افتحها الآن ←</Link>
+          </div>
+        )}
         <div className="mt-4 flex items-start gap-3 rounded-xl border bg-card/60 p-4">
           <span className="mt-0.5 text-lg">ℹ️</span>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            تجنّب التخطيط طويل الأمد (SWOT / نموّ) حتى تُكمل خطة الإنقاذ. حين تُنجز الأربع، تعود القمرة لمسارك الطبيعيّ تلقائيّاً. أنجزتَ <b className="text-foreground">{ar(pct)}٪</b>.
+            {allDone
+              ? 'تبقى القمرة في وضع الإنقاذ حتى تُظهر إعادةُ التدقيق تعافياً — عندها تعود لمسارك الطبيعيّ تلقائيّاً.'
+              : <>تجنّب التخطيط طويل الأمد (SWOT / نموّ) حتى تُكمل خطة الإنقاذ. أنجزتَ <b className="text-foreground">{ar(pct)}٪</b>.</>}
           </p>
         </div>
       </main>

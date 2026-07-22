@@ -65,7 +65,9 @@ export function getRescueNext(s: RescueState): RescueResult {
   // «التالي» = أوّل خطوة ناقصة بالترتيب (يفرض التسلسل: لا جانت قبل المخاطر).
   const idx = flags.findIndex((done) => !done)
 
-  // (rescue-done) — كل خطوات الإنقاذ تمّت → يعود للمسار/المتابعة.
+  // (rescue-done) — كل خطوات الإنقاذ نُفِّذت، **لكن الصحّة ما زالت حرجة**
+  // (criticalHealth). فعْل الخطوات ≠ الخروج من الحمراء — الغلاف يوجّه لإعادة
+  // التدقيق للتأكّد من التعافي. حين يتعافى فعلاً → criticalHealth=false → inactive.
   if (idx === -1) return { kind: 'rescue-done', doneCount, total }
 
   return { kind: 'rescue', step: RESCUE_SEQUENCE[idx], doneCount, total }

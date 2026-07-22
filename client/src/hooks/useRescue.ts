@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { auditRouteFor } from '@/journey'
 import { getRescueNext, type RescueDone, type RescueResult } from '@/journey/rescue'
 import { listDepartments } from '@/lib/deptApi'
 import { listAllArtifacts, listProjects } from '@/lib/strategicApi'
@@ -17,14 +18,18 @@ export interface RescueView {
   rescue: RescueResult
   /** حالة كل خطوة — لرسم الخطّ الزمنيّ في القمرة. */
   done: RescueDone
+  /** درجة تدقيق الإدارة الحرجة (٪) — للرسائل: «ما زالت الصحّة X٪». */
+  criticalPct: number | null
+  /** مسار إعادة تدقيق الإدارة الحرجة — «الخروج» يتأكّد بإعادة القياس لا بفعل الخطوات. */
+  reauditPath: string | null
 }
 
 export function useRescue(companyId: string | null): RescueView {
-  const [state, setState] = useState<RescueView>({ loading: !!companyId, rescue: INACTIVE, done: NO_DONE })
+  const [state, setState] = useState<RescueView>({ loading: !!companyId, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null })
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, rescue: INACTIVE, done: NO_DONE })
+      setState({ loading: false, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null })
       return
     }
     let alive = true
@@ -36,8 +41,12 @@ export function useRescue(companyId: string | null): RescueView {
         listProjects(companyId).catch(() => []),
       ])
       if (!alive) return
-      // الحالة الحرجة: أدنى درجة تدقيق إدارة < ٤٠٪.
-      const criticalHealth = depts.status === 'fulfilled' && depts.value.some((d) => d.auditScore != null && d.auditScore < 40)
+      // الحالة الحرجة: أدنى درجة تدقيق إدارة < ٤٠٪. «الخروج» لا يتحقّق بفعل خطوات
+      // الإنقاذ — بل بإعادة التدقيق التي تُظهر تعافياً (auditScore ≥ ٤٠).
+      const criticalDept = depts.status === 'fulfilled'
+        ? depts.value.find((d) => d.auditScore != null && d.auditScore < 40)
+        : undefined
+      const criticalHealth = !!criticalDept
       const types = new Set<string>(arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [])
       const done: RescueDone = {
         risk: types.has('RISK_REGISTER'),
@@ -45,7 +54,13 @@ export function useRescue(companyId: string | null): RescueView {
         raci: types.has('RACI'),
         gantt: projs.status === 'fulfilled' && projs.value.length > 0,
       }
-      setState({ loading: false, rescue: getRescueNext({ criticalHealth, done }), done })
+      setState({
+        loading: false,
+        rescue: getRescueNext({ criticalHealth, done }),
+        done,
+        criticalPct: criticalDept?.auditScore ?? null,
+        reauditPath: criticalDept ? auditRouteFor(criticalDept.type) : null,
+      })
     })()
     return () => { alive = false }
   }, [companyId])

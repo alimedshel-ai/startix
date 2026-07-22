@@ -83,7 +83,7 @@ export function NextStepCard({ clientQuery = '', companyId }: Props) {
 
   // وعي الطوارئ (طبقة فوق المحرّك) — يُجلب فقط للمدير الموجّه (غيره null → لا جلب).
   // صحّة حرجة → «التالي» = خطوة الإنقاذ، لا مرحلة المسار (يزيل تناقض SWOT مع الخطة العاجلة).
-  const { rescue } = useRescue(isDeptScoped ? (companyId ?? null) : null)
+  const { rescue, criticalPct, reauditPath } = useRescue(isDeptScoped ? (companyId ?? null) : null)
   if (rescue.kind === 'rescue' && rescue.step) {
     const s = rescue.step
     return (
@@ -103,6 +103,28 @@ export function NextStepCard({ clientQuery = '', companyId }: Props) {
             className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
           >
             افتحها الآن ←
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+  // نُفِّذت خطوات الإنقاذ لكن الصحّة ما زالت حرجة → أعِد التدقيق (لا تقفز للمسار).
+  if (rescue.kind === 'rescue-done') {
+    return (
+      <Card className="border-amber-300 bg-gradient-to-l from-amber-100/60 to-transparent">
+        <CardHeader className="pb-2">
+          <CardDescription className="text-xs font-medium text-amber-700">أنجزت خطوات الإنقاذ · تأكّد من التعافي</CardDescription>
+          <CardTitle className="flex items-center gap-2 text-base text-amber-950">
+            🔁 أعِد تدقيق الإدارة{criticalPct != null ? ` — الصحّة ما زالت ${ar(criticalPct)}٪` : ''}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="max-w-md text-xs text-amber-900/70">الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥ ٤٠٪)، لا بمجرّد فعل الخطوات.</p>
+          <Link
+            to={`${reauditPath ?? '/manager/clients'}${clientQuery}`}
+            className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
+          >
+            أعِد التدقيق ←
           </Link>
         </CardContent>
       </Card>
