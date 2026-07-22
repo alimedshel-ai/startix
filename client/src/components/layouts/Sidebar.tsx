@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
 import { openCommandPalette } from '@/components/CommandPalette'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useNextStep } from '@/hooks/useNextStep'
+import { useRescue } from '@/hooks/useRescue'
 import { canOpenStage, isStageInPath, overallProgressPct, stageLevel, STAGE_LEVEL_LABEL, type StageId } from '@/lib/journeyStages'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -107,6 +108,18 @@ export function Sidebar() {
   const effectiveClientId = activeClientId ?? detailClientId
   const { completions } = useJourneyCompletions(effectiveClientId)
   const nextStep = useNextStep()
+  // وعي الطوارئ (طبقة فوق) — نفس منطق القمرة/البطاقات: صحّة حرجة → التالي = خطوة
+  // الإنقاذ (أو إعادة التدقيق بعد إنجازها)، لا مرحلة المسار (SWOT).
+  const { rescue, criticalPct, reauditPath } = useRescue(isPro ? effectiveClientId : null)
+  const clientQ = effectiveClientId ? `?client=${effectiveClientId}` : ''
+  const nextCard: { icon: string; label: string; reason: string; to: string } | null =
+    rescue.kind === 'rescue' && rescue.step
+      ? { icon: '🚨', label: `${rescue.step.label} — ${rescue.step.tool}`, reason: rescue.step.why, to: `${rescue.step.toolPath}${clientQ}&from=emergency` }
+      : rescue.kind === 'rescue-done'
+        ? { icon: '🔁', label: `أعِد تدقيق الإدارة${criticalPct != null ? ` — الصحّة ${criticalPct}٪` : ''}`, reason: 'الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥٤٠٪)، لا بمجرّد فعل الخطوات.', to: `${reauditPath ?? '/manager/clients'}${clientQ}` }
+        : nextStep.step
+          ? { icon: nextStep.step.icon, label: nextStep.step.label, reason: nextStep.step.reason, to: nextStep.step.to }
+          : null
 
   const mode = getSidebarMode(location.pathname, !!activeClientId, isPro)
   const strategyPath = user?.strategyPath ?? null
@@ -223,22 +236,22 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* 🎯 التالي لك الآن — بطاقة ديناميكية أعلى السايدبار */}
-        {nextStep.step && (
+        {/* 🎯 التالي لك الآن — بطاقة ديناميكية أعلى السايدبار (واعية بالطوارئ) */}
+        {nextCard && (
           <div className="border-b bg-gradient-to-l from-amber-500/10 to-rose-500/10 p-3">
             <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               🎯 التالي لك الآن
             </div>
             <NavLink
-              to={nextStep.step.to}
+              to={nextCard.to}
               className="block rounded-lg border-2 border-primary/30 bg-card p-2.5 shadow-sm transition hover:border-primary hover:shadow-md"
             >
               <div className="flex items-start gap-2">
-                <span className="text-xl leading-none">{nextStep.step.icon}</span>
+                <span className="text-xl leading-none">{nextCard.icon}</span>
                 <div className="flex-1">
-                  <div className="text-sm font-semibold">{nextStep.step.label}</div>
+                  <div className="text-sm font-semibold">{nextCard.label}</div>
                   <div className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                    {nextStep.step.reason}
+                    {nextCard.reason}
                   </div>
                 </div>
                 <span className="text-xs text-primary">←</span>
