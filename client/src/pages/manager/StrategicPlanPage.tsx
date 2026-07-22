@@ -767,18 +767,19 @@ export function StrategicPlanPage() {
         )
       })()}
 
-      {/* ─── توصيات المسار — المحتوى الجاهز لخطوات الإنقاذ (لا خطوات جديدة) ─── */}
-      <div className="pt-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold">📋 محتوى جاهز لخطوات {path.shortName}</span>
+      {/* المحتوى الجاهز — يُطوى في الطوارئ لتبقى خطة الإنقاذ هي الموجِّه الوحيد */}
+      <details open={!isEmergency} className="group space-y-6">
+        <summary className="flex cursor-pointer list-none items-center gap-2 pt-1 text-sm font-bold">
+          📋 محتوى جاهز لخطوات {path.shortName}
+          {isEmergency && <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-normal text-amber-800">اختياريّ · مادّة الخطوات</span>}
+          <span className="text-[10px] text-muted-foreground transition group-open:rotate-180">▼</span>
           <span className="h-px flex-1 bg-border" />
-        </div>
+        </summary>
         {isEmergency && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            هذه ليست خطوات إضافيّة — بل <b className="text-foreground">ما تكتبه داخل</b> خطوات الإنقاذ أعلاه (كل بطاقة موسومة بخطوتها).
+          <p className="text-xs text-muted-foreground">
+            ليست خطوات إضافيّة — بل <b className="text-foreground">ما تكتبه داخل</b> خطوات الإنقاذ أعلاه. افتحها عند العمل داخل خطوة، لا الآن.
           </p>
         )}
-      </div>
       <div className="grid items-start gap-6 lg:grid-cols-2">
       {/* الأولويات — الآن ترتبط بأيزنهاور لفرزها كمهام */}
       <Card>
@@ -960,6 +961,7 @@ export function StrategicPlanPage() {
           </div>
         </CardContent>
       </Card>
+      </details>
 
       {/* CTA */}
       <div className="flex flex-wrap justify-end gap-3">
