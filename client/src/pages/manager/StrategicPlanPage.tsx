@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { NextActionCard } from '@/components/manager/NextActionCard'
 import { PageHeader } from '@/components/PageHeader'
-import { JourneyNextStep } from '@/journey/shared/JourneyNextStep'
+import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { apiErrorMessage } from '@/lib/api'
@@ -208,6 +208,8 @@ function allPaths(): Record<StrategicPathKey, StrategicPath> {
 export function StrategicPlanPage() {
   const user = useAuthStore((s) => s.user)
   const scope = useClientScopedCompany()
+  // المصدر الموحّد للخطوة التالية + المستوى المتكيّف (يستهلك classifyClient/الطوارئ).
+  const guided = useGuidedNext(scope.companyId)
   const [client, setClient] = useState<OverviewClient | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -354,23 +356,42 @@ export function StrategicPlanPage() {
         ]}
       />
 
-      {/* 🧭 وجهة واحدة واضحة — القمرة + الخطوة التالية.
-         تُخفى في الطوارئ: خطة الإنقاذ أدناه هي الموجِّه، وبطاقة الخطوة التالية
-         تقترح التوليف (SWOT) وهو ما تُحذّر منه الخطة العاجلة → تناقض. */}
-      {!(isEmergency || isCriticalHealth) && (
-        <>
-          <Link
-            to={`/manager/clients/${client.companyId}/run`}
-            className="flex items-center justify-between gap-3 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/15 to-primary/5 p-3.5 shadow-sm transition hover:-translate-y-0.5"
-          >
-            <div>
-              <div className="flex items-center gap-2 text-sm font-bold">🧭 <span>تُهت بين الأدوات؟ افتح القمرة الموجّهة</span></div>
-              <p className="mt-0.5 text-xs text-muted-foreground">خطوة واحدة واضحة في كل مرّة — بدل الاختيار بين عشرات الأيقونات.</p>
+      {/* 🧭 المرساة الموحّدة — المستوى المتكيّف + الخطوة الواحدة عبر useGuidedNext.
+         واعية بالطوارئ (تُرجع خطوة الإنقاذ لا SWOT)، فلا حاجة للكتم. تُظهر
+         المستوى (طوارئ/تأسيسي/نموّ/تميّز) + شارة التقادم — كانا نائمين. */}
+      {guided.next && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/10 to-transparent p-4 shadow-sm">
+          <div className="min-w-0 space-y-1.5">
+            {guided.classification && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted-foreground">مستوى العميل:</span>
+                <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                  {guided.classification.icon} {guided.classification.labelAr}
+                </span>
+                {guided.resolution?.isStale && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${guided.resolution.direction === 'upgrade' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-rose-300 bg-rose-50 text-rose-800'}`}>
+                    {guided.resolution.direction === 'upgrade' ? '⬆️ يمكنك الترقّي' : '⚠️ راجِع مسارك'}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <span aria-hidden>{guided.next.icon}</span>
+              <span>الخطوة التالية: {guided.next.label}</span>
             </div>
-            <span className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">تابِع المسار ←</span>
-          </Link>
-          <JourneyNextStep companyId={client.companyId} clientQuery={`?client=${client.companyId}`} />
-        </>
+            <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">{guided.next.reason}</p>
+          </div>
+          <div className="flex shrink-0 flex-col items-stretch gap-1.5">
+            {guided.next.to && (
+              <Link to={guided.next.to} className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-90">
+                افتحها الآن ←
+              </Link>
+            )}
+            <Link to={`/manager/clients/${client.companyId}/run`} className="text-center text-[11px] text-muted-foreground underline-offset-4 hover:underline">
+              🧭 القمرة الموجّهة
+            </Link>
+          </div>
+        </div>
       )}
 
       {/* 🚨 بانر الطوارئ — يظهر عند EMERGENCY أو صحّة حرجة */}
