@@ -763,12 +763,36 @@ function KPICard({
               onClick={onToggleReason}
               className="w-full rounded-md border bg-card px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-muted"
             >
-              {expanded ? '▲ إخفاء' : '❔ لماذا هذا المؤشر مهم؟'}
+              {expanded ? '▲ إخفاء' : (meta.howToCalculate ? '❔ لماذا؟ وكيف يُقاس؟' : '❔ لماذا هذا المؤشر مهم؟')}
             </button>
             {expanded && (
               <div className="rounded-lg border border-dashed bg-muted/20 p-2.5 text-[11px] leading-relaxed">
                 <div className="mb-1 font-semibold text-foreground">لماذا هذا المؤشر:</div>
                 <p className="text-muted-foreground">{meta.why}</p>
+
+                {/* 🧮 كيف يُقاس — الصيغة/المثال/المستويات (كانت تظهر فقط في صفحة الإدخالات) */}
+                {meta.howToCalculate && (
+                  <div className="mt-2 space-y-1.5 border-t pt-2">
+                    <div className="font-semibold text-foreground">🧮 كيف يُقاس:</div>
+                    <div className="rounded-md border border-sky-200 bg-sky-50/60 px-2 py-1 text-sky-900">{meta.howToCalculate.formula}</div>
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 tabular-nums text-emerald-900">مثال: {meta.howToCalculate.example}</div>
+                    {meta.howToCalculate.benchmarks.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {meta.howToCalculate.benchmarks.map((b, i) => (
+                          <span key={i} className="rounded-full border bg-card px-1.5 py-0.5 text-[9px]">{b.level}: {b.range}</span>
+                        ))}
+                      </div>
+                    )}
+                    {meta.howToCalculate.improveActions && meta.howToCalculate.improveActions.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">لتحسينه:</div>
+                        <ul className="list-disc pr-4 text-muted-foreground">
+                          {meta.howToCalculate.improveActions.map((a, i) => <li key={i}>{a}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {meta.pathFit.length > 0 && (
                   <div className="mt-2 border-t pt-2">
                     <div className="mb-0.5 font-semibold text-foreground">مناسب لمسارات:</div>
