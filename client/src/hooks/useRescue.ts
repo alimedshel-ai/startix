@@ -8,10 +8,14 @@ import { listAllArtifacts, listProjects } from '@/lib/strategicApi'
 // ─── هوك «وعي الطوارئ» — الغلاف الذي يجمع الحالة للدالّة النقيّة ──────
 // طبقة *فوق* المحرّك: لا يلمس useJourneyCompletions ولا المراحل. يجلب بيانات
 // العميل محليّاً، يحسب criticalHealth + done، ويمرّرهما لـ getRescueNext.
-// يُستهلَك في القمرة فقط حاليّاً — فالأسطح الـ٢٥ تبقى سليمة.
+//
+// نمط الجلب: الـeffect لا يستدعي setState متزامناً إطلاقاً — فقط setFetched
+// *بعد await*. أمّا loading والحالة الفارغة فيُشتقّان أثناء الرندر من مطابقة
+// forId ↔ companyId. يُزيل خطأ react-hooks/set-state-in-effect من جذره.
 
 const NO_DONE: RescueDone = { risk: false, eisenhower: false, raci: false, gantt: false }
 const INACTIVE: RescueResult = getRescueNext({ criticalHealth: false, done: NO_DONE })
+const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null } as const
 
 export interface RescueView {
   loading: boolean
@@ -26,18 +30,24 @@ export interface RescueView {
   health: { hasAudit: boolean; healthPct: number | null; dangerZone: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null }
 }
 
-const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null } as const
+// النتيجة المحسوبة لعميلٍ بعينه (بلا loading — يُشتقّ). forId يربطها بالعميل.
+interface Fetched {
+  forId: string | null
+  rescue: RescueResult
+  done: RescueDone
+  criticalPct: number | null
+  reauditPath: string | null
+  health: RescueView['health']
+}
+
+const EMPTY_FETCHED: Fetched = { forId: null, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH }
 
 export function useRescue(companyId: string | null): RescueView {
-  const [state, setState] = useState<RescueView>({ loading: !!companyId, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH })
+  const [fetched, setFetched] = useState<Fetched>(EMPTY_FETCHED)
 
   useEffect(() => {
-    if (!companyId) {
-      setState({ loading: false, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH })
-      return
-    }
+    if (!companyId) return
     let alive = true
-    setState((s) => ({ ...s, loading: true }))
     ;(async () => {
       const [depts, arts, projs] = await Promise.allSettled([
         listDepartments(companyId).catch(() => []),
@@ -45,13 +55,12 @@ export function useRescue(companyId: string | null): RescueView {
         listProjects(companyId).catch(() => []),
       ])
       if (!alive) return
-      // الحالة الحرجة: أدنى درجة تدقيق إدارة < ٤٠٪. «الخروج» لا يتحقّق بفعل خطوات
-      // الإنقاذ — بل بإعادة التدقيق التي تُظهر تعافياً (auditScore ≥ ٤٠).
       const deptList = depts.status === 'fulfilled' ? depts.value : []
+      // الحالة الحرجة: أدنى درجة تدقيق < ٤٠٪. «الخروج» لا يتحقّق بفعل الخطوات —
+      // بل بإعادة تدقيق تُظهر تعافياً (auditScore ≥ ٤٠).
       const criticalDept = deptList.find((d) => d.auditScore != null && d.auditScore < 40)
       // الإدارة الأساسيّة (أوّل من لها تدقيق) — لصحّة classifyClient المتكيّفة.
       const primaryDept = deptList.find((d) => d.auditScore != null)
-      const criticalHealth = !!criticalDept
       const types = new Set<string>(arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [])
       const done: RescueDone = {
         risk: types.has('RISK_REGISTER'),
@@ -59,9 +68,9 @@ export function useRescue(companyId: string | null): RescueView {
         raci: types.has('RACI'),
         gantt: projs.status === 'fulfilled' && projs.value.length > 0,
       }
-      setState({
-        loading: false,
-        rescue: getRescueNext({ criticalHealth, done }),
+      setFetched({
+        forId: companyId,
+        rescue: getRescueNext({ criticalHealth: !!criticalDept, done }),
         done,
         criticalPct: criticalDept?.auditScore ?? null,
         reauditPath: criticalDept ? auditRouteFor(criticalDept.type) : null,
@@ -75,5 +84,20 @@ export function useRescue(companyId: string | null): RescueView {
     return () => { alive = false }
   }, [companyId])
 
-  return state
+  // ── مشتقّ أثناء الرندر (بلا setState متزامن) ──
+  if (!companyId) {
+    return { loading: false, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH }
+  }
+  if (fetched.forId !== companyId) {
+    // بيانات عميل سابق أو لم تصل بعد → تحميل، بلا عرض حالة قديمة.
+    return { loading: true, rescue: INACTIVE, done: NO_DONE, criticalPct: null, reauditPath: null, health: NO_HEALTH }
+  }
+  return {
+    loading: false,
+    rescue: fetched.rescue,
+    done: fetched.done,
+    criticalPct: fetched.criticalPct,
+    reauditPath: fetched.reauditPath,
+    health: fetched.health,
+  }
 }
