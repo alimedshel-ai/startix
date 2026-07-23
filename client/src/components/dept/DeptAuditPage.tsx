@@ -14,6 +14,7 @@ import {
   DEPT_LABEL,
   createDepartment,
   dangerZoneColor,
+  getDeptAuditHistory,
   getLatestDeptAudit,
   submitDeptSmart,
   type AuditScore,
@@ -180,6 +181,8 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
 
       {mode === 'result' && savedScore && deptId && (
         <>
+          {/* 📈 مؤشّر التحسّن — «قبل ← بعد» + خروج من الطوارئ (يُظهر نجاحك) */}
+          <ImprovementBanner deptId={deptId} />
           {/* ربط الفحص بالمسار: خطر ⇐ توصية بالمسار السريع قبل التكتيكي/الطويل */}
           {guided && company && (
             <RiskFastPathBanner companyId={company.id} healthPct={savedScore.healthPct} dangerZone={savedScore.dangerZone} />
@@ -227,6 +230,40 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
           />
         </>
       )}
+    </div>
+  )
+}
+
+// ─── 📈 مؤشّر التحسّن — يقارن آخر تدقيقين ويُظهر «قبل ← بعد» + خروج الطوارئ ──
+// الـeffect لا يستدعي setState متزامناً — فقط بعد await (then). لا خطأ lint.
+function ImprovementBanner({ deptId }: { deptId: string }) {
+  const [hist, setHist] = useState<{ healthPct: number; createdAt: string }[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    getDeptAuditHistory(deptId).then((r) => { if (alive) setHist(r.history) }).catch(() => { if (alive) setHist([]) })
+    return () => { alive = false }
+  }, [deptId])
+
+  if (!hist || hist.length < 2) return null // نحتاج تدقيقين على الأقل للمقارنة
+  const cur = Math.round(hist[0].healthPct)
+  const prev = Math.round(hist[1].healthPct)
+  const delta = cur - prev
+  if (delta === 0) return null
+  const up = delta > 0
+  const exitedRed = prev < 40 && cur >= 40
+  return (
+    <div className={`rounded-xl border-2 p-4 shadow-sm ${up ? 'border-emerald-300 bg-emerald-50/60' : 'border-rose-300 bg-rose-50/60'}`}>
+      <div className="flex flex-wrap items-center gap-2 text-base font-bold">
+        <span>{up ? '📈' : '📉'}</span>
+        <span className={up ? 'text-emerald-900' : 'text-rose-900'}>الصحّة: {prev}٪ ← {cur}٪</span>
+        <span className={`rounded-full px-2 py-0.5 text-sm text-white ${up ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+          {up ? '⬆️ +' : '⬇️ '}{delta}
+        </span>
+      </div>
+      {exitedRed && (
+        <p className="mt-1.5 text-sm font-bold text-emerald-800">🎉 خرجتَ من المنطقة الحمراء — لم تعد في طوارئ! ارتقى مستواك.</p>
+      )}
+      <p className="mt-0.5 text-[11px] text-muted-foreground">مقارنةً بتدقيقك السابق ({hist[1].createdAt.slice(0, 10)}).</p>
     </div>
   )
 }

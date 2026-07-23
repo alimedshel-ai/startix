@@ -201,6 +201,12 @@ export async function getLatestDeptAudit(deptId: string): Promise<{ deptType: De
   return data
 }
 
+/** تاريخ التدقيقات (الأحدث أوّلاً) — لمؤشّر التحسّن «قبل → بعد». */
+export async function getDeptAuditHistory(deptId: string): Promise<{ deptType: DeptCode; history: { healthPct: number; totalScore: number; createdAt: string }[] }> {
+  const { data } = await api.get(`/api/departments/${deptId}/audit/history`)
+  return data
+}
+
 export async function submitDeptSmart(deptId: string): Promise<{ deptType: DeptCode; recommendations: { kpis: { name: string; unit: string; targetValue: number; frequency: string }[]; insights: { axis: string; severity: string; insight: string }[] } }> {
   const { data } = await api.post(`/api/departments/${deptId}/smart`, {})
   return data

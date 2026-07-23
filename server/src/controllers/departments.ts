@@ -232,6 +232,24 @@ export const getLatestDeptAudit: RequestHandler = async (req, res, next) => {
   }
 };
 
+// ─── GET /api/departments/:id/audit/history — لمؤشّر التحسّن (قبل→بعد) ────────
+export const getDeptAuditHistory: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const dept = await getDeptOr404(paramId(req, 'id'));
+    await assertCompanyAccess(req.auth.sub, dept.companyId);
+    const history = await prisma.deptAudit.findMany({
+      where: { departmentId: dept.id },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      select: { healthPct: true, totalScore: true, createdAt: true },
+    });
+    res.json({ deptType: dept.type, history });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── POST /api/departments/:id/smart ────────────────────────────────────────
 export const submitDeptSmart: RequestHandler = async (req, res, next) => {
   try {

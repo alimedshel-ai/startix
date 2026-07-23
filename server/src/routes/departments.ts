@@ -9,6 +9,7 @@ import {
   submitDeptAudit,
   submitDeptAuditPro,
   getLatestDeptAudit,
+  getDeptAuditHistory,
   submitDeptSmart,
   getMyFirstCompany,
 } from '../controllers/departments';
@@ -31,6 +32,7 @@ router.get('/:id/questions', requireAuth, getDepartmentQuestions);
 router.post('/:id/audit', requireAuth, submitDeptAudit);
 router.post('/:id/audit-pro', requireAuth, requirePlan('PROFESSIONAL'), submitDeptAuditPro);
 router.get('/:id/audit/latest', requireAuth, getLatestDeptAudit);
+router.get('/:id/audit/history', requireAuth, getDeptAuditHistory);
 router.post('/:id/smart', requireAuth, submitDeptSmart);
 
 export default router;
