@@ -137,13 +137,6 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
           { label: 'الإدارات', to: '/manager/select-dept' },
           { label: DEPT_LABEL[deptCode] },
         ]}
-        actions={
-          mode === 'result' && deptId ? (
-            <Button variant="outline" onClick={requestSmart} disabled={requestingSmart}>
-              {requestingSmart ? 'جاري التوليد…' : 'توليد مؤشرات الأداء'}
-            </Button>
-          ) : null
-        }
       />
 
       {/* §٣ — شريط «أنت هنا» مثبَّت أعلى الصفحة (للمدير المستقل فقط) */}
@@ -200,6 +193,16 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
               <span className="text-xs text-muted-foreground transition group-open:rotate-180">▼</span>
             </summary>
             <div className="space-y-6 border-t p-4">
+              {/* 🎯 توليد مؤشّرات أداء من التدقيق — كان في رأس الصفحة (إجراء ثانويّ) */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
+                <div className="min-w-0 text-xs">
+                  <div className="font-semibold">🎯 مؤشّرات أداء مقترحة من تدقيقك</div>
+                  <p className="mt-0.5 text-muted-foreground">تُولَّد آليّاً من نتائجك، وتظهر جاهزةً في <b className="text-foreground">مركز القياس (KPIs)</b>.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={requestSmart} disabled={requestingSmart}>
+                  {requestingSmart ? 'جاري التوليد…' : 'ولّد المؤشّرات'}
+                </Button>
+              </div>
               <UnlockedToolsCard deptCode={deptCode} clientQuery={company ? `?client=${company.id}` : ''} />
               {company && <StrategicSnapshotCard companyId={company.id} budget={company.opex?.budget ?? null} />}
             </div>
