@@ -153,8 +153,8 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
         <NextStepCard clientQuery={clientQuery} companyId={company?.id} />
       )}
 
-      {/* لماذا التدقيق؟ — بطاقة قيمة (تظهر دائماً قبل النتيجة أو الأسئلة) */}
-      <AuditValueCard deptCode={deptCode} />
+      {/* لماذا التدقيق؟ — بطاقة قيمة قبل التدقيق فقط؛ تُخفى بعد النتيجة (حشو) */}
+      {mode !== 'result' && <AuditValueCard deptCode={deptCode} />}
 
       {mode === 'loading' && (
         <Card>
@@ -190,10 +190,17 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
             savedAt={savedAt}
             onRetake={() => setMode('wizard')}
           />
-          {/* بعد اكتمال التدقيق: بطاقة "الأدوات التي فُتِحت الآن" */}
-          <UnlockedToolsCard deptCode={deptCode} clientQuery={company ? `?client=${company.id}` : ''} />
-          {/* اللقطة الاستراتيجيّة: تجمع SWOT + المبادرات (level/cost) + الميزانيّة */}
-          {company && <StrategicSnapshotCard companyId={company.id} budget={company.opex?.budget ?? null} />}
+          {/* الثانويّ (الأدوات المفتوحة + اللقطة) مطويّ — لتبقى «الخطوة التالية» أعلاه هي الوجهة الواضحة */}
+          <details className="group rounded-xl border bg-card/40">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold transition hover:bg-accent/40">
+              <span>🧰 تفاصيل ومخرجات (اختياريّ) — الأدوات المفتوحة + لقطتك الاستراتيجيّة</span>
+              <span className="text-xs text-muted-foreground transition group-open:rotate-180">▼</span>
+            </summary>
+            <div className="space-y-6 border-t p-4">
+              <UnlockedToolsCard deptCode={deptCode} clientQuery={company ? `?client=${company.id}` : ''} />
+              {company && <StrategicSnapshotCard companyId={company.id} budget={company.opex?.budget ?? null} />}
+            </div>
+          </details>
           {afterResult ? afterResult(deptId) : null}
           {/* المدير الداخلي: تبقى البطاقة أسفل النتيجة (سلوك سابق). المستقل: رُفِعت للأعلى (§٤). */}
           {!guided && (
