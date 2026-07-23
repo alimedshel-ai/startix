@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useJourney, type JourneyStepView } from '@/hooks/useJourney'
 import { useRescue } from '@/hooks/useRescue'
+import { classifyClient } from '@/journey/classify'
 import { RESCUE_SEQUENCE, type RescueDone, type RescueStep } from '@/journey/rescue'
 import { JOURNEY_STAGES } from '@/lib/journeyStages'
 
@@ -28,7 +29,7 @@ export function RunCockpitPage() {
   const cid = companyId ?? null
   const clientQuery = cid ? `?client=${cid}` : ''
   const { loading, path, steps, total, currentIndex, progressPct, nextStage } = useJourney(cid)
-  const { loading: rLoading, rescue, done: rescueDone, criticalPct, reauditPath } = useRescue(cid)
+  const { loading: rLoading, rescue, done: rescueDone, criticalPct, reauditPath, health } = useRescue(cid)
 
   if (!cid) {
     return <EmptyState title="لا عميل محدّد" description="افتح القمرة من صفحة عميل." icon={<span className="text-4xl">👥</span>} />
@@ -58,6 +59,16 @@ export function RunCockpitPage() {
               {currentIndex > 0 ? ar(currentIndex) : '—'} / {ar(total)}
             </span>
           </div>
+          {/* شارة المستوى المتكيّف — من صحّة الإدارة (كانت نائمة) */}
+          {(() => {
+            const level = classifyClient(health)
+            return level.level !== 'assess' ? (
+              <div className="mb-2 flex items-center gap-1.5 text-[11px]">
+                <span className="text-muted-foreground">المستوى:</span>
+                <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-bold text-primary">{level.icon} {level.labelAr}</span>
+              </div>
+            ) : null
+          })()}
           <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">{path.taglineAr}</p>
           <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
