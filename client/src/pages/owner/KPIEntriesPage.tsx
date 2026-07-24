@@ -908,7 +908,7 @@ function analyzeTrend(entries: KPIEntry[], target: number): {
     last.value >= target * 0.95 && last.value <= target * 1.05 ? 'onTarget'
     : last.value >= target ? 'above' : 'below'
   const dirLabel = direction === 'up' ? '⬆️ يرتفع' : direction === 'down' ? '⬇️ ينخفض' : '➡️ ثابت'
-  let interpretation = ''
+  let interpretation: string
   if (vsTarget === 'onTarget')      interpretation = 'مطابق للمستهدف — حافظ على الإيقاع.'
   else if (vsTarget === 'above')    interpretation = 'فوق المستهدف — راجع طموحك، ربما هدفك متحفّظ.'
   else if (direction === 'up')       interpretation = 'دون المستهدف لكن يتحسّن — استمرّ.'

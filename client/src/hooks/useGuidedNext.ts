@@ -1,8 +1,10 @@
 import { auditRouteFor } from '@/journey'
 import { classifyClient, reconcileLevel, type ClientClass, type LevelResolution } from '@/journey/classify'
 import { getNextStep } from '@/journey/nextStep'
+import { useCompany } from '@/hooks/useCompany'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useRescue } from '@/hooks/useRescue'
+import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, type CompanySize } from '@/lib/analysisPlan'
 import { artifactSatisfies } from '@/lib/journeyStages'
 import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
 import { useAuthStore } from '@/store/authStore'
@@ -28,8 +30,11 @@ export interface GuidedNext {
   unlockHint?: string
 }
 
-// أنواع الـartifacts التي تُغذّي SWOT — إن غابت كلّها فالتوليف طريق مسدود.
-const SWOT_SOURCE_BASES = ['DEPT_DEEP_FULL', 'DEPT_DEEP_ANSWERS', 'GAP_ANALYSIS', 'PESTEL', 'MATURITY']
+// SWOT شقّان: تحليل **داخليّ** يملأ القوّة/الضعف، ومسح **خارجيّ** يملأ
+// الفرص/التهديدات. نفصلهما لأن تشخيص النضج/التدقيق داخليّ بحت — لا يكفي
+// وحده للتوليف. غياب أيّ شقّ = توجيه للمصدر الناقص لا لـ SWOT نصف الفارغ.
+const INTERNAL_SWOT_BASES = ['DEPT_DEEP_FULL', 'DEPT_DEEP_ANSWERS', 'MATURITY', 'INTERNAL_ENV', 'VALUE_CHAIN', 'CORE_CAPABILITIES', 'ORG_DNA', 'GAP_ANALYSIS']
+const EXTERNAL_SWOT_BASES = ['PESTEL', 'PORTER', 'BENCHMARK', 'STAKEHOLDERS']
 
 export interface GuidedResult {
   loading: boolean
@@ -47,6 +52,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
 
   const { loading: cLoading, completions, artifactTypes } = useJourneyCompletions(companyId)
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
+  const { company } = useCompany()
   const clientQ = companyId ? `?client=${companyId}` : ''
 
   if (cLoading || rLoading) return { loading: true, next: null, classification: null, resolution: null }
@@ -75,12 +81,51 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
     } }
   }
 
+  // ١.٥) تسلسل التحليل ①: ما دام المدير المستقل لم يُكمل خطّة التحليل
+  //   الموصى بها لسياق شركته (حجم × قطاع × صحّة)، نمشي على التسلسل بالترتيب
+  //   (تدقيق → عميق → 7S → … → PESTEL) بدل القفز لمتطلّبات SWOT الخارجيّة.
+  //   يمنع تناقض «أنهيت ① فأكمل PESTEL» بينما المدير ما زال داخل التحليل.
+  if (isPro && companyId && company?.id === companyId) {
+    const plan = analysisPlanFor({
+      size: (company.size as CompanySize) ?? 'SMALL',
+      sector: company.sector ?? null,
+      serviceType: company.profile?.serviceType ?? null,
+      healthPct: health.healthPct,
+      dangerZone: health.dangerZone,
+    })
+    const isDone = (key: string): boolean => {
+      const t = ANALYSIS_TOOLS[key]
+      if (!t) return true
+      if (t.viaAudit) return health.hasAudit
+      return t.artifactBases.some((b) => artifactSatisfies(artifactTypes, b))
+    }
+    const nextKey = firstIncompleteAnalysisKey(plan.recommended, isDone)
+    if (nextKey) {
+      const t = ANALYSIS_TOOLS[nextKey]
+      const to = t.viaAudit ? auditRouteFor(specialty) ?? '/manager/clients' : t.path
+      const idx = plan.recommended.indexOf(nextKey)
+      // فرع «لا صحّة بعد» صريح: بلا تدقيق لا خطّ أساس — الرسالة الموحّدة عبر
+      // كل الأسطح «ابدأ بالتدقيق الأول لبناء خط الأساس»، لا سبب تسلسل عامّ.
+      const noBaseline = t.viaAudit && !health.hasAudit
+      return { loading: false, classification, resolution, next: {
+        kind: 'action', icon: t.icon, label: t.label,
+        reason: noBaseline
+          ? 'ابدأ بالتدقيق الأول لبناء خط الأساس — بلا صحّة مُقاسة لا توصية ولا إنقاذ.'
+          : `الخطوة ${idx + 1} من ${plan.recommended.length} في تحليل ① (${plan.tierLabel}) — تابِع بالترتيب قبل الانتقال للتوليف.`,
+        to: `${to}${clientQ}`,
+      } }
+    }
+  }
+
   // ٢) وجّه: المحرّك النقيّ المختبَر بالمسار المُشتقّ (مع إشارات منع الطريق المسدود).
-  const swotSourcesReady = SWOT_SOURCE_BASES.some((b) => artifactSatisfies(artifactTypes, b))
+  // داخليّ = artifact داخليّ أو تدقيق إدارة فعليّ (كلاهما يملأ القوّة/الضعف).
+  const swotSourcesReady =
+    INTERNAL_SWOT_BASES.some((b) => artifactSatisfies(artifactTypes, b)) || health.hasAudit
+  const externalSourceReady = EXTERNAL_SWOT_BASES.some((b) => artifactSatisfies(artifactTypes, b))
   const usesDiagnostic = specialty != null && !!MATURITY_BY_SPECIALTY[specialty]
   const r = getNextStep({
     isPro, activeCompanyId: companyId, completions, path, specialty,
-    signals: { swotSourcesReady, usesDiagnostic },
+    signals: { swotSourcesReady, externalSourceReady, usesDiagnostic },
   })
   return { loading: false, classification, resolution, next: {
     kind: r.kind, icon: r.icon, label: r.label, reason: r.reason,

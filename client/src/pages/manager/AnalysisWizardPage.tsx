@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
+import { useRescue } from '@/hooks/useRescue'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
+import { analysisPlanFor, type CompanySize } from '@/lib/analysisPlan'
 import { listAllArtifacts, type ArtifactType } from '@/lib/strategicApi'
 import { useAuthStore } from '@/store/authStore'
 
@@ -149,12 +151,32 @@ const SECONDARY_STEPS: WizardStep[] = [
   },
 ]
 
+// خريطة مفتاح الأداة → تعريفها (لبناء القوائم من خطّة التحليل المُكيَّفة).
+const STEP_BY_KEY: Record<string, WizardStep> = Object.fromEntries(
+  [...PRIMARY_STEPS, ...SECONDARY_STEPS].map((s) => [s.key, s]),
+)
+
+// يبني قائمة خطوات مُثراة بحالة الاكتمال من مفاتيح خطّة التحليل.
+// ملاحظة: تدقيق التخصّص يُخزَّن في جدول القسم (auditScore) لا كـartifact —
+// فنعتمد hasDeptAudit لخطوة 'audit' بدل البحث في artifacts (يُصلح ظهورها
+// «غير مكتَملة» رغم إنجازها).
+function enrichSteps(keys: string[], dept: DeptCode | null, artifactTypes: Set<string>, hasDeptAudit: boolean) {
+  return keys
+    .map((k) => STEP_BY_KEY[k])
+    .filter((s): s is WizardStep => !!s)
+    .map((s) => ({
+      ...s,
+      done: (s.key === 'audit' && hasDeptAudit) || s.completionArtifacts(dept).some((t) => artifactTypes.has(t)),
+    }))
+}
+
 export function AnalysisWizardPage() {
   const user = useAuthStore((s) => s.user)
   const dept = user?.specialtyDeptType ?? null
   const deptSlug = dept ? DEPT_SLUG[dept] : 'dept-deep'
   const { company, loading } = useClientScopedCompany()
   const clientId = company?.id ?? null
+  const { health } = useRescue(clientId)
 
   const [showSecondary, setShowSecondary] = useState(false)
   const [artifactTypes, setArtifactTypes] = useState<Set<string>>(new Set())
@@ -169,19 +191,21 @@ export function AnalysisWizardPage() {
       .finally(() => setArtsLoading(false))
   }, [clientId])
 
-  const primaryEnriched = useMemo(() => PRIMARY_STEPS.map((s) => ({
-    ...s,
-    done: s.completionArtifacts(dept).some((t) => artifactTypes.has(t)),
-  })), [dept, artifactTypes])
+  // ─── خطّة التحليل المُكيَّفة: حجم × قطاع × نشاط × صحّة → ترتيب/تصفية ───
+  const plan = useMemo(() => analysisPlanFor({
+    size: (company?.size as CompanySize) ?? 'SMALL',
+    sector: company?.sector ?? null,
+    serviceType: company?.profile?.serviceType ?? null,
+    healthPct: health.healthPct,
+    dangerZone: health.dangerZone,
+  }), [company?.size, company?.sector, company?.profile?.serviceType, health.healthPct, health.dangerZone])
 
-  const secondaryEnriched = useMemo(() => SECONDARY_STEPS.map((s) => ({
-    ...s,
-    done: s.completionArtifacts(dept).some((t) => artifactTypes.has(t)),
-  })), [dept, artifactTypes])
+  const primaryEnriched = useMemo(() => enrichSteps(plan.recommended, dept, artifactTypes, health.hasAudit), [plan, dept, artifactTypes, health.hasAudit])
+  const secondaryEnriched = useMemo(() => enrichSteps(plan.advanced, dept, artifactTypes, health.hasAudit), [plan, dept, artifactTypes, health.hasAudit])
 
   const doneCount = primaryEnriched.filter((s) => s.done).length
-  const pct = Math.round((doneCount / PRIMARY_STEPS.length) * 100)
-  // الخطوة الحاليّة = أوّل خطوة أساسيّة غير مكتَملة.
+  const pct = primaryEnriched.length ? Math.round((doneCount / primaryEnriched.length) * 100) : 0
+  // الخطوة الحاليّة = أوّل خطوة موصى بها غير مكتَملة.
   const currentIdx = primaryEnriched.findIndex((s) => !s.done)
 
   if (loading) {
@@ -211,8 +235,8 @@ export function AnalysisWizardPage() {
       <PageHeader
         title="معالج التحليل الشامل"
         description={dept
-          ? `تحليل إدارة ${DEPT_LABEL[dept]} بأربع أدوات أساسيّة قبل بناء الخطّة — بالترتيب الموصى به.`
-          : 'تحليل الإدارة بأربع أدوات أساسيّة قبل بناء الخطّة.'}
+          ? `تحليل إدارة ${DEPT_LABEL[dept]} بـ${primaryEnriched.length} أدوات مُرتّبة حسب حجم شركتك وقطاعها وصحّتها.`
+          : `تحليل الإدارة بـ${primaryEnriched.length} أدوات مُرتّبة حسب سياق الشركة.`}
       />
       <StageBanner clientQuery={`?client=${clientId}`} />
 
@@ -223,13 +247,15 @@ export function AnalysisWizardPage() {
           <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
             🔬 التحليل الشامل قبل الخطّة
             <span className="rounded-full border bg-card px-2 py-0.5 text-xs font-medium tabular-nums">
-              {doneCount}/٤ مكتَمِلة ({pct}٪)
+              {doneCount}/{primaryEnriched.length} مكتَمِلة ({pct}٪)
+            </span>
+            <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+              {plan.tierIcon} مستوى {plan.tierLabel}
             </span>
             {artsLoading && <span className="text-xs text-muted-foreground">جاري القراءة…</span>}
           </CardTitle>
           <CardDescription className="text-xs leading-relaxed">
-            كل خطوة تُثري السياق للأداة التالية. الترتيب مُحسَّن: التدقيق (نظرة عامّة)
-            → التحليل العميق (تفصيل) → PESTEL (بيئة خارجيّة) → 7S (بيئة داخليّة).
+            {plan.why} رتّبنا الأدوات حسب حجم شركتك وقطاعها وصحّتها — الأثقل استراتيجيّاً مُخفاة أدناه حتى تحتاجها.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -239,7 +265,7 @@ export function AnalysisWizardPage() {
             <b className="text-foreground">
               {primaryEnriched.filter((s) => !s.done).length === 0
                 ? 'اكتمل — انتقل إلى ② التوليف'
-                : `~${(PRIMARY_STEPS.length - doneCount) * 20} دقيقة (متوسّط)`}
+                : `~${(primaryEnriched.length - doneCount) * 20} دقيقة (متوسّط)`}
             </b>
           </div>
         </CardContent>
@@ -264,7 +290,7 @@ export function AnalysisWizardPage() {
               >
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex size-10 items-center justify-center rounded-full font-bold text-white ${s.color.dot}`}>
-                    {s.done ? '✓' : s.order}
+                    {s.done ? '✓' : i + 1}
                   </span>
                   <span className="text-3xl leading-none">{s.icon}</span>
                 </div>
@@ -308,16 +334,17 @@ export function AnalysisWizardPage() {
         })}
       </ol>
 
-      {/* الخطوات الاختياريّة */}
+      {/* الأدوات المتقدّمة — مخفيّة لهذا المستوى (تظهر عند الطلب فقط) */}
+      {secondaryEnriched.length > 0 && (
       <Card>
         <CardHeader className="cursor-pointer" onClick={() => setShowSecondary((v) => !v)}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">
-                🧬 أدوات تحليل إضافيّة (اختياريّة)
+                🧬 أدوات متقدّمة ({secondaryEnriched.length}) — مخفيّة لمستوى {plan.tierLabel}
               </CardTitle>
               <CardDescription>
-                ٥ أدوات تعمّق التحليل. أنجزها لو تريد تحليلاً متقدّماً — لكنها ليست ضروريّة للخطّة الأولى.
+                أثقل استراتيجيّاً ممّا يحتاجه حجم/قطاع شركتك الآن. أنجزها لو أردت تحليلاً أعمق — لكنها ليست ضروريّة لخطّتك الأولى.
               </CardDescription>
             </div>
             <Button variant="outline" size="sm">
@@ -360,9 +387,10 @@ export function AnalysisWizardPage() {
           </CardContent>
         )}
       </Card>
+      )}
 
       {/* بطاقة الخطوة التالية بعد الاكتمال */}
-      {doneCount === PRIMARY_STEPS.length && (
+      {primaryEnriched.length > 0 && doneCount === primaryEnriched.length && (
         <Card className="border-2 border-emerald-400 bg-emerald-50/40">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-900">

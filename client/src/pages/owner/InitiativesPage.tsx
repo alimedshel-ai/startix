@@ -608,6 +608,12 @@ function Editor({ companyId }: { companyId: string }) {
                       </span>
                       <span className="mt-0.5 text-xl" title={catMeta.labelAr}>{catMeta.icon}</span>
                       <CardTitle className="flex-1 text-base leading-tight">{i.title}</CardTitle>
+                      {/* الرقعة B — شارة «من الإنقاذ»: المبادرة أُنشئت inline من شاشة الإنقاذ (خطوة ٣). */}
+                      {i.source === 'rescue' && (
+                        <span className="rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700" title="أُنشئت من شاشة الإنقاذ (خطوة ٣)">
+                          🚨 من الإنقاذ
+                        </span>
+                      )}
                       <span className="rounded-md border bg-card px-2 py-0.5 text-[10px]">{pLabel(i.priority)}</span>
                     </div>
                     {i.description && <CardDescription className="mt-1 leading-relaxed">{i.description}</CardDescription>}

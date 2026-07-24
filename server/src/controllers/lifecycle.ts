@@ -249,6 +249,10 @@ const initiativeCreate = z.object({
   // المستوى (من يخطّط) والتكلفة المقدّرة (SAR) — اختياريان.
   level: z.enum(['operational', 'tactical', 'strategic']).nullish(),
   cost: z.number().min(0).max(1e12).nullish(),
+  // مصدر الإنشاء: 'rescue' = أُنشئت inline من شاشة الإنقاذ (خطوة ٣) مع ربطها
+  // بالإجراء التصحيحيّ (خطوة ٢)؛ 'manual' الافتراض. يُستعلم لحساب اكتمال الإنقاذ.
+  source: z.enum(['rescue', 'manual']).nullish(),
+  linkedActionId: z.string().max(200).nullish(),
 });
 const initiativeUpdate = initiativeCreate.partial().omit({ companyId: true });
 

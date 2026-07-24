@@ -197,7 +197,6 @@ function Editor({ companyId }: { companyId: string }) {
     setData((p) => ({
       roles: p.roles.filter((r) => r !== role),
       rows: p.rows.map((r) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [role]: _removed, ...rest } = r.assignments
         return { ...r, assignments: rest }
       }),

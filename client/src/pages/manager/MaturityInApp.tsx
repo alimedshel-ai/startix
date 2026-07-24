@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { MaturityAssessment, MaturityReport } from '@/components/maturity/MaturityAssessment'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
+import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { apiErrorMessage } from '@/lib/api'
 import { computeOverall, computeResults, type MaturityAnswers, type MaturityConfig } from '@/lib/maturityEngine'
 import { createInitiative, getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
@@ -148,8 +149,8 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
         <Card className="overflow-hidden border-2 border-emerald-300 bg-emerald-50/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="min-w-0">
-              <div className="text-sm font-bold text-emerald-900">🗓️ حوّل أضعف الأقسام إلى خطّة</div>
-              <p className="mt-0.5 text-xs text-emerald-800/80">مبادرة تحسين لكل قسم ضعيف (الأولويّة من شدّته) → تُجلب كمهام.</p>
+              <div className="text-sm font-bold text-emerald-900">🗓️ مسار سريع (اختياري): عالِج أضعف الأقسام الآن</div>
+              <p className="mt-0.5 text-xs text-emerald-800/80">مبادرة تحسين لكل قسم ضعيف (الأولويّة من شدّته) → تُجلب كمهام. مكمّل للمسار الاستراتيجي، لا بديل عنه.</p>
               {generatedCount != null && generatedCount > 0 && (
                 <div className="mt-1 text-xs font-medium text-emerald-800">
                   ✓ أُنشئت {generatedCount} مبادرة · <Link to={`/priority?tab=initiatives&client=${company.id}`} className="underline underline-offset-2">افتح المبادرات ←</Link>
@@ -168,27 +169,32 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
   )
 }
 
-// ─── بوصلة «الخطوة التالية» بعد التشخيص ─────────────────────────────
-// هذا التشخيص يغذّي المبادرات مباشرةً — فالتالي: رتّبها ثم نفّذها.
+// ─── بوصلة «أين أنت الآن» بعد التشخيص ───────────────────────────────
+// التشخيص = مرحلة القياس ① في المنهجيّة (قِس→صنّف→وجّه→نفّذ→أعِد القياس).
+// لا نقفز للمبادرات ⑤ — بل نعرض الخطوة المنهجيّة الصحيحة من مصدر الحقيقة
+// الواحد (useGuidedNext): عميل مؤسّس → التوليف/SWOT ②؛ طوارئ → الإنقاذ.
+// توليد مبادرات الأضعف يبقى «مساراً سريعاً اختياريّاً» (البطاقة الخضراء
+// أعلاه)، لا «الخطوة التالية» — لذا أُزيل زرّاه المكرّران من هنا.
 export function NextAfterDiagnostic({ companyId }: { companyId: string }) {
-  const q = `?client=${companyId}`
+  const { loading, next } = useGuidedNext(companyId)
   return (
     <Card className="border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5">
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <div className="text-sm font-bold">🧭 الخطوة التالية بعد التشخيص</div>
+          <div className="text-sm font-bold">🧭 أنهيتَ القياس ① — الخطوة التالية في مسارك</div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            التشخيص يولّد مبادرات التحسين — <b className="text-foreground">رتّبها بالأولويّة</b> ثم <b className="text-foreground">حوّلها لمهام ونفّذها</b>.
+            {loading
+              ? 'نحسب خطوتك التالية…'
+              : next?.reason ?? 'التشخيص مرحلة قياس — تابع مسارك الاستراتيجي من الشريط الجانبي.'}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Link to={`/priority${q}&tab=initiatives`} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90">
-            💡 المبادرات ←
-          </Link>
-          <Link to={`/execute${q}`} className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent">
-            🚀 التنفيذ ←
-          </Link>
-        </div>
+        {!loading && next?.to && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link to={next.to} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90">
+              {next.icon} {next.label} ←
+            </Link>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

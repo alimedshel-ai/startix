@@ -36,7 +36,7 @@ model User {
 
   // التخصّص للمدير المستقل (INDEPENDENT_PRO): يحدّد أي إدارة يشرف عليها
   // عبر عملائه المتعدّدين. null لكل الأنواع الأخرى.
-  specialtyDeptType          DeptType?
+  specialtyDeptType DeptType?
 
   // R1 — بيانات التسجيل الغنيّة للمدير المستقل (Handoff → التسلسل الاستراتيجي).
   // pains: أكواد الآلام الست ("no_kpis", "no_alignment", "team_lost", "no_data",
@@ -44,21 +44,21 @@ model User {
   // goals: أكواد الأهداف السبعة ("improve", "reports", "plan", "kpis",
   // "alignment", "team", "swot"). تُستخدم كبوّابة تُشغّل أدوات معيّنة.
   // كلاهما اختياري بـ default([]) لعدم كسر التسجيلات القائمة.
-  pains  String[] @default([])
-  goals  String[] @default([])
+  pains String[] @default([])
+  goals String[] @default([])
 
   // Path — الطموح الاستراتيجي المُختار في onboarding (شريحة ٤).
   // QUICK = ٠-٣ شهر (مراحل ①②⑤⑥)، MEDIUM = ٣-١٢ (يضيف ③)، LONG = ١٢-٣٦+ (الكل).
   // null → يُعامَل كـ LONG افتراضياً (المستخدمون قبل هذه الميزة).
-  strategyPath   StrategyPath?
-  pathChosenAt   DateTime?
+  strategyPath StrategyPath?
+  pathChosenAt DateTime?
 
-  companies      CompanyUser[]
-  diagnostics    Diagnostic[]
-  sessions       Session[]
-  assignedTasks  Task[]        @relation("TaskAssignee")
-  deals          Deal[]
-  notifications  Notification[]
+  companies     CompanyUser[]
+  diagnostics   Diagnostic[]
+  sessions      Session[]
+  assignedTasks Task[]         @relation("TaskAssignee")
+  deals         Deal[]
+  notifications Notification[]
 }
 
 enum UserType {
@@ -108,26 +108,26 @@ model Session {
 // ─── Group B: Companies & Entities ───────────────────────────────────────────
 
 model Company {
-  id        String     @id @default(uuid())
-  name      String
-  sector    String?
+  id         String     @id @default(uuid())
+  name       String
+  sector     String?
   // R1 — النشاط الفرعي داخل القطاع (مثال: "software" داخل "technology").
-  subsector String?
+  subsector  String?
   // R1 — نوع الكيان القانوني: LLC | JSC | SOLE_PROPRIETOR | ...
   // نص حرّ لتفادي enum جديد؛ التحقق من الطرف السيرفري عبر zod.
   entityType String?
-  size      EntitySize
-  stage     String?
-  country   String     @default("SA")
-  logoUrl   String?
+  size       EntitySize
+  stage      String?
+  country    String     @default("SA")
+  logoUrl    String?
   // R1 — OPEX (بيانات تشغيلية غنيّة يُدخلها المدير المستقل في التسجيل، تُستهلَك
   // في KPIs/Ansoff/GapAnalysis/RACI/FinancialAnalysis). Json مرن لتوسيع مستقبلي.
   // شكل مُتوقَّع: { team?: number, budget?: number, target?: number, avgSalary?: number }
-  opex      Json?
+  opex       Json?
   // تعريف العميل (اختياريّ) — يُدخَل عند إضافة العميل، يُغذّي تكييف التحليل.
   // شكل مُتوقَّع: { serviceType?: string, pricingModel?: string, customerType?: string }
-  profile   Json?
-  createdAt DateTime   @default(now())
+  profile    Json?
+  createdAt  DateTime   @default(now())
 
   users            CompanyUser[]
   diagnostics      Diagnostic[]
@@ -344,16 +344,21 @@ model KPIEntry {
 // ─── Group F: Projects, Tasks & Execution ────────────────────────────────────
 
 model Initiative {
-  id          String  @id @default(uuid())
-  companyId   String
-  objectiveId String?
-  title       String
-  description String?
-  status      String  @default("planned")
-  priority    String
+  id             String     @id @default(uuid())
+  companyId      String
+  objectiveId    String?
+  title          String
+  description    String?
+  status         String     @default("planned")
+  priority       String
   // المستوى (تشغيلي/تكتيكي/استراتيجي) والتكلفة المقدّرة (SAR). كلاهما اختياري.
-  level       PlanLevel?
-  cost        Decimal?  @db.Decimal(14, 2)
+  level          PlanLevel?
+  cost           Decimal?   @db.Decimal(14, 2)
+  // مصدر الإنشاء (الرقعة B): 'rescue' = أُنشئت inline من شاشة الإنقاذ (خطوة ٣)،
+  // وإلا 'manual'/null. linkedActionId يربطها بالإجراء التصحيحيّ (خطوة ٢).
+  // اكتمال الإنقاذ ٣ = وجود مبادرة source='rescue' لهذا العميل.
+  source         String?    @default("manual")
+  linkedActionId String?
 
   company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
@@ -382,7 +387,7 @@ model Project {
 }
 
 model Task {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   companyId   String
   projectId   String?
   assigneeId  String?
@@ -390,14 +395,14 @@ model Task {
   owner       String?
   title       String
   description String?
-  status      String    @default("todo")
-  priority    String    @default("medium")
+  status      String     @default("todo")
+  priority    String     @default("medium")
   // المستوى والتكلفة المقدّرة (SAR) — اختياريان.
   level       PlanLevel?
-  cost        Decimal?  @db.Decimal(14, 2)
+  cost        Decimal?   @db.Decimal(14, 2)
   dueDate     DateTime?
   completedAt DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime   @default(now())
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -535,13 +540,13 @@ model BreakEven {
 // ROE = netMargin × assetTurnover × equityMultiplier
 // نخزّن العوامل الثلاثة + الناتج roe كسجل مستقل لتتبّع التطوّر عبر الزمن.
 model DupontAnalysis {
-  id                String   @id @default(uuid())
-  companyId         String
-  netMargin         Float
-  assetTurnover     Float
-  equityMultiplier  Float
-  roe               Float
-  createdAt         DateTime @default(now())
+  id               String   @id @default(uuid())
+  companyId        String
+  netMargin        Float
+  assetTurnover    Float
+  equityMultiplier Float
+  roe              Float
+  createdAt        DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -624,7 +629,7 @@ model Invitation {
   id        String           @id @default(uuid())
   companyId String
   email     String
-  role      String           // 'owner' | 'manager' | 'member' — يطابق CompanyUser.role
+  role      String // 'owner' | 'manager' | 'member' — يطابق CompanyUser.role
   token     String           @unique
   status    InvitationStatus @default(pending)
   expiresAt DateTime
@@ -735,4 +740,23 @@ model Indicator {
   criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
 
   @@index([criterionId])
+}
+
+// الرقعة D: أحداث الرحلة — APPEND-ONLY (يُكتَب فقط؛ لا تحديث/حذف). مستقلّ عمداً
+// بلا مفاتيح أجنبيّة (عزل تحليليّ). يقيس فجوة الموصى-به↔المُختار: recommendedTool
+// عمود مستقلّ بجانب tool تُستعلَم المقارنة بينهما في التقارير.
+model JourneyEvent {
+  id              BigInt   @id @default(autoincrement())
+  userId          String   @map("user_id")
+  clientId        String?  @map("client_id")
+  event           String // 'next_shown' | 'next_accepted' | 'next_overridden'
+  stageId         String?  @map("stage_id")
+  tool            String? // ما اختاره المستخدم فعلاً
+  recommendedTool String?  @map("recommended_tool")
+  payload         Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clientId, createdAt], map: "idx_journey_events_client")
+  @@index([recommendedTool, tool], map: "idx_journey_events_tool")
+  @@map("journey_events")
 }

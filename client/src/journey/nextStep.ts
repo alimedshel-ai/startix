@@ -36,8 +36,10 @@ export interface NextStepSignals {
   healthPct?: number | null
   /** عدد أقسام النضج الضعيفة (تخصّصات النضج) — لسبب واعٍ بالبيانات. */
   maturityWeakCount?: number
-  /** هل مصادر التوليف (PESTEL/تحليل عميق/فجوة/نضج) جاهزة؟ */
+  /** هل مصدر تحليل **داخليّ** جاهز (7S/عميق/نضج/تدقيق)؟ يملأ القوّة/الضعف. */
   swotSourcesReady?: boolean
+  /** هل مصدر تحليل **خارجيّ** جاهز (PESTEL/بورتر/مقارنة)؟ يملأ الفرص/التهديدات. */
+  externalSourceReady?: boolean
   /** هل التخصّص يستخدم تشخيص نضج/موزون بدل أدوات التحليل التقليديّة؟ */
   usesDiagnostic?: boolean
 }
@@ -129,13 +131,25 @@ export function getNextStep(s: NextStepState): NextStepResult {
   // «مقفلة» كخطوة تالية (النوع 'locked' مخصّص لعرض مراحل *لاحقة* في الشريط).
   // البوّابة الحقيقيّة الوحيدة هنا على مستوى **الأداة** (مصادر التوليف):
 
-  // التوليف يحتاج مصدر تحليل جاهز؛ إن لم يجهز نوجّه
-  // للمصدر أوّلاً (لا للأداة التي ستُخفق) — منع الطريق المسدود المُقنّع.
-  if (firstIncomplete === 'synthesis' && s.signals?.swotSourcesReady === false) {
-    return { kind: 'action', stageId: 'environment', icon: '🌐',
-      label: s.signals?.usesDiagnostic ? 'أكمل تقييم النضج (مصدر SWOT)' : 'أكمل مصدر تحليل (PESTEL/عميق)',
-      toolPath: s.signals?.usesDiagnostic ? '/manager/deep-analysis' : '/manager/dept-pestel',
-      reason: 'التوليف (SWOT) يُبنى من مخرجات التحليل — أكمِل مصدراً واحداً أوّلاً ثم ارجع.' }
+  // التوليف (SWOT) يُبنى من شقّين: تحليل **داخليّ** يملأ القوّة/الضعف، ومسح
+  // **خارجيّ** يملأ الفرص/التهديدات. لا يكفي أحدهما — تشخيص النضج/التدقيق
+  // داخليّ بحت، فالقفز منه مباشرةً لـ SWOT يُخرِج نصفه فارغاً. نمنع هذا
+  // الطريق المسدود المُقنّع بالتحقّق من الشقّين، ونوجّه للناقص لا لـ SWOT.
+  if (firstIncomplete === 'synthesis') {
+    // أ) لا مصدر داخليّ → قوّة/ضعف فارغة.
+    if (s.signals?.swotSourcesReady === false) {
+      return { kind: 'action', stageId: 'environment', icon: '🌐',
+        label: s.signals?.usesDiagnostic ? 'أكمل تقييم النضج (مصدر داخليّ)' : 'أكمل مصدر تحليل داخليّ (7S/عميق)',
+        toolPath: s.signals?.usesDiagnostic || s.isPro ? '/manager/deep-analysis' : '/internal-environment',
+        reason: 'التوليف يبدأ من تحليل داخليّ يملأ القوّة والضعف — أكمِل مصدراً واحداً أوّلاً ثم ارجع.' }
+    }
+    // ب) مصدر داخليّ جاهز لكن لا مسح خارجيّ → فرص/تهديدات فارغة.
+    if (s.signals?.externalSourceReady === false) {
+      return { kind: 'action', stageId: 'environment', icon: '🌍',
+        label: 'أكمل مسحاً خارجيّاً (PESTEL)',
+        toolPath: s.isPro ? '/manager/dept-pestel' : '/pestel',
+        reason: 'تحليلك الحاليّ داخليّ (قوّة/ضعف). SWOT يحتاج فرصاً وتهديدات من مسح خارجيّ — أكمِل PESTEL (أو بورتر) أوّلاً.' }
+    }
   }
 
   // (action) — الخطوة الطبيعيّة التالية.

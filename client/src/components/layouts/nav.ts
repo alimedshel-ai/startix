@@ -95,16 +95,19 @@ const ownerNav: NavSection[] = [
     items: [
       // ⭐ Hub الرئيسي
       { to: '/owner/analysis-hub', label: '📚 مركز التحليل (كل الأدوات)', icon: '🌐', essential: true },
-      // الأدوات الفرديّة (قابلة للطيّ)
+      // ── الداخل: من داخل منظّمتك (7S → سلسلة القيمة → القدرات) ──
       { to: '/internal-environment', label: 'البيئة الداخليّة (7S)', icon: '🎯' },
-      { to: '/pestel',               label: 'تحليل PESTEL',        icon: '🌐' },
-      { to: '/porter',               label: 'قوى بورتر الخمس',       icon: '⚔️' },
-      { to: '/swot',                 label: 'تحليل SWOT',           icon: '🧭' },
-      { to: '/tows',                 label: 'مصفوفة TOWS',           icon: '🔄' },
       { to: '/value-chain',          label: 'سلسلة القيمة',          icon: '🔗' },
       { to: '/core-capabilities',    label: 'القدرات الجوهريّة',      icon: '💎' },
+      // ── الخارج: البيئة المحيطة (PESTEL → بورتر → المقارنة → أصحاب المصلحة) ──
+      { to: '/pestel',               label: 'تحليل PESTEL',        icon: '🌐' },
+      { to: '/porter',               label: 'قوى بورتر الخمس',       icon: '⚔️' },
       { to: '/benchmarking',         label: 'المقارنة المرجعيّة',    icon: '🔍' },
       { to: '/stakeholders',         label: 'أصحاب المصلحة',         icon: '👥' },
+      // ── التوليف ②: بعد اكتمال الداخل + الخارج (قوّة/ضعف + فرص/تهديدات) ──
+      { to: '/swot',                 label: 'تحليل SWOT',           icon: '🧭' },
+      { to: '/tows',                 label: 'مصفوفة TOWS',           icon: '🔄' },
+      // ── أدوات مساندة ──
       { to: '/risk-map',             label: 'خريطة المخاطر',         icon: '⚠️' },
       { to: '/ambition-gap',         label: 'فجوة الطموح',           icon: '🎯' },
       { to: '/strategic-tensions',   label: 'التوترات الاستراتيجيّة',  icon: '⚖️' },
@@ -251,11 +254,13 @@ const managerNav: NavSection[] = [
     isHub: true,
     collapsible: true,
     items: [
+      // 🪄 المدخل الأسرع — يجمع أدوات التشخيص بنقرة واحدة
       { to: '/manager/analysis-wizard', label: '🔬 معالج التحليل الشامل', icon: '🪄', proOnly: true, essential: true },
-      { to: '/internal-environment',  label: 'البيئة الداخليّة (7S)',    icon: '🏛️', proOnly: true, essential: true },
+      // ── الداخل: تشخيص من داخل منظّمتك (العميق → 7S → تدقيق تخصّصك → سلسلة القيمة → القدرات → DNA) ──
+      // العميق قبل 7S: البيئة الداخليّة تُركّب الصورة على أساس التحليل العميق السابق.
       { to: '/manager/deep-analysis', label: 'التحليل العميق للإدارة',   icon: '🔬', proOnly: true, essential: true },
-      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',           icon: '🌍', proOnly: true, essential: true },
-      // تدقيق التخصّص (يظهر واحد بحسب dept)
+      { to: '/internal-environment',  label: 'البيئة الداخليّة (7S)',    icon: '🏛️', proOnly: true, essential: true },
+      // تدقيق التخصّص (يظهر واحد بحسب dept) — أعمق نظرة داخليّة لإدارتك
       { to: '/manager/hr/audit',             label: 'تدقيق الموارد البشرية',  icon: '👤', dept: 'HR',                essential: true },
       { to: '/manager/finance/audit',        label: 'تدقيق المالية',          icon: '💰', dept: 'FINANCE',           essential: true },
       { to: '/manager/sales/audit',          label: 'تدقيق المبيعات',         icon: '💼', dept: 'SALES',             essential: true },
@@ -269,13 +274,15 @@ const managerNav: NavSection[] = [
       { to: '/manager/projects/audit',       label: 'تدقيق المشاريع',         icon: '📋', dept: 'PROJECTS',          essential: true },
       { to: '/manager/governance/audit',     label: 'تدقيق الحوكمة',          icon: '🏛️', dept: 'GOVERNANCE',        essential: true },
       { to: '/manager/compliance/audit',     label: 'تدقيق الامتثال',         icon: '⚖️', dept: 'COMPLIANCE',        essential: true },
-      // الموسّعة
       { to: '/value-chain',           label: 'سلسلة القيمة',      icon: '⛓️', proOnly: true },
-      { to: '/porter',                label: 'قوى بورتر الخمس',   icon: '⚔️', proOnly: true },
       { to: '/core-capabilities',     label: 'القدرات الجوهريّة', icon: '💎', proOnly: true },
-      { to: '/benchmarking',          label: 'المقارنة المرجعيّة', icon: '🎖️', proOnly: true },
       { to: '/org-dna',               label: 'DNA المنظّمة',      icon: '🧬', proOnly: true },
+      // ── الخارج: البيئة المحيطة (PESTEL → بورتر → المقارنة → أصحاب المصلحة) ──
+      { to: '/manager/dept-pestel',   label: 'PESTEL للإدارة',           icon: '🌍', proOnly: true, essential: true },
+      { to: '/porter',                label: 'قوى بورتر الخمس',   icon: '⚔️', proOnly: true },
+      { to: '/benchmarking',          label: 'المقارنة المرجعيّة', icon: '🎖️', proOnly: true },
       { to: '/stakeholders',          label: 'أصحاب المصلحة',    icon: '🫂', proOnly: true },
+      // بديل مبسّط + أدوات إدارات محدّدة
       { to: '/manager/dept-deep',     label: 'التحليل المبسّط',   icon: '📝', proOnly: true, optional: true },
       { to: '/manager/governance/hub',       label: 'مركز الحوكمة',           icon: '🏛️', dept: 'GOVERNANCE' },
       { to: '/manager/compliance/audit-pro', label: 'تدقيق امتثال احترافي',  icon: '🛡️', dept: 'COMPLIANCE' },

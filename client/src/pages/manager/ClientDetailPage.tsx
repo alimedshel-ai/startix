@@ -12,6 +12,8 @@ import { isToolVisible, visibleTools } from '@/lib/goalGating'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { getArtifact, getSWOT, getTaggedTOWS, listAllArtifacts, listProjects } from '@/lib/strategicApi'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
+import { cardStateFor, type ToolCardState } from '@/journey/cardState'
+import { flag, USE_JOURNEY_NEXT } from '@/lib/flags'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── PRO-5 — لوحة العميل الواحد (workspace) ──────────────────────────────────
@@ -173,7 +175,9 @@ function ClientDetailContent(p: {
   const { client, companyName, specialty, sector, size, stage, healthPct, dangerZone, lastAuditAt, daysSinceLastAudit, hasAnyAudit, hasDepartment, clientQ, extras, mutedFor, user } = p
 
   // مصالحة الآليّ↔اليدويّ — شارة التقادم (توقظ منطق reconcileLevel النائم).
-  const { resolution } = useGuidedNext(client.companyId)
+  // + «التالي» الموحّد للبيكون (خلف flag، مع تراجع) — يطابق السايد بار/القمرة.
+  const { resolution, next: guidedNext } = useGuidedNext(client.companyId)
+  const useGuided = flag(USE_JOURNEY_NEXT)
 
   // ⭐ قراءة اكتمال كل أداة على حدة عبر artifact الخاصّ بها
   // (بدل completions المرحلة الواحدة التي تعتبر كل الأدوات مكتملة إذا كمُلت واحدة)
@@ -284,44 +288,15 @@ function ClientDetailContent(p: {
     return null
   }
 
-  // ─── تسلسل الأداة «الأساسيّة الآن» — صارم، أداة-بأداة ────────────
-  // كلّ خطوة تُفحص فرديّاً؛ لا تقفز فوق أدوات ناقصة.
-  //   ١. dept-deep (٤ أسئلة سريعة)
-  //   ٢. تدقيق التخصّص (١٢-١٥ سؤالاً)
-  //   ٣. PESTEL (بيئة خارجيّة)
-  //   ٤. 7S — البيئة الداخليّة
-  //   ٥. SWOT (توليف)
-  //   ٦. TOWS (استراتيجيات)
-  //   ٧. Directions (توجّه)
-  //   ٨. Measure Hub (أهداف/KPIs)
-  //   ٩. Priority Hub (مبادرات)
-  //   ١٠. Execute Hub (تنفيذ)
-  const currentEssentialPath = ((): string | null => {
-    if (!dataLoaded) return null   // انتظر التحميل — لا تعرض ⭐ مؤقّتاً
-    if (!isToolDone('/manager/dept-deep'))                     return '/manager/dept-deep'
-    if (!hasAnyAudit)                                          return DEPT_AUDIT_ROUTE[specialty]
-    if (!isToolDone('/manager/dept-pestel'))                   return '/manager/dept-pestel'
-    if (!isToolDone('/internal-environment'))                  return '/internal-environment'
-    if (!hasSwot)                                              return '/swot'
-    if (!isToolDone('/tows'))                                  return '/tows'
-    if (!isToolDone('/directions'))                            return '/directions'
-    // بعد التوجّه — الـHubs (نستخدم artifactTypes بشكل تقريبي للـHub)
-    if (!hasHubData('measure')) return '/measure'
-    if (!hasHubData('priority')) return '/priority'
-    if (!hasHubData('execute')) return '/execute'
-    return null   // كل التسلسل مكتمل → تظهر بطاقة «التسلسل مكتمل»
-  })()
+  // ملاحظة (الرقعة A): حُذف المحرّك الموازي المحلّيّ (currentEssentialPath +
+  // ESSENTIAL_SEQUENCE + قفل stateFor المحلّيّ). «الخطوة الحاليّة/التالية»
+  // تُملَك الآن من المصدر الواحد useGuidedNext؛ وقفل المراحل 🔒 يعيش في
+  // المحرّك (classify.branchLock) على صفحة الرحلة — لا هنا. isToolDone يبقى
+  // (فحص اكتمال دقيق أداة-بأداة)، وترتيب العرض أدناه للتقدّم فقط لا للقفل.
 
-  function hasHubData(hub: 'measure' | 'priority' | 'execute'): boolean {
-    if (hub === 'measure')  return artifactTypes.has('OGSM') || artifactTypes.has('ANNUAL_PLAN') || artifactTypes.has('BSC')
-    if (hub === 'priority') return artifactTypes.has('PRIORITY_MATRIX') || artifactTypes.has('RISK_REGISTER') || artifactTypes.has('EISENHOWER') || artifactTypes.has('RACI')
-    if (hub === 'execute')  return hasProjects
-    return false
-  }
-
-  // ─── التسلسل الأساسيّ الصارم — لتقفيل الأدوات اللاحقة ─────────────
-  const ESSENTIAL_SEQUENCE: string[] = [
-    '/manager/dept-deep',
+  // ─── قائمة العرض للتقدّم فقط (لا تقرّر «التالي» ولا تقفل شيئاً) ───────
+  //   التدقيق هو الأساس دائماً؛ المبسّط (dept-deep) إحماء اختياريّ ◇ خارجها.
+  const CORE_STEPS: string[] = [
     DEPT_AUDIT_ROUTE[specialty],
     '/manager/dept-pestel',
     '/internal-environment',
@@ -333,17 +308,20 @@ function ClientDetailContent(p: {
     '/execute',
   ]
 
-  const stateFor = (path: string): ToolCardState => {
-    if (!dataLoaded) return 'idle'
-    if (path === currentEssentialPath) return 'current'
-    if (isToolDone(path)) return 'done'
-    // مقفلة: إن كانت هذه أداة أساسيّة وموقعها بعد الأداة الحاليّة في التسلسل
-    const idx = ESSENTIAL_SEQUENCE.indexOf(path)
-    const currentIdx = currentEssentialPath ? ESSENTIAL_SEQUENCE.indexOf(currentEssentialPath) : -1
-    if (idx >= 0 && currentIdx >= 0 && idx > currentIdx) return 'locked'
-    // خارج التسلسل الأساسيّ (أدوات مساندة) → تبقى متاحة
-    return 'idle'
+  function hasHubData(hub: 'measure' | 'priority' | 'execute'): boolean {
+    if (hub === 'measure')  return artifactTypes.has('OGSM') || artifactTypes.has('ANNUAL_PLAN') || artifactTypes.has('BSC')
+    if (hub === 'priority') return artifactTypes.has('PRIORITY_MATRIX') || artifactTypes.has('RISK_REGISTER') || artifactTypes.has('EISENHOWER') || artifactTypes.has('RACI')
+    if (hub === 'execute')  return hasProjects
+    return false
   }
+
+  // ─── حالة البطاقة — «الحاليّة» ⭐ من المصدر الواحد، بلا قفل محلّيّ ─────
+  //   ⭐ current = الأداة التي يشير إليها useGuidedNext (نفس بيكون «التالي لك
+  //   الآن») فتتطابق الشارة والبيكون بالبناء. لا حالة 'locked' محلّيّة بعد
+  //   الآن (قرار المالك ٢): قفل المراحل يعيش في المحرّك (classify.branchLock).
+  //   الأدوات غير المكتملة وغير الحاليّة → 'idle' (متاحة، لا مقفلة).
+  const stateFor = (path: string): ToolCardState =>
+    cardStateFor({ dataLoaded, done: isToolDone(path), guidedTo: guidedNext?.to ?? null, path, clientQ })
 
   return (
     <div className="flex flex-col gap-6">
@@ -407,16 +385,22 @@ function ClientDetailContent(p: {
         <span className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">تابِع المسار ←</span>
       </Link>
 
-      {/* 🎯 ابدأ من هنا — بطاقة كبيرة موحّدة تُخبر المدير بالخطوة القادمة الفوريّة */}
-      <StartHereBeacon
-        companyId={client.companyId}
-        specialty={specialty}
-        clientQ={clientQ}
-        hasAnyAudit={hasAnyAudit}
-        hasDeptDeep={isToolDone('/manager/dept-deep')}
-        auditRoute={DEPT_AUDIT_ROUTE[specialty]}
-        healthPct={healthPct}
-      />
+      {/* 🎯 ابدأ من هنا — بطاقة كبيرة موحّدة تُخبر المدير بالخطوة القادمة الفوريّة.
+          خلف flag: تُشتقّ من المصدر الواحد (useGuidedNext) فتطابق السايد بار/القمرة؛
+          افتراضيّاً: الشروط المحليّة الأربع القديمة (تراجع آمن). */}
+      {useGuided && guidedNext && guidedNext.to ? (
+        <GuidedStartBeacon icon={guidedNext.icon} title={guidedNext.label} reason={guidedNext.reason} to={guidedNext.to} />
+      ) : (
+        <StartHereBeacon
+          companyId={client.companyId}
+          specialty={specialty}
+          clientQ={clientQ}
+          hasAnyAudit={hasAnyAudit}
+          hasDeptDeep={isToolDone('/manager/dept-deep')}
+          auditRoute={DEPT_AUDIT_ROUTE[specialty]}
+          healthPct={healthPct}
+        />
+      )}
 
       {/*
         PlanningJourneyCard (٦ خطوات مرقّمة) حُذف من هذه الصفحة —
@@ -425,50 +409,52 @@ function ClientDetailContent(p: {
         إن أردت مراجعة الرحلة بـ٦ مراحل: /manager/clients/:id/journey.
       */}
 
-      {/* 🔒 بانر التقفيل — يظهر عند وجود خطوة أساسيّة ناقصة */}
-      {dataLoaded && currentEssentialPath && (() => {
-        const currentIdx = ESSENTIAL_SEQUENCE.indexOf(currentEssentialPath)
-        const doneCount = currentIdx // كل الأدوات قبل الحاليّة تُعتبر مكتملة
-        const total = ESSENTIAL_SEQUENCE.length
+      {/* 📊 بانر التقدّم — مُشتقّ من المصدر الواحد (getNextStep/useGuidedNext).
+         لا لغة «قفل» بعد الآن: التقدّم عدّ اكتمال أدوات ① الأساسيّة (CORE_STEPS،
+         للعرض فقط)، و«الخطوة الحاليّة» عنوانها من guidedNext ذاته. قفل المراحل
+         🔒 (إن وُجد) يعيش في المحرّك على صفحة الرحلة، لا هنا. */}
+      {dataLoaded && guidedNext && (() => {
+        const doneCount = CORE_STEPS.filter((p) => isToolDone(p)).length
+        const total = CORE_STEPS.length
         const pct = Math.round((doneCount / total) * 100)
-        return (
-          <div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-amber-400 bg-gradient-to-l from-amber-100/70 to-transparent p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="text-2xl">🔒</div>
+        const isDone = guidedNext.kind === 'done' || doneCount >= total
+        if (isDone) {
+          return (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-emerald-400 bg-gradient-to-l from-emerald-100/70 to-transparent p-4">
+              <div className="text-2xl">🏆</div>
               <div className="flex-1 text-xs leading-relaxed">
-                <div className="font-bold text-amber-900">
-                  أنت في الخطوة {doneCount + 1} من {total} — الأدوات اللاحقة مقفلة
+                <div className="font-bold text-emerald-900">
+                  التسلسل الأساسيّ مكتمل — راجع النتائج على الخطة الاستراتيجيّة
                 </div>
-                <p className="mt-1 text-amber-800/80">
-                  التسلسل مصمَّم بحيث كل خطوة تُغذّي التالية بالبيانات. أكمل الخطوة الحاليّة (⭐) لفتح ما بعدها.
-                  الأدوات المساندة (Porter/DNA/أصحاب المصلحة/…) تبقى متاحة اختيارياً.
+                <p className="mt-1 text-emerald-800/80">
+                  أنت في وضع «التنفيذ المستمرّ». تابع KPIs والمهام أسبوعياً.
                 </p>
               </div>
+            </div>
+          )
+        }
+        return (
+          <div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-primary/50 bg-gradient-to-l from-primary/10 to-transparent p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-2xl">{guidedNext.icon}</div>
+              <div className="flex-1 text-xs leading-relaxed">
+                <div className="font-bold text-foreground">
+                  خطوتك الحاليّة: {guidedNext.label} — {doneCount} من {total} مكتملة
+                </div>
+                <p className="mt-1 text-muted-foreground">{guidedNext.reason}</p>
+              </div>
               <div className="text-right">
-                <div className="text-2xl font-bold tabular-nums text-amber-900">{pct}٪</div>
-                <div className="text-[10px] text-amber-800/70">مكتمل</div>
+                <div className="text-2xl font-bold tabular-nums text-primary">{pct}٪</div>
+                <div className="text-[10px] text-muted-foreground">مكتمل</div>
               </div>
             </div>
             {/* شريط تقدّم مرئي */}
-            <div className="h-2 overflow-hidden rounded-full bg-amber-200/50">
-              <div className="h-full bg-amber-500 transition-all" style={{ width: `${pct}%` }} />
+            <div className="h-2 overflow-hidden rounded-full bg-primary/15">
+              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
             </div>
           </div>
         )
       })()}
-      {dataLoaded && !currentEssentialPath && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-emerald-400 bg-gradient-to-l from-emerald-100/70 to-transparent p-4">
-          <div className="text-2xl">🏆</div>
-          <div className="flex-1 text-xs leading-relaxed">
-            <div className="font-bold text-emerald-900">
-              التسلسل الأساسيّ مكتمل — راجع النتائج على الخطة الاستراتيجيّة
-            </div>
-            <p className="mt-1 text-emerald-800/80">
-              أنت في وضع «التنفيذ المستمرّ». تابع KPIs والمهام أسبوعياً.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* ═══ التسلسل الكامل والأدوات — مطويّ افتراضياً ═══════════════
          قرار بنيويّ: أعلى الصفحة يعرض *مكاناً واحداً للبدء* (البطاقة
@@ -523,20 +509,20 @@ function ClientDetailContent(p: {
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">أدوات العمل على هذا العميل</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {/* ١. التشخيص المبسّط — أوّل خطوة (٤ أسئلة سريعة قبل التدقيق العميق) */}
+          {/* ◇ إحماء اختياريّ — لا رقم خطوة ولا قفل خلفه (قرار المالك ١).
+             المبسّط لا يُنتِج healthPct فلا يُبنى عليه خطّ الأساس؛ التدقيق هو
+             البداية الحقيقيّة. يبقى متاحاً كتهيئة سريعة، خارج عدّاد التقدّم. */}
           <ToolCard
             icon="📝"
             title="التشخيص المبسّط"
+            warmup
             description={
               deptDeepFilledCount > 0 && deptDeepFilledCount < DEPT_DEEP_TOTAL
-                ? `أجبت ${deptDeepFilledCount} من ${DEPT_DEEP_TOTAL} أسئلة — أكمل الباقي لتفتح التدقيق.`
-                : '٤ أسئلة سريعة (القيود / الهشاشة / الأتمتة / الممارسات) — يعطي صورة عامّة قبل التدقيق.'
+                ? `أجبت ${deptDeepFilledCount} من ${DEPT_DEEP_TOTAL} أسئلة — تهيئة اختياريّة قبل التدقيق.`
+                : '٤ أسئلة سريعة (القيود / الهشاشة / الأتمتة / الممارسات) — إحماء اختياريّ قبل التدقيق، لا يُحسب في التقدّم.'
             }
             to={`/manager/dept-deep${clientQ}`}
-            primary
             state={stateFor('/manager/dept-deep')}
-            stepNumber={1}
-            totalSteps={10}
             partialProgress={partialCompletion('/manager/dept-deep')}
           />
           {/* ٢. التدقيق العميق — بعد التشخيص */}
@@ -861,13 +847,15 @@ function HealthCard({
 // state='done'    → منخفض التباين + ✓ + ترتيب لاحق
 // state='locked'  → مقفلة (رمادي + 🔒 + لا يمكن الضغط)
 // state='idle'    → التصميم الافتراضي
-type ToolCardState = 'current' | 'done' | 'idle' | 'locked'
+// النوع من القاعدة النقيّة المشتركة (cardState) — تُشتَقّ منها ⭐ أيضاً.
 
 function ToolCard({
-  icon, title, description, to, primary, muted, state = 'idle', lockReason, stepNumber, totalSteps, partialProgress, healthMetric,
+  icon, title, description, to, primary, muted, warmup, state = 'idle', lockReason, stepNumber, totalSteps, partialProgress, healthMetric,
 }: {
   icon: string; title: string; description: string; to: string
   primary?: boolean; muted?: boolean; state?: ToolCardState; lockReason?: string
+  /** ◇ إحماء اختياريّ — لا رقم خطوة ولا ⭐؛ خارج عدّاد التقدّم (المبسّط). */
+  warmup?: boolean
   /** رقم هذه الأداة في تسلسل الخطوات الأساسيّة (١، ٢، …) — يعرض شارة «الخطوة N من M». */
   stepNumber?: number
   totalSteps?: number
@@ -880,6 +868,7 @@ function ToolCard({
     state === 'current' ? 'border-2 border-primary shadow-md ring-2 ring-primary/40 bg-primary/10'
     : state === 'done'  ? 'border-emerald-300 bg-emerald-50/40 opacity-90'
     : state === 'locked' ? 'border-slate-200 bg-slate-100/60 opacity-60 grayscale cursor-not-allowed'
+    : warmup            ? 'border border-dashed border-muted-foreground/40 bg-card/60'
     : primary           ? 'border-primary/40 bg-primary/5'
     :                     'bg-card'
 
@@ -895,6 +884,10 @@ function ToolCard({
   ) : state === 'locked' ? (
     <span className="absolute -top-2 right-3 rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
       🔒 مقفلة
+    </span>
+  ) : warmup ? (
+    <span className="absolute -top-2 right-3 rounded-full border border-muted-foreground/40 bg-card px-2 py-0.5 text-[10px] font-bold text-muted-foreground shadow-sm">
+      ◇ إحماء اختياريّ
     </span>
   ) : null
 
@@ -969,6 +962,7 @@ function ToolCard({
         state === 'current' ? 'opacity-100 font-bold text-primary'
         : state === 'done' ? 'opacity-100 text-emerald-700 font-medium'
         : state === 'locked' ? 'opacity-100 text-slate-500 italic'
+        : warmup ? 'opacity-100 text-muted-foreground'
         : stepNumber != null ? 'opacity-100 text-amber-800 font-medium'
         : 'opacity-0 group-hover:opacity-100 text-primary'
       }`}>
@@ -979,6 +973,7 @@ function ToolCard({
         )
         : state === 'done' ? '✓ منجَز بالكامل'
         : state === 'locked' ? '🔒 أكمل الخطوة الحاليّة أوّلاً'
+        : warmup ? '◇ اختياريّ — لا يُحسب في التقدّم'
         : stepNumber != null ? '○ لم يبدأ بعد'
         : 'فتح ←'}
       </div>
@@ -1009,6 +1004,27 @@ function ToolCard({
 }
 
 // ─── 🎯 «ابدأ من هنا» — بطاقة قائد كبيرة تُخبر المدير بخطوته الفوريّة ─
+// بيكون موحّد من المصدر الواحد (useGuidedNext) — نفس شكل StartHereBeacon.
+function GuidedStartBeacon({ icon, title, reason, to }: { icon: string; title: string; reason: string; to: string }) {
+  return (
+    <Card className="border-2 border-primary bg-gradient-to-l from-primary/15 via-primary/5 to-transparent">
+      <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="text-5xl leading-none">{icon}</div>
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-primary">ابدأ من هنا</div>
+            <div className="mt-1 text-lg font-bold">{title}</div>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{reason}</p>
+          </div>
+        </div>
+        <Link to={to} className="shrink-0 rounded-lg bg-primary px-6 py-3 text-base font-bold text-primary-foreground shadow-md hover:opacity-90">
+          افتحها الآن ←
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
+
 function StartHereBeacon({
   companyId, specialty, clientQ, hasAnyAudit, hasDeptDeep, auditRoute, healthPct,
 }: {

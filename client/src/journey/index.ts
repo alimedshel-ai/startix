@@ -15,6 +15,39 @@ import type { PathDefinition, StepDestination } from './types'
 
 export type { JourneyStep, PathDefinition, StepDestination } from './types'
 
+// ═══ الباب الموحَّد للمحرّك (إعادة تصدير فقط — لا محرّك جديد) ═══════════════
+// سطر الملكيّة (الرقعة E) — يُقرأ قبل أيّ استيراد:
+//   • مسار الرحلة (QUICK/MEDIUM/LONG + المستوى + قفل الفروع) ← classify فقط
+//   • عمق أدوات التحليل ① ← lib/analysisPlan فقط
+//   • ممنوع اشتقاق ثالث — أيّ سلوك جديد يُضاف للمحرّك مرّةً واحدة وترثه
+//     الأسطح الستّة تلقائيّاً (useGuidedNext ← classify + nextStep + rescue +
+//     analysisPlan). لا يُعرَّف منطق هنا — إعادة تصدير محضة.
+export { classifyClient, reconcileLevel, branchLock } from './classify'
+export { getNextStep } from './nextStep'
+export { RESCUE_PLAN, resolveRescuePlan, pickWeakestAxis } from './rescue'
+
+// ─── خريطة الرموز والملكيّة (مثبَّتة بقرار المالك — القرار ٢ بصيغته الأدقّ) ──
+//   🔒 مرحلة لاحقة غير مفتوحة        → classify.branchLock
+//   ⭐ الأداة الحاليّة الموصى بها     → useGuidedNext        (وسم أداة، لا حالة مرحلة)
+//   ✓  مكتملة                        → isToolDone
+//   ◇  مساندة لا تُحسب في الاكتمال   → analysisPlan
+// stageStatus بأنواعها الثلاثة (locked/available/complete) في journey/ سليمة
+// كما هي — المحذوف هو القفل المحلّي اليدوي في ClientDetailPage فقط.
+
+// ─── الرقعة B — توسيع نوع Initiative (مُنفَّذ في lib/strategicApi.ts) ────────
+// resolveRescuePlan يقرأ source ليحسب اكتمال الخطوة ٣:
+//   source?: 'rescue' | 'manual'  — 'rescue' = أُنشئت inline من شاشة الإنقاذ
+//     (ممنوع navigate إلى ⑤ لأنها قد تكون مقفلة في LONG)؛ تظهر بشارة «من الإنقاذ 🚨».
+//   linkedActionId?: string | null — ربط بالإجراء التصحيحيّ من خطوة الإنقاذ ٢.
+//   اكتمال ٣: listInitiatives(clientId).some(i => i.source === 'rescue').
+
+// ─── الرقعة D — جدول journey_events (append-only مستقل) ─────────────────────
+// المخطّط في الهجرة الفعليّة:
+//   server/prisma/migrations/20260724100100_journey_events/migration.sql
+//   (+ نموذج Prisma JourneyEvent). الكاتب (PR ٢): useGuidedNext — next_shown
+//   عند العرض، accepted/overridden عند النقر (يقارن الوجهة المنقورة بـ next.to).
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ─── اختيار الخطة (§٢) — تعريف واحد فقط، بلا خلط ──────────────────
 // null → الخطة الاستراتيجيّة افتراضياً (سلوك LONG المتوافق مع القديم).
 export function resolvePath(path: StrategyPath | null | undefined): PathDefinition {

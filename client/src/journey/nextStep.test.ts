@@ -67,6 +67,52 @@ describe('getNextStep — بوّابة الأداة + منع الطريق الم
     expect(r.stageId).toBe('synthesis')
     expect(r.toolPath).toBe('/swot')
   })
+
+  it('داخليّ جاهز لكن لا مسح خارجيّ → يوجّه لـ PESTEL لا لـ SWOT (فرص/تهديدات فارغة)', () => {
+    const c = { ...NONE, environment: true } // التالي synthesis
+    const r = getNextStep(base({ completions: c, signals: { swotSourcesReady: true, externalSourceReady: false } }))
+    expect(r.kind).toBe('action')
+    expect(r.stageId).toBe('environment')
+    expect(r.toolPath).toBe('/manager/dept-pestel') // isPro=true
+    expect(r.reason).toContain('خارجيّ')
+    expect(r.toolPath).not.toBe('/swot')
+  })
+
+  it('الشقّان جاهزان (داخليّ + خارجيّ) → يذهب لـ SWOT', () => {
+    const c = { ...NONE, environment: true }
+    const r = getNextStep(base({ completions: c, signals: { swotSourcesReady: true, externalSourceReady: true } }))
+    expect(r.stageId).toBe('synthesis')
+    expect(r.toolPath).toBe('/swot')
+  })
+
+  it('غير المدير المستقل: المسح الخارجيّ يوجّه لـ /pestel', () => {
+    const c = { ...NONE, environment: true }
+    const r = getNextStep(base({ isPro: false, completions: c, signals: { swotSourcesReady: true, externalSourceReady: false } }))
+    expect(r.toolPath).toBe('/pestel')
+  })
+})
+
+describe('getNextStep — العمق يفلتر العرض لا الاكتمال (ثبات الاكتمال)', () => {
+  it('نفس الاكتمال: مرحلة مكتملة لا تُعاد كـ«تالية» مهما اختلف العمق (QUICK vs LONG)', () => {
+    const c = { ...NONE, environment: true, synthesis: true }
+    const sig = { swotSourcesReady: true, externalSourceReady: true }
+    const quick = getNextStep(base({ path: 'QUICK', completions: c, signals: sig }))
+    const long = getNextStep(base({ path: 'LONG', completions: c, signals: sig }))
+    // العمق يغيّر الوجهة: QUICK يقفز للمبادرات، LONG يمرّ بالتوجّهات…
+    expect(quick.stageId).toBe('initiatives')
+    expect(long.stageId).toBe('directions')
+    // …لكن لا يُعيد أيّ مرحلة مكتملة (environment/synthesis) كخطوة تالية في أيّهما.
+    for (const r of [quick, long]) {
+      expect(r.stageId).not.toBe('environment')
+      expect(r.stageId).not.toBe('synthesis')
+    }
+  })
+
+  it('اكتمال كل المراحل → done لكلا العمقين (الاكتمال مسار-محايد)', () => {
+    const all = { ...NONE, environment: true, synthesis: true, directions: true, indicators: true, initiatives: true, execution: true }
+    expect(getNextStep(base({ path: 'QUICK', completions: all })).kind).toBe('done')
+    expect(getNextStep(base({ path: 'LONG', completions: all })).kind).toBe('done')
+  })
 })
 
 describe('getNextStep — «لماذا» واعٍ بالبيانات (النقطة ٣)', () => {

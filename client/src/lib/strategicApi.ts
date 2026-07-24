@@ -340,6 +340,12 @@ export interface Initiative {
   cost?: number | string | null
   /** يأتي من الـAPI عند include — الهدف المرتبط إن وُجد. */
   objective?: Objective | null
+  /** 'rescue' = أُنشئت inline من شاشة الإنقاذ (خطوة ٣) — تظهر لاحقاً بشارة
+   *  «من الإنقاذ 🚨» في مركز المبادرات ⑤. resolveRescuePlan يحسب الاكتمال عبر
+   *  listInitiatives(clientId).some(i => i.source === 'rescue'). */
+  source?: 'rescue' | 'manual'
+  /** ربط بالإجراء التصحيحيّ من خطوة الإنقاذ ٢. */
+  linkedActionId?: string | null
 }
 export interface Project {
   id: string

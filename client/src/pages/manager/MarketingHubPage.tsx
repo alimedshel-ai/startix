@@ -316,7 +316,6 @@ export function MarketingHubPage() {
             <div className="md:col-span-2 rounded-lg border bg-muted/20 p-3">
               <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">معاينة الشعار</div>
               <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={data.brand.logoUrl} alt="logo" className="max-h-16 max-w-32 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 <div>
                   <div className="text-base font-bold">{data.brand.name || '—'}</div>
