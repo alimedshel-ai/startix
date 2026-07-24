@@ -12,6 +12,7 @@ import { isToolVisible, visibleTools } from '@/lib/goalGating'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { getArtifact, getSWOT, getTaggedTOWS, listAllArtifacts, listProjects } from '@/lib/strategicApi'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
+import { ANALYSIS_CARD_ORDER, AUDIT_PLACEHOLDER } from '@/journey/analysisCardOrder'
 import { cardStateFor, type ToolCardState } from '@/journey/cardState'
 import { flag, USE_JOURNEY_NEXT } from '@/lib/flags'
 import { useAuthStore } from '@/store/authStore'
@@ -291,15 +292,15 @@ function ClientDetailContent(p: {
   // ملاحظة (الرقعة A): حُذف المحرّك الموازي المحلّيّ (currentEssentialPath +
   // ESSENTIAL_SEQUENCE + قفل stateFor المحلّيّ). «الخطوة الحاليّة/التالية»
   // تُملَك الآن من المصدر الواحد useGuidedNext؛ وقفل المراحل 🔒 يعيش في
-  // المحرّك (classify.branchLock) على صفحة الرحلة — لا هنا. isToolDone يبقى
+  // المحرّك (journey/stageStatus) على السايد بار/الرحلة — لا هنا. isToolDone يبقى
   // (فحص اكتمال دقيق أداة-بأداة)، وترتيب العرض أدناه للتقدّم فقط لا للقفل.
 
   // ─── قائمة العرض للتقدّم فقط (لا تقرّر «التالي» ولا تقفل شيئاً) ───────
-  //   التدقيق هو الأساس دائماً؛ المبسّط (dept-deep) إحماء اختياريّ ◇ خارجها.
+  //   الجزء التحليليّ ① يُشتقّ من ANALYSIS_CARD_ORDER (مصدر واحد، يحرسه اختبار
+  //   ضدّ BASE_ORDER) بدل مصفوفة يدويّة تنحرف صامتةً؛ ثم مراحل ②→⑥. المبسّط
+  //   (dept-deep) إحماء اختياريّ ◇ خارج العدّاد.
   const CORE_STEPS: string[] = [
-    DEPT_AUDIT_ROUTE[specialty],
-    '/manager/dept-pestel',
-    '/internal-environment',
+    ...ANALYSIS_CARD_ORDER.map((p) => (p === AUDIT_PLACEHOLDER ? DEPT_AUDIT_ROUTE[specialty] : p)),
     '/swot',
     '/tows',
     '/directions',
@@ -318,7 +319,7 @@ function ClientDetailContent(p: {
   // ─── حالة البطاقة — «الحاليّة» ⭐ من المصدر الواحد، بلا قفل محلّيّ ─────
   //   ⭐ current = الأداة التي يشير إليها useGuidedNext (نفس بيكون «التالي لك
   //   الآن») فتتطابق الشارة والبيكون بالبناء. لا حالة 'locked' محلّيّة بعد
-  //   الآن (قرار المالك ٢): قفل المراحل يعيش في المحرّك (classify.branchLock).
+  //   الآن (قرار المالك ٢): قفل المراحل يعيش في المحرّك (journey/stageStatus).
   //   الأدوات غير المكتملة وغير الحاليّة → 'idle' (متاحة، لا مقفلة).
   const stateFor = (path: string): ToolCardState =>
     cardStateFor({ dataLoaded, done: isToolDone(path), guidedTo: guidedNext?.to ?? null, path, clientQ })
@@ -413,7 +414,7 @@ function ClientDetailContent(p: {
          لا لغة «قفل» بعد الآن: التقدّم عدّ اكتمال أدوات ① الأساسيّة (CORE_STEPS،
          للعرض فقط)، و«الخطوة الحاليّة» عنوانها من guidedNext ذاته. قفل المراحل
          🔒 (إن وُجد) يعيش في المحرّك على صفحة الرحلة، لا هنا. */}
-      {dataLoaded && guidedNext && (() => {
+      {dataLoaded && useGuided && guidedNext && (() => {
         const doneCount = CORE_STEPS.filter((p) => isToolDone(p)).length
         const total = CORE_STEPS.length
         const pct = Math.round((doneCount / total) * 100)
@@ -537,8 +538,8 @@ function ClientDetailContent(p: {
             to={`${DEPT_AUDIT_ROUTE[specialty]}${clientQ}`}
             primary
             state={stateFor(DEPT_AUDIT_ROUTE[specialty])}
-            stepNumber={2}
-            totalSteps={10}
+            stepNumber={1}
+            totalSteps={9}
             healthMetric={{ value: hasAnyAudit ? healthPct : null, label: 'صحّة الإدارة' }}
           />
         </div>
@@ -550,7 +551,19 @@ function ClientDetailContent(p: {
           المرحلة ① — تحليل البيئة (تُغذّي SWOT في المرحلة ②)
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {/* #3 — PESTEL ⭐ */}
+          {/* #3 — البيئة الداخلية 7S ⭐ (قبل PESTEL — يطابق BASE_ORDER: s7 قبل pestel) */}
+          <ToolCard
+            icon="🎯"
+            title="البيئة الداخلية (7S)"
+            description="نموذج McKinsey — استراتيجية/هيكل/أنظمة/قيادة/فريق/مهارات/قيم."
+            to={`/internal-environment${clientQ}`}
+            primary
+            muted={mutedFor('/internal-environment')}
+            state={stateFor('/internal-environment')}
+            stepNumber={2}
+            totalSteps={9}
+          />
+          {/* #4 — PESTEL ⭐ (مسح خارجيّ — بعد الداخليّ) */}
           <ToolCard
             icon="🌐"
             title={`PESTEL — ${DEPT_LABEL[specialty]}`}
@@ -560,19 +573,7 @@ function ClientDetailContent(p: {
             muted={mutedFor('/manager/dept-pestel')}
             state={stateFor('/manager/dept-pestel')}
             stepNumber={3}
-            totalSteps={10}
-          />
-          {/* #4 — البيئة الداخلية 7S ⭐ */}
-          <ToolCard
-            icon="🎯"
-            title="البيئة الداخلية (7S)"
-            description="نموذج McKinsey — استراتيجية/هيكل/أنظمة/قيادة/فريق/مهارات/قيم."
-            to={`/internal-environment${clientQ}`}
-            primary
-            muted={mutedFor('/internal-environment')}
-            state={stateFor('/internal-environment')}
-            stepNumber={4}
-            totalSteps={10}
+            totalSteps={9}
           />
         </div>
       </div>
@@ -588,8 +589,8 @@ function ClientDetailContent(p: {
             to={`/swot${clientQ}`}
             muted={mutedFor('/swot')}
             state={stateFor('/swot')}
-            stepNumber={5}
-            totalSteps={10}
+            stepNumber={4}
+            totalSteps={9}
           />
           <ToolCard
             icon="🔄"
@@ -598,8 +599,8 @@ function ClientDetailContent(p: {
             to={`/tows${clientQ}`}
             muted={mutedFor('/tows')}
             state={stateFor('/tows')}
-            stepNumber={6}
-            totalSteps={10}
+            stepNumber={5}
+            totalSteps={9}
           />
           {/* خريطة المخاطر ومصفوفة الأولوية → مضمّنتان في مركز المبادرات أدناه */}
         </div>
@@ -622,8 +623,8 @@ function ClientDetailContent(p: {
             primary
             muted={mutedFor('/measure')}
             state={stateFor('/measure')}
-            stepNumber={8}
-            totalSteps={10}
+            stepNumber={7}
+            totalSteps={9}
           />
           <ToolCard
             icon="💡"
@@ -633,8 +634,8 @@ function ClientDetailContent(p: {
             primary
             muted={mutedFor('/priority')}
             state={stateFor('/priority')}
-            stepNumber={9}
-            totalSteps={10}
+            stepNumber={8}
+            totalSteps={9}
           />
           <ToolCard
             icon="🚀"
@@ -644,8 +645,8 @@ function ClientDetailContent(p: {
             primary
             muted={mutedFor('/execute')}
             state={stateFor('/execute')}
-            stepNumber={10}
-            totalSteps={10}
+            stepNumber={9}
+            totalSteps={9}
           />
         </div>
       </div>
@@ -845,15 +846,15 @@ function HealthCard({
 // ─── ToolCard مع حالات ديناميكيّة ─────────────────────────────────
 // state='current' → حلقة ملوّنة + شارة «⭐ ابدأ الآن» + ترقية بصريّة
 // state='done'    → منخفض التباين + ✓ + ترتيب لاحق
-// state='locked'  → مقفلة (رمادي + 🔒 + لا يمكن الضغط)
 // state='idle'    → التصميم الافتراضي
 // النوع من القاعدة النقيّة المشتركة (cardState) — تُشتَقّ منها ⭐ أيضاً.
+// لا حالة 'locked' هنا: cardStateFor لا يُنتِجها (قرار المالك ٢ — لا قفل محلّيّ).
 
 function ToolCard({
-  icon, title, description, to, primary, muted, warmup, state = 'idle', lockReason, stepNumber, totalSteps, partialProgress, healthMetric,
+  icon, title, description, to, primary, muted, warmup, state = 'idle', stepNumber, totalSteps, partialProgress, healthMetric,
 }: {
   icon: string; title: string; description: string; to: string
-  primary?: boolean; muted?: boolean; state?: ToolCardState; lockReason?: string
+  primary?: boolean; muted?: boolean; state?: ToolCardState
   /** ◇ إحماء اختياريّ — لا رقم خطوة ولا ⭐؛ خارج عدّاد التقدّم (المبسّط). */
   warmup?: boolean
   /** رقم هذه الأداة في تسلسل الخطوات الأساسيّة (١، ٢، …) — يعرض شارة «الخطوة N من M». */
@@ -867,7 +868,6 @@ function ToolCard({
   const stateClasses =
     state === 'current' ? 'border-2 border-primary shadow-md ring-2 ring-primary/40 bg-primary/10'
     : state === 'done'  ? 'border-emerald-300 bg-emerald-50/40 opacity-90'
-    : state === 'locked' ? 'border-slate-200 bg-slate-100/60 opacity-60 grayscale cursor-not-allowed'
     : warmup            ? 'border border-dashed border-muted-foreground/40 bg-card/60'
     : primary           ? 'border-primary/40 bg-primary/5'
     :                     'bg-card'
@@ -880,10 +880,6 @@ function ToolCard({
   ) : state === 'done' ? (
     <span className="absolute -top-2 right-3 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
       ✓ مكتمل ١٠٠٪
-    </span>
-  ) : state === 'locked' ? (
-    <span className="absolute -top-2 right-3 rounded-full bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
-      🔒 مقفلة
     </span>
   ) : warmup ? (
     <span className="absolute -top-2 right-3 rounded-full border border-muted-foreground/40 bg-card px-2 py-0.5 text-[10px] font-bold text-muted-foreground shadow-sm">
@@ -899,7 +895,6 @@ function ToolCard({
         <span className={`absolute -top-2 left-3 rounded-full border-2 px-2 py-0.5 text-[10px] font-bold shadow-sm ${
           state === 'done'    ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
           : state === 'current' ? 'border-primary bg-white text-primary'
-          : state === 'locked' ? 'border-slate-300 bg-slate-50 text-slate-500'
           : 'border-amber-400 bg-amber-50 text-amber-900'
         }`}>
           الخطوة {stepNumber} من {totalSteps}
@@ -961,7 +956,6 @@ function ToolCard({
       <div className={`mt-3 text-xs transition ${
         state === 'current' ? 'opacity-100 font-bold text-primary'
         : state === 'done' ? 'opacity-100 text-emerald-700 font-medium'
-        : state === 'locked' ? 'opacity-100 text-slate-500 italic'
         : warmup ? 'opacity-100 text-muted-foreground'
         : stepNumber != null ? 'opacity-100 text-amber-800 font-medium'
         : 'opacity-0 group-hover:opacity-100 text-primary'
@@ -972,25 +966,12 @@ function ToolCard({
             : '⚡ لم يبدأ — ابدأ الآن ←'
         )
         : state === 'done' ? '✓ منجَز بالكامل'
-        : state === 'locked' ? '🔒 أكمل الخطوة الحاليّة أوّلاً'
         : warmup ? '◇ اختياريّ — لا يُحسب في التقدّم'
         : stepNumber != null ? '○ لم يبدأ بعد'
         : 'فتح ←'}
       </div>
     </>
   )
-
-  // مقفلة → div بلا Link
-  if (state === 'locked') {
-    return (
-      <div
-        className={`group relative rounded-xl border p-4 transition ${stateClasses}`}
-        title={lockReason || 'أكمل الخطوة الحاليّة قبل هذه الأداة.'}
-      >
-        {content}
-      </div>
-    )
-  }
 
   return (
     <Link

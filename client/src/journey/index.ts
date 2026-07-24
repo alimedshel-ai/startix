@@ -25,10 +25,13 @@ export type { JourneyStep, PathDefinition, StepDestination } from './types'
 export { classifyClient, reconcileLevel, branchLock } from './classify'
 export { getNextStep } from './nextStep'
 export { RESCUE_PLAN, resolveRescuePlan, pickWeakestAxis } from './rescue'
+// الرقعة F — مالك 🔒 «قفل المراحل» (نُقل من Sidebar.tsx إلى المحرّك).
+export { stageStatus, type StageStatus } from './stageStatus'
 
 // ─── خريطة الرموز والملكيّة (مثبَّتة بقرار المالك — القرار ٢ بصيغته الأدقّ) ──
-//   🔒 مرحلة لاحقة غير مفتوحة        → classify.branchLock
-//   ⭐ الأداة الحاليّة الموصى بها     → useGuidedNext        (وسم أداة، لا حالة مرحلة)
+//   🔒 مرحلة لاحقة غير مفتوحة        → journey/stageStatus  (المالك الفعليّ؛
+//                                       branchLock احتياطيّ غير موصول — انظر classify.ts)
+//   ⭐ الأداة الحاليّة الموصى بها     → useGuidedNext        (وسم أداة, لا حالة مرحلة)
 //   ✓  مكتملة                        → isToolDone
 //   ◇  مساندة لا تُحسب في الاكتمال   → analysisPlan
 // stageStatus بأنواعها الثلاثة (locked/available/complete) في journey/ سليمة

@@ -4,10 +4,10 @@
 // يشيران لنفس الأداة دائماً — كلاهما يقرأ نفس guidedNext.to.
 //
 // لا قفل محلّيّ هنا (قرار المالك ٢): قفل المراحل 🔒 يملكه المحرّك
-// (classify.branchLock) على صفحة الرحلة، لا هذه القاعدة. غير المكتمل وغير
-// الحاليّ → 'idle' (متاح، لا مقفل).
+// (journey/stageStatus) على صفحة الرحلة/السايد بار، لا هذه القاعدة. غير المكتمل
+// وغير الحاليّ → 'idle' (متاح، لا مقفل).
 
-export type ToolCardState = 'current' | 'done' | 'idle' | 'locked'
+export type ToolCardState = 'current' | 'done' | 'idle'
 
 export interface CardStateInput {
   /** انتظر تحميل البيانات قبل إظهار أيّ ⭐/✓ (تفادي وميض). */

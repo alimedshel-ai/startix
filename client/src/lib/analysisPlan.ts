@@ -50,7 +50,9 @@ const TOOL_MIN_TIER: Record<string, 0 | 1 | 2> = {
 // التسلسل: تدقيق (نظرة عامّة) → عميق (يجمع السياق) → 7S (يُركّب الصورة
 // الداخليّة على أساس العميق) → سلسلة القيمة → DNA → [الخارج] PESTEL → …
 // ملاحظة: العميق قبل 7S عمداً — البيئة الداخليّة تُبنى على تحليل أعمق سابق.
-const BASE_ORDER = [
+// مُصدَّر (الرقعة A ملحق): حارس ترتيب بطاقات ① في صفحة العميل يطابقه ضدّ
+// analysisCardOrder — فأيّ انحراف صامت في العرض يصير اختباراً أحمر.
+export const BASE_ORDER = [
   'audit', 'deep', 's7', 'value-chain', 'org-dna',
   'pestel', 'porter', 'benchmarking', 'stakeholders',
 ]

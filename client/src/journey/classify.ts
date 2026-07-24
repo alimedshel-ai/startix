@@ -123,6 +123,11 @@ export interface BranchLock {
   lockReason: string | null
 }
 
+// ⚠️ احتياطيّ معتمد غير موصول (كشف الفحص ١٤ + الرقعة F): branchLock قفلُ فروعٍ
+// للعميل الطارئ (مستوى emergency غير موصى) — معرَّف ومختبَر لكن **لا يستهلكه أيّ
+// سطح بعد**. قفل المراحل 🔒 الحاليّ مالكه journey/stageStatus لا هذا. يُوصَل في
+// موجة لاحقة حين يوجد سطح يحتاج قفل الفرع الطارئ — لا كود ميّت بلا بيان، ولا وصل
+// متسرّع بلا سطح.
 export function branchLock(level: ClientLevel, isRecommended: boolean): BranchLock {
   if (level === 'emergency' && !isRecommended) {
     return { isLocked: true, lockReason: '🔒 متاح بعد استقرار الوضع الحرج — أو غيّر المستوى يدويّاً إن كان التصنيف خاطئاً.' }

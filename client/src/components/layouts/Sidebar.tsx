@@ -4,7 +4,8 @@ import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
 import { openCommandPalette } from '@/components/CommandPalette'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
-import { canOpenStage, isStageInPath, overallProgressPct, stageLevel, STAGE_LEVEL_LABEL, type StageId } from '@/lib/journeyStages'
+import { stageStatus, type StageStatus } from '@/journey'
+import { isStageInPath, overallProgressPct, stageLevel, STAGE_LEVEL_LABEL, type StageId } from '@/lib/journeyStages'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { ACCENT_CLASSES, navFor, type NavItem, type NavSection } from './nav'
@@ -50,18 +51,8 @@ const PATH_LABEL: Record<'QUICK' | 'MEDIUM' | 'LONG', { icon: string; ar: string
   LONG:   { icon: '🔭', ar: 'مسار استراتيجي (طويل)' },
 }
 
-// حالة قسم مرتبط بمرحلة استراتيجية.
-type StageStatus = 'locked' | 'available' | 'complete'
-
-function stageStatus(
-  stageId: StageId,
-  completions: Record<StageId, boolean>,
-): StageStatus {
-  if (completions[stageId]) return 'complete'
-  if (canOpenStage(stageId, completions)) return 'available'
-  return 'locked'
-}
-
+// حالة القسم المرتبط بمرحلة (locked/available/complete) — نُقلت إلى المحرّك
+// journey/stageStatus (الرقعة F)؛ مالك 🔒 الواحد. هنا خرائط العرض فقط.
 const STATUS_ICON: Record<StageStatus, string> = {
   locked:    '🔒',
   available: '',
@@ -81,7 +72,8 @@ const STATUS_TITLE: Record<StageStatus, string> = {
 // default:  للأدوار الأخرى — سلوك افتراضي (كل الأقسام).
 type SidebarMode = 'portfolio' | 'analysis' | 'default'
 
-export function getSidebarMode(pathname: string, hasClientParam: boolean, isPro: boolean): SidebarMode {
+// داخليّ فقط (لا مستهلك خارجيّ) — بلا export ليُرضي react-refresh (المكوّن وحده يُصدَّر).
+function getSidebarMode(pathname: string, hasClientParam: boolean, isPro: boolean): SidebarMode {
   if (!isPro) return 'default'
   if (hasClientParam) return 'analysis'
   // مسارات مرتبطة بالمحفظة (بلا ?client=).
