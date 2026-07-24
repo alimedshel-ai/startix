@@ -1,7 +1,7 @@
 import { auditRouteFor } from '@/journey'
 import { classifyClient, reconcileLevel, type ClientClass, type LevelResolution } from '@/journey/classify'
 import { getNextStep } from '@/journey/nextStep'
-import { useCompany } from '@/hooks/useCompany'
+import { useCompanyById } from '@/hooks/useCompanyById'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useRescue } from '@/hooks/useRescue'
 import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, type CompanySize } from '@/lib/analysisPlan'
@@ -52,10 +52,13 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
 
   const { loading: cLoading, completions, artifactTypes } = useJourneyCompletions(companyId)
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
-  const { company } = useCompany()
+  // بيانات الشركة **بالمعرّف المُمرَّر** لا من الـURL — فتُحسب خطّة التحليل ①
+  // للعميل المعروض فعلاً على كل الأسطح (لا لشركة «أولى» عشوائيّة). يُشترط pro
+  // (قسم ١.٥ يخصّ المدير المستقل وحده).
+  const { company, loading: coLoading } = useCompanyById(isPro ? companyId : null)
   const clientQ = companyId ? `?client=${companyId}` : ''
 
-  if (cLoading || rLoading) return { loading: true, next: null, classification: null, resolution: null }
+  if (cLoading || rLoading || coLoading) return { loading: true, next: null, classification: null, resolution: null }
 
   // ─── صنّف: المستوى يُشتقّ من الصحّة ويتكيّف (لا اختيار يدويّ ثابت) ───
   const classification = classifyClient(health)

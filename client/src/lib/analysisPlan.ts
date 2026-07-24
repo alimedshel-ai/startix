@@ -86,10 +86,13 @@ const SIZE_LABEL: Record<CompanySize, string> = {
   MICRO: 'متناهية الصغر', SMALL: 'صغيرة', MEDIUM: 'متوسطة', LARGE: 'كبيرة',
 }
 
+// تسمية عرض فقط (المرحلة أ — فكّ تصادم «تشغيلي/تكتيكي» مع مسار الرحلة):
+// عمق التحليل = مختصر/موسّع/شامل (لا يشترك حرفاً مع قصير/متوسط/طويل للرحلة).
+// القيم الداخليّة operational/tactical/strategic **لا تُمسّ** — صفر ترحيل/كسر منطق.
 const TIER_META: Record<AnalysisTier, { label: string; icon: string }> = {
-  operational: { label: 'تشغيليّ', icon: '🔧' },
-  tactical: { label: 'تكتيكيّ', icon: '♟️' },
-  strategic: { label: 'استراتيجيّ', icon: '♜' },
+  operational: { label: 'مختصر', icon: '🔧' },
+  tactical: { label: 'موسّع', icon: '♟️' },
+  strategic: { label: 'شامل', icon: '♜' },
 }
 
 // ─── بيانات وصفيّة لكل أداة تحليل (للبوصلة الموجّهة — تسلسل ①) ─────────
@@ -106,7 +109,10 @@ export interface AnalysisToolMeta {
 
 export const ANALYSIS_TOOLS: Record<string, AnalysisToolMeta> = {
   audit: { label: 'تدقيق التخصّص', icon: '👤', path: '', artifactBases: [], viaAudit: true },
-  deep: { label: 'التحليل العميق', icon: '🔬', path: '/manager/deep-analysis', artifactBases: ['DEPT_DEEP_FULL', 'DEPT_DEEP_ANSWERS'] },
+  // MATURITY يُكمِل 'deep' لتخصّصات النضج (HR/FINANCE): صفحة deep-analysis
+  // تعرض تقييم النضج الذي «يحلّ محلّ التحليل العميق» ويحفظ artifact 'MATURITY'
+  // لا 'DEPT_DEEP_FULL' — فبدونه يبقى «التالي» عالقاً على العميق رغم إكماله.
+  deep: { label: 'التحليل العميق', icon: '🔬', path: '/manager/deep-analysis', artifactBases: ['DEPT_DEEP_FULL', 'DEPT_DEEP_ANSWERS', 'MATURITY'] },
   s7: { label: 'البيئة الداخليّة 7S', icon: '🎯', path: '/internal-environment', artifactBases: ['INTERNAL_ENV'] },
   'value-chain': { label: 'سلسلة القيمة', icon: '🔗', path: '/value-chain', artifactBases: ['VALUE_CHAIN'] },
   'org-dna': { label: 'DNA المنظّمة', icon: '🧬', path: '/org-dna', artifactBases: ['ORG_DNA'] },
