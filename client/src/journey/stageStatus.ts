@@ -7,14 +7,16 @@
 // غير موصول، انظر رأس classify.ts). لا حالة 'recommended' — الثلاث تكفي.
 
 import { canOpenStage, type StageId } from '@/lib/journeyStages'
+import type { StrategyPath } from '@/types/user'
 
 export type StageStatus = 'locked' | 'available' | 'complete'
 
 export function stageStatus(
   stageId: StageId,
   completions: Record<StageId, boolean>,
+  path?: StrategyPath | null,   // واعية بالمسار — لا قفل زائف خلف مراحل خارج المسار.
 ): StageStatus {
   if (completions[stageId]) return 'complete'
-  if (canOpenStage(stageId, completions)) return 'available'
+  if (canOpenStage(stageId, completions, path)) return 'available'
   return 'locked'
 }

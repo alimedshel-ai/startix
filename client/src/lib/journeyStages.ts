@@ -179,27 +179,24 @@ export interface StageCompletion {
 
 /**
  * دالة نقيّة: هل يمكن فتح المرحلة `target`؟
- * القاعدة: المرحلة مفتوحة إذا (locked=false) أو إذا كل المراحل المقفلة
- * السابقة مكتَملة.
+ * البوّابة: تُفتَح إذا اكتملت **كل** مرحلة مقفلة سابقة **داخل مسار المستخدم**.
+ *
+ * ⚠️ واعية بالمسار (إصلاح القفل الزائف): بلا وعي بالمسار كان مستخدم QUICK/MEDIUM
+ * يُحبَس خلف مراحل خارج مساره (directions/indicators) فلا يبلغ ⑤ المبادرات أبداً.
+ * تمرير `path` يستثني المراحل الخارجة من شرط البوّابة. `path` غياب/null → كل
+ * المراحل داخل (سلوك قديم، للتوافق — كل الاختبارات القائمة تمرّ بلا تغيير).
  */
 export function canOpenStage(
   target: StageId,
   completions: Record<StageId, boolean>,
+  path?: StrategyPath | null,
 ): boolean {
   const stage = JOURNEY_STAGES.find((s) => s.id === target)
   if (!stage) return false
-  if (!stage.locked) {
-    // المرحلة نفسها غير مقفلة — لكن نطلب اكتمال كل السابقة المقفلة.
-    const previousLocked = JOURNEY_STAGES.filter(
-      (s) => s.locked && s.order < stage.order,
-    )
-    return previousLocked.every((s) => completions[s.id])
-  }
-  // للمقفلة: order=1 مفتوحة دائماً. غيرها تعتمد على اكتمال السابقة مباشرة.
-  if (stage.order === 1) return true
-  const prev = JOURNEY_STAGES.find((s) => s.order === stage.order - 1)
-  if (!prev) return false
-  return completions[prev.id]
+  const gates = JOURNEY_STAGES.filter(
+    (s) => s.locked && s.order < stage.order && isStageInPath(s.id, path),
+  )
+  return gates.every((s) => completions[s.id])
 }
 
 /**

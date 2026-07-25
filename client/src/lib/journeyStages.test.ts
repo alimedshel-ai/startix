@@ -44,6 +44,31 @@ describe('journeyStages.canOpenStage', () => {
       ...NONE, environment: true, synthesis: true, directions: true, indicators: true,
     })).toBe(true)
   })
+
+  // إصلاح القفل الزائف: البوّابة تحسب المراحل المقفلة **داخل المسار** فقط.
+  it('is path-aware — QUICK reaches initiatives after its 2 in-path locked stages', () => {
+    const quickDone = { ...NONE, environment: true, synthesis: true }
+    // بلا وعي بالمسار كان يُحبَس خلف directions/indicators (خارج QUICK).
+    expect(canOpenStage('initiatives', quickDone, 'QUICK')).toBe(true)
+    expect(canOpenStage('execution', quickDone, 'QUICK')).toBe(true)
+    // ما زال مُبوَّباً على synthesis داخل المسار.
+    expect(canOpenStage('initiatives', { ...NONE, environment: true }, 'QUICK')).toBe(false)
+  })
+
+  it('is path-aware — MEDIUM gates initiatives on directions but not indicators', () => {
+    const envSyn = { ...NONE, environment: true, synthesis: true }
+    expect(canOpenStage('initiatives', envSyn, 'MEDIUM')).toBe(false)                        // ينقص directions
+    expect(canOpenStage('initiatives', { ...envSyn, directions: true }, 'MEDIUM')).toBe(true) // بلا indicators
+  })
+
+  it('is path-aware — LONG still gates initiatives on all 4 locked stages', () => {
+    expect(canOpenStage('initiatives', {
+      ...NONE, environment: true, synthesis: true, directions: true,
+    }, 'LONG')).toBe(false)   // ينقص indicators
+    expect(canOpenStage('initiatives', {
+      ...NONE, environment: true, synthesis: true, directions: true, indicators: true,
+    }, 'LONG')).toBe(true)
+  })
 })
 
 describe('journeyStages.overallProgressPct', () => {

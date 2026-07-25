@@ -4,7 +4,10 @@ import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
 import { openCommandPalette } from '@/components/CommandPalette'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
+import { toast } from 'sonner'
+
 import { stageStatus, type StageStatus } from '@/journey'
+import { flag, USE_STAGE_LOCK } from '@/lib/flags'
 import { isStageInPath, overallProgressPct, stageLevel, STAGE_LEVEL_LABEL, type StageId } from '@/lib/journeyStages'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -271,7 +274,7 @@ export function Sidebar() {
               const accent = ACCENT_CLASSES[section.accent]
               const status: StageStatus | null =
                 isPro && effectiveClientId && section.stageId
-                  ? stageStatus(section.stageId, completions)
+                  ? stageStatus(section.stageId, completions, strategyPath)
                   : null
               const stageIcon = status ? STATUS_ICON[status] : ''
               const stageTitle = status ? STATUS_TITLE[status] : undefined
@@ -451,7 +454,7 @@ function SidebarSection({
         </button>
       ) : (
         <>
-          <SectionItems section={section} accent={accent} />
+          <SectionItems section={section} accent={accent} locked={isLocked && flag(USE_STAGE_LOCK)} />
           {!inPath && outOfPathExpanded && (
             <button
               type="button"
@@ -468,7 +471,7 @@ function SidebarSection({
 }
 
 // ─── قائمة عناصر القسم — تدعم الطيّ (essential vs extras) ────────
-function SectionItems({ section, accent }: { section: NavSection; accent: { bgSoft: string; text: string } }) {
+function SectionItems({ section, accent, locked = false }: { section: NavSection; accent: { bgSoft: string; text: string }; locked?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const essentials = section.items.filter((i) => i.essential)
   const extras = section.items.filter((i) => !i.essential)
@@ -478,7 +481,7 @@ function SectionItems({ section, accent }: { section: NavSection; accent: { bgSo
     <>
       <ul className="flex flex-col gap-0.5">
         {visible.map((item) => (
-          <NavItemRow key={item.to} item={item} accent={accent} />
+          <NavItemRow key={item.to} item={item} accent={accent} locked={locked} />
         ))}
       </ul>
       {collapsibleActive && (
@@ -496,7 +499,24 @@ function SectionItems({ section, accent }: { section: NavSection; accent: { bgSo
   )
 }
 
-function NavItemRow({ item, accent }: { item: NavItem; accent: { bgSoft: string; text: string } }) {
+function NavItemRow({ item, accent, locked = false }: { item: NavItem; accent: { bgSoft: string; text: string }; locked?: boolean }) {
+  // 🔒 قفل صلب (خلف USE_STAGE_LOCK): المرحلة المقفلة غير قابلة للنقر + رسالة.
+  //    الحرس على المسار (useStageGuard) يمنع الالتفاف بالـURL المباشر.
+  if (locked && item.to !== '/search') {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => toast.error(`🔒 «${item.label}» مقفلة — أكمل المرحلة السابقة أوّلاً`)}
+          className="group flex w-full cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground/50"
+          title="🔒 مقفلة — أكمل المرحلة السابقة أوّلاً"
+        >
+          <span className="text-base leading-none">🔒</span>
+          <span className="flex-1 truncate text-right">{item.label}</span>
+        </button>
+      </li>
+    )
+  }
   // ⌘K — نتحوّل من رابط PlaceholderPage إلى زر يفتح palette فوري.
   if (item.to === '/search') {
     return (

@@ -62,7 +62,7 @@ export function useJourney(companyId: string | null): Journey {
     let status: StepStatus
     if (isCurrent) status = 'current'
     else if (done) status = 'done'
-    else if (canOpenStage(step.stageId, completions)) status = 'available'
+    else if (canOpenStage(step.stageId, completions, strategyPath)) status = 'available'
     else status = 'locked'
     return {
       ...step,

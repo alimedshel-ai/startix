@@ -4,11 +4,13 @@ import { ClientContextBar } from '@/components/ClientContextBar'
 import { CommandPalette } from '@/components/CommandPalette'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SmartGuide } from '@/components/SmartGuide'
+import { useStageGuard } from '@/hooks/useStageGuard'
 import { QuickNav } from './QuickNav'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 export function MainLayout() {
+  useStageGuard() // قفل المراحل الصلب — حرس مسار يعيد توجيه URL المقفل (خلف flag)
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Topbar />

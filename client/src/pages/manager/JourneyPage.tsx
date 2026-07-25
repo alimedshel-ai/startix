@@ -138,10 +138,10 @@ export function JourneyPage() {
     return JOURNEY_STAGES.map((stage) => ({
       stage,
       complete: completionMap[stage.id],
-      canOpen: canOpenStage(stage.id, completionMap),
+      canOpen: canOpenStage(stage.id, completionMap, user?.strategyPath ?? null),
       matched: matchedMap[stage.id],
     }))
-  }, [artifactTypes, hasSwot, hasObjectives, hasKpis])
+  }, [artifactTypes, hasSwot, hasObjectives, hasKpis, user?.strategyPath])
 
   const progressPct = useMemo(() => {
     const map: Record<StageId, boolean> = Object.fromEntries(

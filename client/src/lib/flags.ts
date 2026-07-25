@@ -21,3 +21,8 @@ export const USE_JOURNEY_NEXT = 'USE_JOURNEY_NEXT'
  *  أيزنهاور/RACI/جانت) إلى RESCUE_PLAN الدلاليّ (محور ← إجراء ← مبادرة ← إعادة
  *  تدقيق) عبر resolveRescuePlan. الافتراض آمن (القديم)؛ التفعيل يدويّ. */
 export const USE_RESCUE_PLAN = 'USE_RESCUE_PLAN'
+
+/** قفل المراحل الصلب: المرحلة المقفلة (canOpenStage=false) غير قابلة للنقر في
+ *  السايد بار + حرس مسار يعيد توجيه URL المباشر لها. الافتراض آمن (بلا قفل صلب —
+ *  السلوك القديم: تعتيم فقط)؛ التفعيل يدويّ. خطر لو كشف الاكتمال ناقص → خلف flag. */
+export const USE_STAGE_LOCK = 'USE_STAGE_LOCK'
