@@ -5,16 +5,19 @@ import axios, { AxiosError } from 'axios'
 // the request same-origin and cookies first-party. In dev we hit the
 // local Express server explicitly.
 const DEV_FALLBACK = 'http://localhost:5001'
-const baseURL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : DEV_FALLBACK)
+// المصدر الوحيد لقاعدة الـAPI — يستعمله axios (نسبيّ) وأيضاً fetch المباشر
+// (SSE الذكاء · تنزيل Excel). PROD بلا VITE_API_URL → '' (نفس-الأصل عبر rewrite
+// Vercel). لا تستعمل `|| localhost` في أيّ مكان آخر — يكسر الإنتاج حين تُترك فارغة.
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : DEV_FALLBACK)
 
 export const api = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
 if (import.meta.env.DEV) {
-  console.info(`[startix] API base URL: ${baseURL}`)
+  console.info(`[startix] API base URL: ${API_BASE_URL}`)
 }
 
 let refreshPromise: Promise<void> | null = null
@@ -71,7 +74,7 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   const e = err as AxiosError<ApiErrorBody>
   if (!e?.response && e?.message) {
     if (e.code === 'ERR_NETWORK') {
-      return `تعذّر الاتصال بالخادم على ${baseURL}. تأكد أن السيرفر يعمل ثم أعد المحاولة.`
+      return `تعذّر الاتصال بالخادم على ${API_BASE_URL || 'نفس-الأصل'}. تأكد أن السيرفر يعمل ثم أعد المحاولة.`
     }
     return `${fallback} (${e.message})`
   }

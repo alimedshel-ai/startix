@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { StrategicShell } from '@/components/strategic/StrategicShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { apiErrorMessage } from '@/lib/api'
+import { API_BASE_URL, apiErrorMessage } from '@/lib/api'
 import {
   deleteReport, generateReport, getReport, listReports,
   type Report, type ReportSummary, type ReportType,
@@ -101,8 +101,7 @@ function Inner({ companyId }: { companyId: string }) {
   async function downloadExcel() {
     if (!opened) return
     try {
-      const base = import.meta.env.VITE_API_URL || 'http://localhost:5001'
-      const res = await fetch(`${base}/api/reports/${opened.id}/excel`, { credentials: 'include' })
+      const res = await fetch(`${API_BASE_URL}/api/reports/${opened.id}/excel`, { credentials: 'include' })
       if (!res.ok) {
         const txt = await res.text()
         throw new Error(txt || `HTTP ${res.status}`)

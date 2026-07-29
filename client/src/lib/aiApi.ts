@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api, API_BASE_URL } from './api'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -16,18 +16,12 @@ type DoneEvent = { type: 'done' }
 type ErrorEvent = { type: 'error'; message: string }
 export type AdvisorEvent = DeltaEvent | DoneEvent | ErrorEvent
 
-const FALLBACK_BASE = 'http://localhost:5001'
-
-function apiBase(): string {
-  return import.meta.env.VITE_API_URL || FALLBACK_BASE
-}
-
 /**
  * Stream the strategic advisor response via SSE. Yields {type: 'delta', text}
  * tokens, ending with {type: 'done'} or {type: 'error'}.
  */
 export async function* advisorStream(req: AdvisorRequest, signal?: AbortSignal): AsyncGenerator<AdvisorEvent, void, void> {
-  const res = await fetch(`${apiBase()}/api/ai/advisor`, {
+  const res = await fetch(`${API_BASE_URL}/api/ai/advisor`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
