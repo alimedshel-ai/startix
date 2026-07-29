@@ -631,9 +631,12 @@ export const generateAssessment: RequestHandler = async (req, res, next) => {
     });
 
     // Post-validation: تأكّد أن Claude أعاد نفس عدد الأبعاد وأسماءها.
+    // claudeJSON يضمن JSON صالحاً فقط — لا الشكل؛ فإن غاب dimensions نعامله فارغاً
+    // (الواجهة تُظهر placeholder) بدل انهيار .find على undefined.
+    const resultDims = Array.isArray(result?.dimensions) ? result.dimensions : [];
     const suggestions: GeneratedDimension[] = [];
     for (const templateDim of template.dimensions) {
-      const match = result.dimensions.find((d) => d.name.trim() === templateDim.name.trim());
+      const match = resultDims.find((d) => d?.name?.trim() === templateDim.name.trim());
       // إن غاب بُعد نُبقيه فارغاً — الواجهة تُظهر placeholder.
       suggestions.push(match ? { name: templateDim.name, criteria: match.criteria } : { name: templateDim.name, criteria: [] });
     }

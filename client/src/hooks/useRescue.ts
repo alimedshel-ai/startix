@@ -88,9 +88,12 @@ export function useRescue(companyId: string | null): RescueView {
       ])
       if (!alive) return
       const deptList = depts.status === 'fulfilled' ? depts.value : []
-      // الحالة الحرجة: أدنى درجة تدقيق < ٤٠٪. «الخروج» لا يتحقّق بفعل الخطوات —
-      // بل بإعادة تدقيق تُظهر تعافياً (auditScore ≥ ٤٠).
-      const criticalDept = deptList.find((d) => d.auditScore != null && d.auditScore < 40)
+      // الحالة الحرجة: درجة تدقيق < ٤٠٪ أو منطقة حمراء (RED تُجبر الطوارئ مهما
+      // كانت النسبة — موائمةً لـclassify/analysisPlan). «الخروج» لا يتحقّق بفعل
+      // الخطوات بل بإعادة تدقيق تُظهر تعافياً (auditScore ≥ ٤٠).
+      const criticalDept = deptList.find(
+        (d) => (d.auditScore != null && d.auditScore < 40) || d.auditData?.dangerZone === 'RED',
+      )
       // الإدارة الأساسيّة (أوّل من لها تدقيق) — لصحّة classifyClient المتكيّفة.
       const primaryDept = deptList.find((d) => d.auditScore != null)
       const types = new Set<string>(arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [])

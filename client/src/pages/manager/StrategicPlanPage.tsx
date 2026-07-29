@@ -227,6 +227,9 @@ export function StrategicPlanPage() {
     let alive = true
     setLoading(true)
     setError(null)
+    // بدّل العميل → أعِد ضبط الاختيار كي يُعاد مطابقته لتوصية العميل الجديد
+    // (وإلّا بقيت خطّة العميل السابق معروضة فوق بيانات الجديد).
+    setSelectedKey(null)
     getProOverview()
       .then((res) => {
         if (!alive) return

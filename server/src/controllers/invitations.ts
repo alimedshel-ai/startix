@@ -21,12 +21,27 @@ const createSchema = z.object({
   expiresInDays: z.number().int().min(1).max(30).default(7),
 });
 
+// رتبة الدور — تُستعمل لمنع تصعيد الصلاحيات: لا يدعو أحدٌ بدورٍ أعلى من دوره،
+// والعضو (member) لا يدعو إطلاقاً. (SEC — يقفل ثغرة رفع النفس إلى owner.)
+const ROLE_RANK: Record<string, number> = { member: 1, manager: 2, owner: 3 };
+
 // ─── POST /api/invitations ─────────────────────────────────────────────────
 export const createInvitation: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const body = createSchema.parse(req.body);
-    await assertCompanyAccess(req.auth.sub, body.companyId);
+    // صلاحية الدعوة تتطلّب دوراً فعلياً على الشركة، لا مجرّد ارتباط.
+    const link = await prisma.companyUser.findUnique({
+      where: { userId_companyId: { userId: req.auth.sub, companyId: body.companyId } },
+    });
+    if (!link) throw new HttpError(403, 'لا تملك صلاحية الوصول إلى هذه الشركة.');
+    const inviterRank = ROLE_RANK[link.role] ?? 0;
+    if (inviterRank < ROLE_RANK.manager) {
+      throw new HttpError(403, 'فقط المالك أو المدير يمكنه إرسال الدعوات.');
+    }
+    if ((ROLE_RANK[body.role] ?? 0) > inviterRank) {
+      throw new HttpError(403, 'لا يمكنك دعوة عضو بدورٍ أعلى من دورك.');
+    }
 
     // ألغِ أي دعوة سابقة قيد الانتظار لنفس البريد على نفس الشركة (تفادي التكرار).
     await prisma.invitation.updateMany({
