@@ -217,14 +217,14 @@ function Chart({ companyId }: { companyId: string }) {
                     // أيزنهاور غير جاهز → أرشِد للخطوات السابقة بدل زرّ يُخفق.
                     <div className="mt-3 rounded-lg border-2 border-rose-300 bg-white/70 p-3">
                       <div className="text-xs font-bold text-rose-900">
-                        لا توجد مهام «افعل الآن» في أيزنهاور بعد — أكمل الخطوتين السابقتين أوّلاً بالترتيب:
+                        لا توجد مهام «افعل الآن» في أيزنهاور بعد — أكمل ما قبلها أوّلاً بالترتيب:
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Link
                           to={`/risk-map?client=${companyId}&from=emergency`}
                           className="inline-flex items-center gap-1 rounded-lg border-2 border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 transition hover:-translate-y-0.5 hover:border-rose-500"
                         >
-                          ① ⚠️ سجّل مخاطرك
+                          ① ⚠️ سجّل مخاطرك <b>وقيّم خطورتها</b>
                         </Link>
                         <Link
                           to={`/eisenhower?client=${companyId}&from=emergency`}
@@ -234,7 +234,7 @@ function Chart({ companyId }: { companyId: string }) {
                         </Link>
                       </div>
                       <div className="mt-2 text-[11px] text-rose-800/80">
-                        بعد فرز المخاطر ووضع بعضها في «افعل الآن» بأيزنهاور، ارجع هنا ويصير زرّ توليد الجدول جاهزاً.
+                        ⚠️ المخاطر المستوردة من التدقيق تدخل <b>غير مُقيَّمة (١/١)</b> — <b>ارفع احتمالها وأثرها</b> في خريطة المخاطر أوّلاً، وإلّا لن تظهر في «افعل الآن» فيبقى الجدول فارغاً. بعد الفرز، ارجع هنا فيجهز زرّ توليد الجدول.
                       </div>
                     </div>
                   ) : (

@@ -20,6 +20,8 @@ import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
+import { stageForPath } from '@/journey'
+import { isStageInPath } from '@/lib/journeyStages'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
 import type { StrategyPath } from '@/types/user'
 
@@ -87,6 +89,9 @@ export function InitiativesView({ companyId }: { companyId: string }) {
 
 // جاهزية المصادر لتوليد المبادرات.
 interface Sources {
+  // ① التشخيص — مصدر يقرؤه generateFromAll (DEPT_DEEP_ANSWERS) لكنه لم يكن
+  //   يُعرَض، فبدت القائمة فارغة لمستخدم QUICK (يملك ① لا ③). عرضٌ لا قرار.
+  diagnosis: { has: boolean; count: number }
   tows: { has: boolean; count: number }
   directions: { has: boolean; count: number }
   ansoff: { has: boolean; count: number }
@@ -126,7 +131,7 @@ function Editor({ companyId }: { companyId: string }) {
     listObjectives(companyId).then(setObjectives).catch(() => undefined)
     // فحص جاهزية كل مصدر بالتوازي — يُشرح للمدير ماذا سيُقرأ.
     ;(async () => {
-      const [swot, dir, ans, cho, h3] = await Promise.all([
+      const [swot, dir, ans, cho, h3, deep] = await Promise.all([
         getSWOT(companyId).catch(() => null),
         getArtifact<{ directions?: { title: string }[] }>(companyId, 'DIRECTIONS').catch(() => null),
         getArtifact<{ initiatives?: { title: string; quadrant: string }[] }>(
@@ -136,10 +141,14 @@ function Editor({ companyId }: { companyId: string }) {
         getArtifact<{ initiatives?: { title: string; horizon: string }[] }>(
           companyId, specialty ? `THREE_HORIZONS_${specialty}` : 'THREE_HORIZONS',
         ).catch(() => null),
+        getArtifact<{ weaknesses?: string[]; answers?: Record<string, { selected?: string[]; other?: string } | string> }>(companyId, 'DEPT_DEEP_ANSWERS').catch(() => null),
       ])
       const towsList = swot?.tows
       const towsCount = (towsList?.so?.length ?? 0) + (towsList?.st?.length ?? 0) + (towsList?.wo?.length ?? 0) + (towsList?.wt?.length ?? 0)
+      // ① التشخيص — نفس ما يقرؤه generateFromAll (weaknessesFromDeepAnswers).
+      const deepWeak = weaknessesFromDeepAnswers(specialty, deep?.data).length
       setSources({
+        diagnosis:  { has: deepWeak > 0, count: deepWeak },
         tows:       { has: towsCount > 0, count: towsCount },
         directions: { has: (dir?.data?.directions?.length ?? 0) > 0, count: dir?.data?.directions?.length ?? 0 },
         ansoff:     { has: (ans?.data?.initiatives?.length ?? 0) > 0, count: ans?.data?.initiatives?.length ?? 0 },
@@ -447,12 +456,21 @@ function Editor({ companyId }: { companyId: string }) {
               كل مصدر يقدّم مبادرات بأولوية مختلفة. اضغط الناقص لإكماله.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-5">
-            <SourceChip done={sources.choices.has} icon="⭐" labelAr="القرار" hint={sources.choices.has ? sources.choices.title! : 'لا قرار مثبَّت'} to="/choices" priority="critical" />
-            <SourceChip done={sources.tows.has} icon="🔄" labelAr="TOWS" hint={sources.tows.has ? `${sources.tows.count} استراتيجية` : 'أكمل SWOT ثم TOWS'} to="/tows" priority="critical/high" />
-            <SourceChip done={sources.directions.has} icon="🎯" labelAr="الاتجاهات" hint={sources.directions.has ? `${sources.directions.count} اتجاه` : 'حدّد ٣-٥ اتجاهات'} to="/directions" priority="حسب الأثر" />
-            <SourceChip done={sources.horizons.has} icon="🔭" labelAr="الآفاق ٣" hint={sources.horizons.has ? `${sources.horizons.count} عنصر` : 'وزّع على H1/H2/H3'} to="/three-horizons" priority="حسب الأفق" />
-            <SourceChip done={sources.ansoff.has} icon="📐" labelAr="Ansoff" hint={sources.ansoff.has ? `${sources.ansoff.count} مبادرة نمو` : 'صنّف نمو الخدمة'} to="/ansoff" priority="حسب المخاطرة" />
+          {/* اشتقاق كامل (لا نصفيّ): «أيّ رقاقة تظهر» + «مرحلتها» كلاهما من
+              المصدر المركزيّ — stageForPath (يقرأ JOURNEY_STAGES) + isStageInPath.
+              فلا جدول أداة→مرحلة ثانٍ في المولّد ينشقّ عن المحرّك. مسار QUICK
+              يُخفي رقاقات ③ (خارج مساره)، فيرى مصادره فقط (① التشخيص + ② TOWS). */}
+          <CardContent className="grid gap-2 sm:grid-cols-3">
+            {[
+              { to: '/manager/dept-deep', icon: '🔍', labelAr: 'التشخيص', done: sources.diagnosis.has, hint: sources.diagnosis.has ? `${sources.diagnosis.count} نقطة ضعف` : 'أكمل التشخيص السريع', priority: 'مباشر' },
+              { to: '/choices', icon: '⭐', labelAr: 'القرار', done: sources.choices.has, hint: sources.choices.has ? sources.choices.title! : 'لا قرار مثبَّت', priority: 'critical' },
+              { to: '/tows', icon: '🔄', labelAr: 'TOWS', done: sources.tows.has, hint: sources.tows.has ? `${sources.tows.count} استراتيجية` : 'أكمل SWOT ثم TOWS', priority: 'critical/high' },
+              { to: '/directions', icon: '🎯', labelAr: 'الاتجاهات', done: sources.directions.has, hint: sources.directions.has ? `${sources.directions.count} اتجاه` : 'حدّد ٣-٥ اتجاهات', priority: 'حسب الأثر' },
+              { to: '/three-horizons', icon: '🔭', labelAr: 'الآفاق ٣', done: sources.horizons.has, hint: sources.horizons.has ? `${sources.horizons.count} عنصر` : 'وزّع على H1/H2/H3', priority: 'حسب الأفق' },
+              { to: '/ansoff', icon: '📐', labelAr: 'Ansoff', done: sources.ansoff.has, hint: sources.ansoff.has ? `${sources.ansoff.count} مبادرة نمو` : 'صنّف نمو الخدمة', priority: 'حسب المخاطرة' },
+            ]
+              .filter((c) => { const st = stageForPath(c.to); return !st || isStageInPath(st, strategyPath) })
+              .map((c) => <SourceChip key={c.to} {...c} />)}
           </CardContent>
         </Card>
       )}
@@ -463,9 +481,9 @@ function Editor({ companyId }: { companyId: string }) {
           <div className="flex items-start gap-3">
             <div className="text-3xl" aria-hidden>🧠</div>
             <div>
-              <div className="text-sm font-bold">توليد مبادرات ذكيّ — من كل المصادر</div>
+              <div className="text-sm font-bold">توليد مبادرات ذكيّ — من مصادر مسارك</div>
               <div className="text-xs text-muted-foreground">
-                نجمع القرار ⭐ + TOWS + الاتجاهات + الآفاق الثلاثة + Ansoff — نصنّفها ونُرتّبها بحسب أولويتها ومسارك.
+                نجمع مصادر مسارك المتاحة (المعروضة أعلاه)، نصنّفها ونُرتّبها بحسب أولويتها ومسارك.
               </div>
             </div>
           </div>

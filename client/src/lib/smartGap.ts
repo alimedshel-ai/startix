@@ -12,7 +12,7 @@ import type { OpexData } from '@/types/user'
 
 export type AuditAxis = 'governance' | 'financial' | 'team' | 'digital'
 
-const AXIS_LABEL_AR: Record<AuditAxis, string> = {
+export const AXIS_LABEL_AR: Record<AuditAxis, string> = {
   governance: 'الحوكمة والسياسات',
   financial:  'المالية والكفاءة',
   team:       'الفريق والقدرات',

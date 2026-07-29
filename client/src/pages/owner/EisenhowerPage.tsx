@@ -63,11 +63,18 @@ function Editor({ companyId }: { companyId: string }) {
   const [title, setTitle] = useState('')
   const [quad, setQuad] = useState<Quadrant>('do')
   const [linkedPain, setLinkedPain] = useState('')
+  // المخاطر المستوردة غير المُقيَّمة (unreviewed) — لا تصير مهامّاً (score 1 < 5)،
+  // ولا نحقنها في ربع (الربع تقييم، وحقنها كذبٌ كـ٣/٣)؛ بل نوجّه لمراجعتها.
+  const [unreviewedRisks, setUnreviewedRisks] = useState(0)
+  const [params] = useSearchParams()
 
   useEffect(() => {
     getArtifact<EisenhowerData>(companyId, 'EISENHOWER').then((row) => {
       if (row?.data?.tasks) setData({ tasks: row.data.tasks })
     }).catch(() => undefined)
+    getArtifact<{ risks?: Array<{ unreviewed?: boolean }> }>(companyId, 'RISK_REGISTER')
+      .then((row) => setUnreviewedRisks((row?.data?.risks ?? []).filter((r) => r.unreviewed).length))
+      .catch(() => setUnreviewedRisks(0))
   }, [companyId])
 
   function addTask() {
@@ -171,7 +178,7 @@ function Editor({ companyId }: { companyId: string }) {
       const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
       const existing = new Set(data.tasks.map((t) => norm(t.title)))
       const newTasks: EisenhowerTask[] = []
-      let doCount = 0, schedCount = 0, delegCount = 0
+      let doCount = 0, schedCount = 0, delegCount = 0, skippedLow = 0
       for (const r of risks) {
         if (!r.name?.trim()) continue
         const score = r.probability * r.impact
@@ -179,7 +186,7 @@ function Editor({ companyId }: { companyId: string }) {
         if (score >= 16) { quadrant = 'do'; doCount++ }
         else if (score >= 10) { quadrant = 'schedule'; schedCount++ }
         else if (score >= 5) { quadrant = 'delegate'; delegCount++ }
-        if (!quadrant) continue
+        if (!quadrant) { skippedLow++; continue }  // score < 5 (غالباً ١/١ غير مُقيَّمة)
         // عنوان المهمة يبدأ بـ«تخفيف:» أو نصّ التخفيف إن وُجد
         const title = r.mitigation?.trim()
           ? `تخفيف: ${r.mitigation.trim().slice(0, 80)}${r.mitigation.length > 80 ? '…' : ''}`
@@ -188,7 +195,9 @@ function Editor({ companyId }: { companyId: string }) {
         newTasks.push({ id: crypto.randomUUID(), title, quadrant })
       }
       if (newTasks.length === 0) {
-        toast.message('كل المخاطر مضافة سلفاً — لا شيء جديد.')
+        toast.message(skippedLow > 0
+          ? `${skippedLow} مخاطر دون العتبة (غير مُقيَّمة — ١/١) — راجع خطورتها في خريطة المخاطر لتصير مهامّاً.`
+          : 'كل المخاطر مضافة سلفاً — لا شيء جديد.')
         return
       }
       setData((p) => ({ tasks: [...p.tasks, ...newTasks] }))
@@ -309,6 +318,27 @@ function Editor({ companyId }: { companyId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* مخاطر مستوردة تنتظر تقييماً — لا تصير مهامّاً (score 1 < 5) ولا نُصنّفها
+          في ربع (الربع تقييم). نوجّه للمراجعة: الفعل الصحيح، لا حقنٌ كاذب. */}
+      {unreviewedRisks > 0 && (
+        <Card className="border-2 border-dashed border-violet-400 bg-violet-50/50">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-start gap-2 text-sm text-violet-900">
+              <span aria-hidden>🔍</span>
+              <span>
+                لديك <b className="tabular-nums">{unreviewedRisks}</b> مخاطر مستوردة <b>تنتظر تقييمك</b> — لا تصير مهامّاً قبل أن تراجع خطورتها (احتمالها × أثرها). الربع نفسه تقييم، فلا نُصنّفها قبل قرارك.
+              </span>
+            </div>
+            <Link
+              to={`/priority?tab=risk${params.get('client') ? `&client=${params.get('client')}` : ''}`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              راجع المخاطر ←
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* R4-derived — اقتراحات آلية من user.pains */}
       {suggestedPains.length > 0 && data.tasks.length === 0 && (

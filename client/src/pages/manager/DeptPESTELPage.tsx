@@ -465,7 +465,7 @@ export function DeptPESTELPage() {
       </div>
 
       {/* بطاقة الأداة التالية — انتقال مباشر للخطوة القادمة في التسلسل */}
-      <NextStepCard clientQuery={`?client=${scope.company.id}`} />
+      <NextStepCard clientQuery={`?client=${scope.company.id}`} companyId={scope.company.id} />
     </div>
   )
 }

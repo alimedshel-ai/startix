@@ -379,7 +379,7 @@ export function DeptGapPage() {
         </div>
       )}
 
-      <NextStepCard clientQuery={clientQ} />
+      <NextStepCard clientQuery={clientQ} companyId={scope.company.id} />
     </div>
   )
 }

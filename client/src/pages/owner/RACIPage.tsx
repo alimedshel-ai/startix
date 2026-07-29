@@ -86,6 +86,9 @@ function Editor({ companyId }: { companyId: string }) {
   const [generating, setGenerating] = useState(false)
   const [newTask, setNewTask] = useState('')
   const [newRole, setNewRole] = useState('')
+  // جاهزيّة أيزنهاور — هل فيه مهامّ «افعل الآن/جدولها» لتوزيع مسؤوليّاتها؟
+  // نبدأ true (لا تحذير قبل الجلب)، ثمّ نضبطها. false → بانر يوجّه للخطوة السابقة.
+  const [eisenReady, setEisenReady] = useState(true)
 
   useEffect(() => {
     getArtifact<RaciData>(companyId, 'RACI').then((row) => {
@@ -96,6 +99,9 @@ function Editor({ companyId }: { companyId: string }) {
         })
       }
     }).catch(() => undefined)
+    getArtifact<{ tasks?: Array<{ quadrant: string; title?: string }> }>(companyId, 'EISENHOWER')
+      .then((a) => setEisenReady((a?.data?.tasks ?? []).some((t) => (t.quadrant === 'do' || t.quadrant === 'schedule') && !!t.title?.trim())))
+      .catch(() => setEisenReady(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId])
 
@@ -309,6 +315,28 @@ function Editor({ companyId }: { companyId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* توجيه الخطوة السابقة — لا نترك المستخدم أمام «من أيزنهاور» يُخفق بصمت. */}
+      {!eisenReady && data.rows.length === 0 && (
+        <Card className="border-2 border-dashed border-rose-400 bg-rose-50/50">
+          <CardContent className="p-4">
+            <div className="text-sm font-bold text-rose-900">
+              لا مهامّ لتوزيع مسؤوليّاتها بعد — أكمل ما قبلها أوّلاً بالترتيب:
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link to={`/risk-map?client=${companyId}&from=emergency`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                ① ⚠️ سجّل مخاطرك وقيّم خطورتها
+              </Link>
+              <Link to={`/eisenhower?client=${companyId}&from=emergency`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                ② 🎯 افرزها في أيزنهاور
+              </Link>
+            </div>
+            <div className="mt-2 text-[11px] text-rose-800/80">
+              بعد أن تصير مهامّ في «افعل الآن/جدولها» بأيزنهاور، ارجع هنا فتظهر لتوزيع R/A/C/I.
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <OpexHint opex={company?.opex} focus={['team']} title="حجم الفريق يوجّه توزيع الأدوار" />
 

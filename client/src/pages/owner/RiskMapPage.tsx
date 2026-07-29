@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, getSWOT, upsertArtifact } from '@/lib/strategicApi'
-import type { DeptCode } from '@/lib/deptApi'
+import { listDepartments, type DeptCode, type Department, type AxisBreakdown } from '@/lib/deptApi'
+import { AXIS_LABEL_AR } from '@/lib/smartGap'
 import { useAuthStore } from '@/store/authStore'
+import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 
 // ─── قوالب مخاطر شائعة لكل تخصّص — للبدء السريع بلا SWOT ───────
 // كل قالب: (name, probability, impact, mitigation) — بحسب ما هو شائع في
@@ -100,6 +102,11 @@ interface Risk {
   probability: 1 | 2 | 3 | 4 | 5
   impact: 1 | 2 | 3 | 4 | 5
   mitigation: string
+  /** مستورَدة بلا تقييم فعليّ (تدخل ١/١ ركناً أدنى، لا ٣/٣ وسطاً كاذباً) —
+   *  تحتاج مراجعة المستخدم. حقل اختياريّ: الاستيرادات القديمة تتركه undefined.
+   *  ملاحظة: كلّ الاستيرادات (SWOT/يدويّ/قوالب) تُدخِل ٣/٣ زائفاً — عطلٌ سابق
+   *  يُعمَّم عليه هذا الوسم لاحقاً (لا في هذه الدفعة). انظر DISPLAY_VS_DECISION.md. */
+  unreviewed?: boolean
 }
 
 interface RiskData {
@@ -107,6 +114,13 @@ interface RiskData {
 }
 
 const EMPTY: RiskData = { risks: [] }
+
+// محور تدقيق «ضعيف»: درجته أقلّ من نصف سقفه (score/cap < 0.5) — مصدر مخاطر
+// عميل الطوارئ (يملك تدقيقاً لا تحليلاً عميقاً). دالّة نقيّة، تُستعمَل في فحص
+// الملكيّة وفي التوليد معاً (لا عتبة مكرّرة).
+function weakAxesOf(depts: Department[]): AxisBreakdown[] {
+  return depts.flatMap((d) => d.auditData?.byAxis ?? []).filter((a) => a.cap > 0 && a.score / a.cap < 0.5)
+}
 
 // Heatmap color: probability × impact = 1..25
 function cellTint(score: number): { bg: string; label: string; text: string } {
@@ -136,12 +150,33 @@ function Editor({ companyId }: { companyId: string }) {
   const [data, setData] = useState<RiskData>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  // ملكيّة SWOT وقت الرسم — نُخفي «استورد من SWOT» قبل الضغط حين لا مصدر، بشرط
+  // !hasSwot (لا from=emergency): الخيار يتبع الملكيّة لا سياق الدخول، فيعود
+  // تلقائيّاً حين يُنجَز SWOT لاحقاً. عرضٌ يُصلَح في الاشتقاق لا في ردّ الفعل.
+  const [hasSwot, setHasSwot] = useState(false)
+  // ملكيّة التشخيص (① نقاط الضعف) وقت الرسم — عميل الطوارئ يملكه لا SWOT.
+  const [hasDeep, setHasDeep] = useState(false)
+  // ملكيّة التدقيق — عميل الطوارئ يملك محاور تدقيق ضعيفة (لا تحليلاً عميقاً غالباً).
+  const [hasAudit, setHasAudit] = useState(false)
 
   useEffect(() => {
     getArtifact<RiskData>(companyId, 'RISK_REGISTER').then((row) => {
       if (row?.data?.risks) setData({ risks: row.data.risks })
     }).catch(() => undefined)
-  }, [companyId])
+    // ملكيّة SWOT وقت الرسم — نفس شرط importFromSWOT (تهديدات أو ضعف)، فتُخفى
+    // البطاقة قبل الضغط بدل أن تُعرَض ثمّ تفشل بـ«افتح /swot أوّلاً».
+    getSWOT(companyId)
+      .then((s) => setHasSwot(((s.threats?.length ?? 0) + (s.weaknesses?.length ?? 0)) > 0))
+      .catch(() => setHasSwot(false))
+    // ملكيّة التشخيص — نفس artifact + دالّة مولّد المبادرات (مسار واحد، لا ثالث).
+    getArtifact<{ weaknesses?: string[]; answers?: Record<string, { selected?: string[]; other?: string } | string> }>(companyId, 'DEPT_DEEP_ANSWERS')
+      .then((row) => setHasDeep(weaknessesFromDeepAnswers(specialty, row?.data).length > 0))
+      .catch(() => setHasDeep(false))
+    // ملكيّة التدقيق — محاور ضعيفة (مصدر عميل الطوارئ الفعليّ، لا التحليل العميق).
+    listDepartments(companyId)
+      .then((depts) => setHasAudit(weakAxesOf(depts).length > 0))
+      .catch(() => setHasAudit(false))
+  }, [companyId, specialty])
 
   function add() {
     setData((p) => ({
@@ -236,6 +271,46 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
+  // ─── استيراد من التشخيص ① — مصدر عميل الطوارئ (لا SWOT ②) ───────────
+  // يوافق بانر الإنقاذ «سجّل ما يستنزفك الآن» من مادّة العميل هو. نفس مسار
+  // مولّد المبادرات (weaknessesFromDeepAnswers). تدخل ١/١ موسومة unreviewed —
+  // ركنٌ أدنى لا وسطٌ كاذب — فلا تدّعي تقييماً لم يحدث.
+  async function importFromDiagnosis() {
+    setImporting(true)
+    try {
+      // ① التحليل العميق (مفصّل) إن وُجد.
+      const row = await getArtifact<{ weaknesses?: string[]; answers?: Record<string, { selected?: string[]; other?: string } | string> }>(companyId, 'DEPT_DEEP_ANSWERS').catch(() => null)
+      let names = weaknessesFromDeepAnswers(specialty, row?.data)
+        .map((w) => w.trim()).filter(Boolean)
+        .map((w) => `[تشخيص] ${w.slice(0, 80)}${w.length > 80 ? '…' : ''}`)
+      // ② وإلّا محاور التدقيق الضعيفة — مصدر عميل الطوارئ (خشِن، لكن ما يملكه).
+      if (names.length === 0) {
+        const depts = await listDepartments(companyId).catch(() => [] as Department[])
+        names = weakAxesOf(depts).map((a) => `[تدقيق] ضعف ${AXIS_LABEL_AR[a.axis]} (${Math.round(a.score)}/${a.cap})`)
+      }
+      if (names.length === 0) {
+        toast.error('لا نقاط ضعف في تشخيصك/تدقيقك بعد — أكمل التدقيق أوّلاً.')
+        return
+      }
+      const existing = new Set(data.risks.map((r) => r.name))
+      const newRisks: Risk[] = []
+      for (const name of names) {
+        if (existing.has(name)) continue
+        newRisks.push({ id: crypto.randomUUID(), name, probability: 1, impact: 1, mitigation: '', unreviewed: true })
+      }
+      if (newRisks.length === 0) {
+        toast.error('كل نقاط ضعفك مُستوردَة سلفاً.')
+        return
+      }
+      setData((p) => ({ risks: [...p.risks, ...newRisks] }))
+      toast.success(`أُضيف ${newRisks.length} خطر من تشخيصك — بلا تقييم (١/١)؛ راجِع احتماليّة كلٍّ وأثره ثم احفظ.`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاستيراد من التشخيص'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
   // Build a 5×5 grid: each cell counts risks at (impact, probability)
   const grid = useMemo(() => {
     const g: Risk[][][] = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => []))
@@ -296,25 +371,50 @@ function Editor({ companyId }: { companyId: string }) {
                   </div>
                 </button>
               )}
-              {/* ٢. من SWOT — إن أنجزته */}
-              <button
-                type="button"
-                onClick={importFromSWOT}
-                disabled={importing}
-                className="group flex flex-col items-start gap-2 rounded-xl border-2 border-sky-300 bg-sky-50/60 p-4 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md disabled:opacity-60"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">🎭</span>
-                  <span className="rounded-full border border-sky-400 bg-white px-2 py-0.5 text-[9px] font-bold text-sky-800">مُوصى به</span>
-                </div>
-                <div className="text-sm font-bold text-sky-900">استورد من SWOT</div>
-                <div className="text-[11px] leading-relaxed text-sky-800/80">
-                  التهديدات + نقاط الضعف من SWOT تُتحوّل تلقائياً إلى مخاطر مرقّمة.
-                </div>
-                <div className="mt-auto pt-1 text-[10px] font-medium text-sky-700 opacity-0 transition group-hover:opacity-100">
-                  ← إن كان SWOT جاهزاً
-                </div>
-              </button>
+              {/* ٢. من التشخيص ① — مصدر عميل الطوارئ (يملك تحليلاً لا SWOT). */}
+              {(hasDeep || hasAudit) && (
+                <button
+                  type="button"
+                  onClick={importFromDiagnosis}
+                  disabled={importing}
+                  className="group flex flex-col items-start gap-2 rounded-xl border-2 border-violet-300 bg-violet-50/60 p-4 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-violet-500 hover:shadow-md disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🔍</span>
+                    <span className="rounded-full border border-violet-400 bg-white px-2 py-0.5 text-[9px] font-bold text-violet-800">مصدرك الآن</span>
+                  </div>
+                  <div className="text-sm font-bold text-violet-900">استورد من تشخيصك</div>
+                  <div className="text-[11px] leading-relaxed text-violet-800/80">
+                    نقاط ضعف تشخيصك/تدقيقك تُتحوّل إلى مخاطر — بلا تقييم (تدخل ١/١)، راجِعها.
+                  </div>
+                  <div className="mt-auto pt-1 text-[10px] font-medium text-violet-700 opacity-0 transition group-hover:opacity-100">
+                    ← من واقعك، قبل SWOT
+                  </div>
+                </button>
+              )}
+              {/* ٣. من SWOT — تظهر فقط حين يملك العميل SWOT (تهديدات/ضعف).
+                  عميل الطوارئ المبكّر (بلا SWOT) لا يرى طريقاً مسدوداً؛ وحين
+                  يُنجز SWOT لاحقاً تعود تلقائيّاً — الملكيّة لا السياق. */}
+              {hasSwot && (
+                <button
+                  type="button"
+                  onClick={importFromSWOT}
+                  disabled={importing}
+                  className="group flex flex-col items-start gap-2 rounded-xl border-2 border-sky-300 bg-sky-50/60 p-4 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🎭</span>
+                    <span className="rounded-full border border-sky-400 bg-white px-2 py-0.5 text-[9px] font-bold text-sky-800">مُوصى به</span>
+                  </div>
+                  <div className="text-sm font-bold text-sky-900">استورد من SWOT</div>
+                  <div className="text-[11px] leading-relaxed text-sky-800/80">
+                    التهديدات + نقاط الضعف من SWOT تُتحوّل تلقائياً إلى مخاطر مرقّمة.
+                  </div>
+                  <div className="mt-auto pt-1 text-[10px] font-medium text-sky-700 opacity-0 transition group-hover:opacity-100">
+                    ← SWOT جاهز
+                  </div>
+                </button>
+              )}
               {/* ٣. يدوياً */}
               <button
                 type="button"
@@ -409,7 +509,7 @@ function Editor({ companyId }: { companyId: string }) {
                     <select
                       className="rounded-md border bg-background px-2 py-1"
                       value={r.probability}
-                      onChange={(e) => update(r.id, { probability: Number(e.target.value) as Risk['probability'] })}
+                      onChange={(e) => update(r.id, { probability: Number(e.target.value) as Risk['probability'], unreviewed: false })}
                     >
                       {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
@@ -419,7 +519,7 @@ function Editor({ companyId }: { companyId: string }) {
                     <select
                       className="rounded-md border bg-background px-2 py-1"
                       value={r.impact}
-                      onChange={(e) => update(r.id, { impact: Number(e.target.value) as Risk['impact'] })}
+                      onChange={(e) => update(r.id, { impact: Number(e.target.value) as Risk['impact'], unreviewed: false })}
                     >
                       {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
@@ -427,6 +527,11 @@ function Editor({ companyId }: { companyId: string }) {
                   <span className={`rounded-md px-2 py-1 text-xs font-semibold ${tint.bg} ${tint.text}`}>
                     {tint.label} · {score}
                   </span>
+                  {r.unreviewed && (
+                    <span className="rounded-md border border-dashed border-violet-400 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700" title="مستوردة من تشخيصك بلا تقييم — راجِع احتماليّتها وأثرها">
+                      🔍 غير مُراجَعة
+                    </span>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>×</Button>
                 </div>
                 <Input
@@ -445,9 +550,17 @@ function Editor({ companyId }: { companyId: string }) {
           )}
           <div className="flex flex-wrap gap-2 pt-1">
             <Button variant="outline" size="sm" onClick={add}>+ خطر جديد</Button>
-            <Button variant="outline" size="sm" onClick={importFromSWOT} disabled={importing || saving}>
-              {importing ? 'جاري…' : '🧭 استورد من SWOT'}
-            </Button>
+            {/* استيرادات محصورة بالملكيّة — كالبطاقات (لا طريق مسدود لعميل الطوارئ). */}
+            {(hasDeep || hasAudit) && (
+              <Button variant="outline" size="sm" onClick={importFromDiagnosis} disabled={importing || saving}>
+                {importing ? 'جاري…' : '🔍 من تشخيصك'}
+              </Button>
+            )}
+            {hasSwot && (
+              <Button variant="outline" size="sm" onClick={importFromSWOT} disabled={importing || saving}>
+                {importing ? 'جاري…' : '🧭 من SWOT'}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -508,14 +621,17 @@ function ContextRow({ impact, row }: { impact: number; row: Risk[][] }) {
         const cell = row[p - 1] ?? []
         const score = p * impact
         const tint = cellTint(score)
+        // نقرأ الوسم في الرسم — وإلّا صار حقلاً صامتاً: البيانات تعرف والعين لا.
+        const unrev = cell.filter((r) => r.unreviewed).length
         return (
           <div
             key={p}
-            className={`flex h-16 flex-col items-center justify-center rounded-md ${tint.bg} ${tint.text}`}
-            title={`أثر ${impact} · احتمالية ${p} = ${score}`}
+            className={`flex h-16 flex-col items-center justify-center rounded-md ${tint.bg} ${tint.text} ${unrev > 0 ? 'border-2 border-dashed border-violet-500' : ''}`}
+            title={unrev > 0 ? `أثر ${impact} · احتمالية ${p} = ${score} · ${unrev} 🔍 غير مُراجَعة` : `أثر ${impact} · احتمالية ${p} = ${score}`}
           >
             <span className="text-xs opacity-80">{tint.label}</span>
             <span className="text-lg font-bold tabular-nums">{cell.length || ''}</span>
+            {unrev > 0 && <span className="text-[9px] font-bold text-violet-700">🔍 {unrev}</span>}
           </div>
         )
       })}

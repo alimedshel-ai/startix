@@ -9,6 +9,8 @@
 // وبأيّ ترتيب) يُشتقّ من analysisPlanFor فقط؛ مسار الرحلة ومستوى العميل من
 // classify فقط. لا تشتقّ مساراً من العمق ولا العكس.
 
+import { artifactSatisfies } from './journeyStages'
+
 export type AnalysisTier = 'operational' | 'tactical' | 'strategic'
 export type CompanySize = 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE'
 export type DangerZone = 'GREEN' | 'YELLOW' | 'ORANGE' | 'RED'
@@ -130,6 +132,42 @@ export function firstIncompleteAnalysisKey(
   return recommended.find((k) => !isDone(k)) ?? null
 }
 
+// ─── بدائيّة نقيّة مرفوعة (الخطوة ٢) — الموصى به من طبقة **جاهزة** ─────
+// ترفع منطق «الفلترة + رفع القطاع» فوق analysisPlanFor. المسار أ يبنيها من
+// stageOneScore المجمَّد (لا من الصحّة اللحظيّة → لا تأرجح)؛ والقطاع حقل شركة
+// ثابت فيُحسب حيّاً بلا تأرجح. analysisPlanFor يستدعيها بعد اشتقاق score
+// (مصدر واحد، بلا تكرار منطق).
+export function recommendedForScore(score: number, sector?: string | null): string[] {
+  const s = clamp02(score)
+  const sectorKey = (sector ?? '').toLowerCase()
+  const recommended = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] <= s)
+  const advanced = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] > s)
+  const boost = SECTOR_BOOST[sectorKey]
+  if (boost && advanced.includes(boost)) {
+    recommended.push(boost)
+    recommended.sort((a, b) => BASE_ORDER.indexOf(a) - BASE_ORDER.indexOf(b))
+  }
+  return recommended
+}
+
+// ─── دالّة الاكتمال المشتركة (الخطوة ٢) — تُرفَع فوق الهوكين ──────────
+// ① مكتملة ⟺ كل أدوات الخطّة الموصى بها مُنجَزة. isDone: تدقيق عبر hasAudit،
+// وإلّا artifactBases عبر artifactSatisfies (واعٍ ببادئة _HR). يستدعيها §1.5
+// (useGuidedNext) والمسار أ (useJourneyCompletions) — لا يقرأ أحدهما من الآخر.
+export function stageOneComplete(
+  recommended: string[],
+  artifactTypes: Set<string>,
+  hasAudit: boolean,
+): boolean {
+  const isDone = (key: string): boolean => {
+    const t = ANALYSIS_TOOLS[key]
+    if (!t) return true
+    if (t.viaAudit) return hasAudit
+    return t.artifactBases.some((b) => artifactSatisfies(artifactTypes, b))
+  }
+  return firstIncompleteAnalysisKey(recommended, isDone) === null
+}
+
 function clamp02(n: number): 0 | 1 | 2 {
   return (n < 0 ? 0 : n > 2 ? 2 : n) as 0 | 1 | 2
 }
@@ -154,23 +192,11 @@ export function analysisPlanFor(input: AnalysisPlanInput): AnalysisPlan {
   const score = clamp02(sizeScore + healthDelta + sectorDelta)
   const tier: AnalysisTier = score === 0 ? 'operational' : score === 1 ? 'tactical' : 'strategic'
 
-  // ٢) قسّم الأدوات: موصى به (≤ المستوى) مقابل متقدّم (> المستوى).
-  const recommended = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] <= score)
-  const advanced = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] > score)
-
-  // ٣) رفع القطاع: إن كانت أداة القطاع الحرجة مخفيّة (متقدّمة)، نُرقّيها
-  //    للموصى به لتظهر — لكن في **موضعها الطبيعيّ** من التسلسل المرجعيّ،
-  //    لا نقفز بها للأمام. (أصحاب المصلحة أداة سياق خارجيّة → تبقى متأخّرة؛
-  //    تقديمها كان يكسر تسلسل داخل→خارج المنطقيّ.)
-  const boost = SECTOR_BOOST[sectorKey]
-  if (boost) {
-    const advIdx = advanced.indexOf(boost)
-    if (advIdx !== -1) {
-      advanced.splice(advIdx, 1)
-      recommended.push(boost)
-      recommended.sort((a, b) => BASE_ORDER.indexOf(a) - BASE_ORDER.indexOf(b))
-    }
-  }
+  // ٢+٣) الموصى به (الفلترة + رفع القطاع) عبر البدائيّة النقيّة المرفوعة —
+  //     نفسها يستدعيها المسار أ من stageOneScore المجمَّد، فلا اشتقاق مزدوج.
+  //     المتقدّم = ما تبقّى (رفع القطاع نقل أداةً من المتقدّم للموصى به).
+  const recommended = recommendedForScore(score, sector)
+  const advanced = BASE_ORDER.filter((k) => !recommended.includes(k))
 
   // ٤) «لماذا» — واعٍ بالإشارات الثلاث.
   const parts: string[] = [`الشركة ${SIZE_LABEL[size] ?? 'غير محدّدة الحجم'}`]

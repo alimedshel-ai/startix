@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -112,12 +112,17 @@ function Editor({ companyId }: { companyId: string }) {
     priority: 'medium',
     dueDate: weekFromNowISO(),
   }))
+  // جاهزيّة أيزنهاور — لتوجيه بدل زرّ توليد يُخفق حين لا مهامّ «افعل الآن/جدولها».
+  const [eisenReady, setEisenReady] = useState(true)
 
   useEffect(() => {
     Promise.all([listTasks(companyId), listProjects(companyId), listInitiatives(companyId).catch(() => [] as Initiative[])])
       .then(([t, p, i]) => { setTasks(t); setProjects(p); setInitiatives(i) })
       .catch(() => undefined)
       .finally(() => setLoading(false))
+    getArtifact<{ tasks?: Array<{ quadrant: string; title?: string }> }>(companyId, 'EISENHOWER')
+      .then((a) => setEisenReady((a?.data?.tasks ?? []).some((t) => (t.quadrant === 'do' || t.quadrant === 'schedule') && !!t.title?.trim())))
+      .catch(() => setEisenReady(false))
   }, [companyId])
 
   async function create(e: React.FormEvent) {
@@ -307,19 +312,39 @@ function Editor({ companyId }: { companyId: string }) {
                   بدل إنشاء كل مهمّة يدوياً، اضغط الزرّ لتوليد <b>مهام الإنقاذ العاجلة</b> من مصفوفة أيزنهاور:
                   «افعل الآن» → أولويّة حرجة + استحقاق ٧ أيّام · «جدولها» → أولويّة عالية + استحقاق ٣ أسابيع.
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={generateRescueTasks}
-                    disabled={generating}
-                    size="lg"
-                    className="bg-rose-600 hover:bg-rose-700"
-                  >
-                    {generating ? 'جاري التوليد…' : '🚨 ولّد مهام الإنقاذ الآن'}
-                  </Button>
-                  <span className="text-xs text-rose-700">
-                    أو أنشئ مهمّة يدوياً في النموذج أدناه ←
-                  </span>
-                </div>
+                {eisenReady ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={generateRescueTasks}
+                      disabled={generating}
+                      size="lg"
+                      className="bg-rose-600 hover:bg-rose-700"
+                    >
+                      {generating ? 'جاري التوليد…' : '🚨 ولّد مهام الإنقاذ الآن'}
+                    </Button>
+                    <span className="text-xs text-rose-700">
+                      أو أنشئ مهمّة يدوياً في النموذج أدناه ←
+                    </span>
+                  </div>
+                ) : (
+                  // أيزنهاور فارغ → التوليد التلقائيّ يُخفق؛ نوجّه للخطوة السابقة بدل زرّ يفشل.
+                  <div className="mt-3 rounded-lg border-2 border-rose-300 bg-white/70 p-3">
+                    <div className="text-xs font-bold text-rose-900">
+                      التوليد التلقائيّ يقرأ مهامّ «افعل الآن» من أيزنهاور — وهي فارغة بعد. أكمل ما قبلها أوّلاً بالترتيب:
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Link to={`/risk-map?client=${companyId}&from=emergency`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                        ① ⚠️ سجّل مخاطرك وقيّم خطورتها
+                      </Link>
+                      <Link to={`/eisenhower?client=${companyId}&from=emergency`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                        ② 🎯 افرزها في أيزنهاور
+                      </Link>
+                    </div>
+                    <div className="mt-2 text-[11px] text-rose-800/80">
+                      بعد أن تصير مهامّ «افعل الآن» بأيزنهاور، ارجع هنا فيجهز زرّ التوليد التلقائيّ — أو أنشئ مهمّة يدوياً أدناه.
+                    </div>
+                  </div>
+                )}
                 <div className="mt-3 rounded-lg border border-rose-300 bg-rose-100/60 p-2 text-[11px] text-rose-900">
                   <b>💡 كيف يعمل؟</b> يقرأ artifact `EISENHOWER` → يستورد أوّل ١٠ مهام «افعل الآن»+«جدولها» →
                   ينشئ لكل واحدة Task بأولويّة + استحقاق ذكي، ويربطها بمشروع الإنقاذ (إن وُجد على جانت).

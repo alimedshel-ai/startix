@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey } from './analysisPlan'
+import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, recommendedForScore, stageOneComplete } from './analysisPlan'
+import { artifactSatisfies } from './journeyStages'
 
 describe('analysisPlanFor — المستوى (حجم × صحّة × قطاع)', () => {
   it('صغيرة صحّتها عاديّة → تشغيليّ (٣ أدوات موصى بها، الثقيلة مخفيّة)', () => {
@@ -123,5 +124,103 @@ describe('firstIncompleteAnalysisKey — تسلسل البوصلة', () => {
   it('اكتمل كل الموصى به → null (تنتقل البوصلة للتوليف)', () => {
     const rec = ['audit', 's7', 'pestel']
     expect(firstIncompleteAnalysisKey(rec, () => true)).toBeNull()
+  })
+})
+
+// ─── تكامل §1.5 (useGuidedNext) — يقفل الإصلاح الذي حسم السلسلة ─────
+// يعيد بناء isDone من useGuidedNext:99-104 (viaAudit→hasAudit ؛ وإلا
+// artifactBases عبر artifactSatisfies الواعي بالبادئة). هذا هو الفرق
+// الذي كسر NextStepCard المحذوف: مطابقته بالتساوي التامّ تُعمي عن _HR.
+describe('§1.5 — اكتمال ① بالخطّة المتكيّفة + artifacts الإدارة المُلحَقة', () => {
+  function nextIncomplete(
+    input: Parameters<typeof analysisPlanFor>[0],
+    artifactTypes: string[],
+    hasAudit: boolean,
+  ): string | null {
+    const plan = analysisPlanFor(input)
+    const types = new Set(artifactTypes)
+    const isDone = (key: string): boolean => {
+      const t = ANALYSIS_TOOLS[key]
+      if (!t) return true
+      if (t.viaAudit) return hasAudit
+      return t.artifactBases.some((b) => artifactSatisfies(types, b))
+    }
+    return firstIncompleteAnalysisKey(plan.recommended, isDone)
+  }
+
+  it('«شركة ثلاث»: مختصر + INTERNAL_ENV_HR/PESTEL_HR + تدقيق → ① مكتملة (→ التوليف)', () => {
+    const next = nextIncomplete(
+      { size: 'SMALL', sector: 'other', healthPct: 55 },
+      ['INTERNAL_ENV_HR', 'PESTEL_HR', 'PORTER_HR', 'BENCHMARK_HR'],
+      true,
+    )
+    expect(next).toBeNull() // تدقيق/7S/PESTEL كلّها مُنجَزة رغم لاحقة _HR → لا قفزة خاطئة للعميق
+  })
+
+  it('الفرق الحاسم: التساوي التامّ (سلوك NextStepCard المحذوف) كان يُفشِل _HR', () => {
+    const types = new Set(['INTERNAL_ENV_HR', 'PESTEL_HR'])
+    expect(types.has('INTERNAL_ENV')).toBe(false)               // التساوي التامّ → «ناقص» خطأً
+    expect(artifactSatisfies(types, 'INTERNAL_ENV')).toBe(true) // الواعي بالبادئة → مُنجَز صحيحاً
+  })
+
+  it('مختصر أنجز التدقيق فقط → ① غير مكتملة، التالي 7S (لا قفزة لـ SWOT)', () => {
+    expect(nextIncomplete({ size: 'SMALL', sector: 'other', healthPct: 55 }, [], true)).toBe('s7')
+  })
+
+  it('معيار الاكتمال يتبع طول recommended لا رقماً ثابتاً (قطاع برفع → ٤)', () => {
+    const plan = analysisPlanFor({ size: 'SMALL', sector: 'consulting', healthPct: 55 })
+    expect(plan.recommended.length).toBe(4) // تدقيق/7S/PESTEL/أصحاب (رفع القطاع)
+    // أنجز الأساس الثلاثة فقط → تبقى «أصحاب المصلحة» ناقصة، فلا يكتمل ①.
+    expect(nextIncomplete({ size: 'SMALL', sector: 'consulting', healthPct: 55 },
+      ['INTERNAL_ENV', 'PESTEL'], true)).toBe('stakeholders')
+  })
+})
+
+// ─── الخطوة ٢ — البدائيّتان النقيّتان المرفوعتان ──────────────────
+describe('recommendedForScore — الموصى به من طبقة جاهزة (مجمَّدة)', () => {
+  it('score=0 → ٣ (تدقيق/7S/PESTEL)', () => {
+    expect(recommendedForScore(0, 'other')).toEqual(['audit', 's7', 'pestel'])
+  })
+  it('score=1 → ٧', () => {
+    expect(recommendedForScore(1, 'other')).toEqual(['audit', 'deep', 's7', 'value-chain', 'pestel', 'benchmarking', 'stakeholders'])
+  })
+  it('score=2 → ٩', () => {
+    expect(recommendedForScore(2, 'other')).toHaveLength(9)
+  })
+  it('رفع القطاع يُظهر أداة في موضعها (استشارات score=0 → +أصحاب، أخيراً)', () => {
+    expect(recommendedForScore(0, 'consulting')).toEqual(['audit', 's7', 'pestel', 'stakeholders'])
+  })
+  it('يطابق مخرَج analysisPlanFor (مصدر واحد، لا اشتقاق مزدوج)', () => {
+    // تشغيليّ عاديّ (score يُشتقّ 0) = recommendedForScore(0)
+    expect(analysisPlanFor({ size: 'SMALL', sector: 'other', healthPct: 55 }).recommended)
+      .toEqual(recommendedForScore(0, 'other'))
+    // تكتيكيّ (score 1) = recommendedForScore(1)
+    expect(analysisPlanFor({ size: 'MEDIUM', sector: 'other', healthPct: 65 }).recommended)
+      .toEqual(recommendedForScore(1, 'other'))
+  })
+  it('قفل «لا تأرجح»: الطبقة المجمَّدة لا تعتمد الصحّة — score واحد → قائمة واحدة', () => {
+    // بلا مدخل صحّة أصلاً: نفس الرقم يعطي نفس القائمة دائماً (لا يكبر بتعافي العميل).
+    const frozen = recommendedForScore(0, 'other')
+    expect(frozen).toHaveLength(3)
+    expect(recommendedForScore(0, 'other')).toEqual(frozen) // ثابت مهما تغيّرت الصحّة الحيّة
+  })
+})
+
+describe('stageOneComplete — الاكتمال المشترك (يُرفَع فوق الهوكين)', () => {
+  const rec0 = recommendedForScore(0, 'other') // [audit, s7, pestel]
+
+  it('مختصر بتدقيق فقط → غير مكتملة (١ من ٣)', () => {
+    expect(stageOneComplete(rec0, new Set<string>(), true)).toBe(false)
+  })
+  it('مختصر + تدقيق + INTERNAL_ENV_HR + PESTEL_HR → مكتملة (واعٍ بالبادئة)', () => {
+    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR']), true)).toBe(true)
+  })
+  it('بلا تدقيق → غير مكتملة حتى لو وُجدت artifacts أخرى', () => {
+    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR']), false)).toBe(false)
+  })
+  it('قفل «لا تأرجح»: عميل مريض أكمل ٣ (score مجمَّد=0) يبقى مكتملاً وإن كان الحيّ سيطلب ٧', () => {
+    const done = new Set(['INTERNAL_ENV_HR', 'PESTEL_HR'])
+    expect(stageOneComplete(recommendedForScore(0, 'other'), done, true)).toBe(true)  // المجمَّد ٣ → مكتمل
+    expect(stageOneComplete(recommendedForScore(1, 'other'), done, true)).toBe(false) // لو أُعيد حسابه حيّاً (٧) لانفتح — لهذا نجمّد
   })
 })

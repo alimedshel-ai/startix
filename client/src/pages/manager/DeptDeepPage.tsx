@@ -287,6 +287,52 @@ function hasContent(a: DeepAnswer | undefined): boolean {
   return a.selected.length > 0 || a.other.trim().length > 0
 }
 
+// ─── الرؤية الفوريّة — تحويل الإجابات الأربع إلى تشخيص (قراءة فقط) ─────
+// البنية ثابتة (0=قيد · 1=هشاشة · 2=أتمتة · 3=قوّة). عرضٌ محض؛ «التالي»
+// يملكه NextStepCard الموحّد على هذه الصفحة (يحترم التسلسل) — فلا مُوصٍ ثانٍ.
+// أُزيلت خرّاطة «أوّل تحرّك» (عَرَض→أداة) التي كانت تقفز من ① إلى ⑤ (RACI).
+
+// تسمية الخيار الأوّل المختار في سؤال (أو نصّ «أخرى») — للعرض.
+function pickedLabel(prompts: DeepPrompt[], answers: AnswersState, idx: number): string | null {
+  const a = answers[idx]
+  if (!a) return null
+  const k = a.selected[0]
+  if (k) return prompts[idx]?.options.find((o) => o.key === k)?.label ?? null
+  return a.other.trim() || null
+}
+
+function QuickInsight({ prompts, answers }: { prompts: DeepPrompt[]; answers: AnswersState }) {
+  const constraint = pickedLabel(prompts, answers, 0)
+  const fragility = pickedLabel(prompts, answers, 1)
+  const automation = pickedLabel(prompts, answers, 2)
+  const strength = pickedLabel(prompts, answers, 3)
+  if (!constraint && !fragility) return null // نُظهرها متى وُجدت مادّة كافية
+  const rows: { icon: string; title: string; val: string | null }[] = [
+    { icon: '⚠️', title: 'أضعف نقطة (لو فشلت غداً)', val: fragility },
+    { icon: '🔴', title: 'أكبر قيد', val: constraint },
+    { icon: '🤖', title: 'جاهز للأتمتة', val: automation },
+    { icon: '🏆', title: 'قوّة تستحقّ التوسّع', val: strength },
+  ]
+  // عرض محض — لا رابط توجيه. «التالي» يملكه NextStepCard الموحّد أسفل الصفحة.
+  return (
+    <Card className="border-2 border-primary/40 bg-gradient-to-l from-primary/10 to-transparent">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">🧠 قراءتك الفوريّة</CardTitle>
+        <CardDescription>خلاصة تشخيصك — تتحدّث مع كل إجابة.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 text-sm">
+        {rows.filter((r) => r.val).map((r) => (
+          <div key={r.title} className="flex items-start gap-1.5">
+            <span aria-hidden>{r.icon}</span>
+            <span className="text-muted-foreground shrink-0">{r.title}:</span>
+            <b className="text-foreground">{r.val}</b>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 type ViewMode = 'quick' | 'extended' | 'both'
 
 export function DeptDeepPage() {
@@ -594,6 +640,8 @@ function QuickAnalysisSection() {
           </Card>
         )
       })}
+
+      <QuickInsight prompts={prompts} answers={answers} />
 
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving}>
