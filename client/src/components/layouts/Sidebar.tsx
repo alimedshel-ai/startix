@@ -97,7 +97,10 @@ export function Sidebar() {
   const location = useLocation()
   // العميل النشط من ?client=<id> — شارات المراحل بحسب صحّة عميل واحد.
   const activeClientId = isPro ? params.get('client') : null
-  const pathMatch = location.pathname.match(/^\/manager\/clients\/([^/]+)$/)
+  // يلتقط العميل على صفحته **وأيّ مسار فرعيّ** (/run · /journey) — راوتر
+  // 228-230. وإلا فقد السايد بار العميل على القمرة (مسارها لا يحمل ?client=)
+  // فيستدعي useGuidedNext(null) ويختلف «التالي» عن القمرة (عطل مصدر-واحد).
+  const pathMatch = location.pathname.match(/^\/manager\/clients\/([^/]+)(?:\/(?:run|journey))?$/)
   const detailClientId = pathMatch?.[1] ?? null
   const effectiveClientId = activeClientId ?? detailClientId
   const { completions } = useJourneyCompletions(effectiveClientId)
