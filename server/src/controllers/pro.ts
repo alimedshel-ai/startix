@@ -160,7 +160,11 @@ export const getProOverview: RequestHandler = async (req, res, next) => {
         const audits = dept?.audits ?? [];
         const latest = audits[0] ?? null;
         const previous = audits[1] ?? null;
-        const healthPct = latest ? Math.round(latest.healthPct) : null;
+        // توحيد مخزنَي التدقيق: صحّة من سجلّ DeptAudit، وإلّا من حقل auditScore
+        // (يكتبه تقييم النضج/التدقيق السريع = score.healthPct). فلا «تمّ بلا صحّة».
+        const healthPct = latest
+          ? Math.round(latest.healthPct)
+          : dept?.auditScore != null ? Math.round(dept.auditScore) : null;
         const prevHealthPct = previous ? Math.round(previous.healthPct) : null;
         const delta = healthPct != null && prevHealthPct != null ? prevHealthPct - healthPct : null;
         const daysSince = latest
@@ -174,7 +178,9 @@ export const getProOverview: RequestHandler = async (req, res, next) => {
           stage: link.company.stage,
           specialty,
           hasDepartment: dept != null,
-          hasAnyAudit: latest != null,
+          // «تمّ» = سجلّ DeptAudit أو حقل auditScore — فلا يقول سطحٌ «لم يُجرَ»
+          // بينما المحرّك يعدّ ① مكتملة عبر auditScore نفسه.
+          hasAnyAudit: latest != null || dept?.auditScore != null,
           healthPct,
           dangerZone: parseZone(latest?.scores ?? null),
           lastAuditAt: latest ? latest.createdAt.toISOString() : null,
