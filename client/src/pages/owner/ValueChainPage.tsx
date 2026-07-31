@@ -357,9 +357,23 @@ function DeepAnalysisSourceCard({
   }
   if (!hasSuggestions) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="p-3 text-xs text-muted-foreground">
-          التحليل العميق موجود لكن بلا إجابات كافية لتوليد ترجيحات — أكمل التحليل العميق أوّلاً.
+      <Card className="border-2 border-dashed border-amber-300 bg-amber-50/40">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🔬</span>
+            <div>
+              <div className="text-sm font-bold text-amber-900">التحليل العميق بلا إجابات كافية للتوليد</div>
+              <p className="mt-0.5 text-amber-800">
+                أكمِل إجابات التحليل العميق (قيود · هشاشة · أتمتة · ممارسات جيّدة) لتوليد سلسلة القيمة تلقائياً — أو املأ الأنشطة يدويّاً أدناه واحفظ.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/manager/dept-deep"
+            className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700"
+          >
+            🔬 أكمِل التحليل العميق ←
+          </Link>
         </CardContent>
       </Card>
     )
