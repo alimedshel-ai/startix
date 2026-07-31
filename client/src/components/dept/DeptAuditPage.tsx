@@ -21,7 +21,7 @@ import {
   type DeptCode,
 } from '@/lib/deptApi'
 import { budgetStatus } from '@/lib/budgetGuard'
-import { getTaggedSWOT, listInitiatives, type Initiative } from '@/lib/strategicApi'
+import { getTaggedSWOT, listInitiatives, upsertArtifact, type Initiative, type RescueChallengesData } from '@/lib/strategicApi'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useAuthStore } from '@/store/authStore'
 
@@ -60,6 +60,9 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
   const guided = viewer?.userType === 'MANAGER' && viewer?.managerType === 'INDEPENDENT_PRO'
   const clientQuery = company ? `?client=${company.id}` : ''
   const [deptId, setDeptId] = useState<string | null>(null)
+  // تحدّيات إضافيّة يكتبها العميل بحرّيّة (لم يجدها في أسئلة النموذج) — تُحفظ
+  // RESCUE_CHALLENGES فتغذّي مسار الإنقاذ لاحقاً إن صار حرجاً (توحيد، لا ازدواج).
+  const [extraChallenges, setExtraChallenges] = useState('')
   const [mode, setMode] = useState<ViewMode>('loading')
   const [error, setError] = useState<string | null>(null)
   const [savedScore, setSavedScore] = useState<AuditScore | null>(null)
@@ -226,11 +229,35 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
             onComplete={async (s) => {
               setSavedScore(s)
               setSavedAt(new Date().toISOString())
+              // تحدّيات إضافيّة (اختياريّة): سطر لكل تحدٍّ، حتى 3 — تُحفظ
+              // RESCUE_CHALLENGES فتظهر في الإنقاذ لاحقاً دون إعادة سؤال.
+              const items = extraChallenges.split('\n').map((t) => t.trim()).filter(Boolean)
+                .slice(0, 3).map((text, i) => ({ id: `c${i + 1}`, text }))
+              if (company && items.length > 0) {
+                await upsertArtifact<RescueChallengesData>(company.id, 'RESCUE_CHALLENGES', { items }).catch(() => {})
+              }
               // نعيد تحميل آخر تدقيق من السيرفر لضمان الاتساق (السجل الفعلي).
               await loadLatest(deptId).catch(() => {})
               setMode('result')
             }}
           />
+
+          {/* حقل التحدّيات الإضافيّة — العميل يكتب ما لم يجده في أسئلة النموذج */}
+          <Card className="mt-4 border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">تحدّيات إضافيّة لم تجدها في الأسئلة؟</CardTitle>
+              <CardDescription className="text-xs">اكتبها بحرّيّتك — سطر لكل تحدٍّ (حتى 3). تُحفظ مع تدقيقك وتُوجّه خطة الإنقاذ إن لزم.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                value={extraChallenges}
+                onChange={(e) => setExtraChallenges(e.target.value)}
+                rows={3}
+                placeholder={'مثال: تأخّر صرف الرواتب\nنقص كوادر تقنيّة متخصّصة\nضعف توثيق الإجراءات'}
+                className="w-full resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
