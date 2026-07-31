@@ -50,7 +50,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
   const specialty = user?.specialtyDeptType ?? null
 
-  const { loading: cLoading, completions, artifactTypes, nonEmptyArtifactTypes } = useJourneyCompletions(companyId)
+  const { loading: cLoading, completions, nonEmptyArtifactTypes } = useJourneyCompletions(companyId)
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
   // بيانات الشركة **بالمعرّف المُمرَّر** لا من الـURL — فتُحسب خطّة التحليل ①
   // للعميل المعروض فعلاً على كل الأسطح (لا لشركة «أولى» عشوائيّة). يُشترط pro
@@ -100,7 +100,9 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
       const t = ANALYSIS_TOOLS[key]
       if (!t) return true
       if (t.viaAudit) return health.hasAudit
-      return t.artifactBases.some((b) => artifactSatisfies(artifactTypes, b))
+      // واعٍ بالمحتوى (لا وجوديّ): artifact محفوظ فارغ ({}) لا يُحسب أداةً منجَزة —
+      // وإلّا تخطّى المحرّك مراحل التحليل وأعلن «انتهى» بعد التدقيق وحده.
+      return t.artifactBases.some((b) => artifactSatisfies(nonEmptyArtifactTypes, b))
     }
     const nextKey = firstIncompleteAnalysisKey(plan.recommended, isDone)
     if (nextKey) {
