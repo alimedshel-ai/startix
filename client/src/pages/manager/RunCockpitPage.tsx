@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 
 import { EmptyState } from '@/components/EmptyState'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { RescueChallengesStep } from '@/components/manager/RescueChallengesStep'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { useJourney, type JourneyStepView } from '@/hooks/useJourney'
-import { useRescue } from '@/hooks/useRescue'
+import { useRescue, type RescueChallenge } from '@/hooks/useRescue'
 import { classifyClient } from '@/journey/classify'
 import {
   RESCUE_SEQUENCE, RESCUE_PLAN, type RescueDone, type RescueStep,
@@ -41,7 +42,7 @@ export function RunCockpitPage() {
   const cid = companyId ?? null
   const clientQuery = cid ? `?client=${cid}` : ''
   const { loading, path, steps, total, currentIndex, progressPct, nextStage } = useJourney(cid)
-  const { loading: rLoading, rescue, done: rescueDone, plan, progress, weakestAxis, actionId, criticalPct, reauditPath, health, reload } = useRescue(cid)
+  const { loading: rLoading, rescue, done: rescueDone, plan, progress, challenges, weakestAxis, actionId, criticalPct, reauditPath, health, reload } = useRescue(cid)
   // مصدر الحقيقة الواحد لـ«التالي» (خلف flag، مع تراجع). الخطّ الزمنيّ يبقى
   // عرضاً من useJourney؛ يتغيّر فقط مصدر «الخطوة القائدة» ليطابق السايد بار.
   const useGuided = flag(USE_JOURNEY_NEXT)
@@ -61,7 +62,7 @@ export function RunCockpitPage() {
   // فعْلُ الخطوات لا يُخرِج من الحمراء.
   if (rescue.kind === 'rescue' || rescue.kind === 'rescue-done') {
     return useRescuePlan
-      ? <RescuePlanCockpit cid={cid} clientQuery={clientQuery} plan={plan} progress={progress} weakestAxis={weakestAxis} actionId={actionId} criticalPct={criticalPct} reauditPath={reauditPath} onCreated={reload} />
+      ? <RescuePlanCockpit cid={cid} clientQuery={clientQuery} plan={plan} progress={progress} challenges={challenges} weakestAxis={weakestAxis} actionId={actionId} criticalPct={criticalPct} reauditPath={reauditPath} onCreated={reload} />
       : <RescueCockpit cid={cid} clientQuery={clientQuery} rescueDone={rescueDone} step={rescue.step ?? null} doneCount={rescue.doneCount} total={rescue.total} criticalPct={criticalPct} reauditPath={reauditPath} />
   }
 
@@ -343,12 +344,13 @@ function RescueCockpit({
 //   • خطوة ٣: مبادرة عاجلة → Initiative بوسم source='rescue' + linkedActionId.
 // إعادة التدقيق (٤) لا تُبلَغ إلا بعد ٢و٣ (يفرضها resolveRescuePlan بنيويّاً).
 function RescuePlanCockpit({
-  cid, clientQuery, plan, progress, weakestAxis, actionId, criticalPct, reauditPath, onCreated,
+  cid, clientQuery, plan, progress, challenges, weakestAxis, actionId, criticalPct, reauditPath, onCreated,
 }: {
   cid: string
   clientQuery: string
   plan: RescuePlanResult
   progress: RescueProgress
+  challenges: RescueChallenge[]
   weakestAxis: AuditAxis | null
   actionId: string | null
   criticalPct: number | null
@@ -363,6 +365,7 @@ function RescuePlanCockpit({
   const pct = Math.round((plan.doneCount / plan.total) * 100)
   const doneOf = (id: string): boolean =>
     id === 'axis' ? progress.axisPicked
+    : id === 'challenges' ? (progress.challengesVisited ?? false)
     : id === 'action' ? progress.actionRecorded
     : id === 'initiative' ? progress.initiativeCreated
     : false
@@ -459,9 +462,24 @@ function RescuePlanCockpit({
               </p>
             )}
 
+            {/* خطوة التحدّيات (اختياريّة): العميل يضيف حتى 3 تُوجّه الإجراء التالي */}
+            {step.id === 'challenges' && (
+              <RescueChallengesStep cid={cid} onDone={onCreated} />
+            )}
+
             {/* خطوة ٢ (الإجراء) وخطوة ٣ (المبادرة): إنشاء inline — ممنوع navigate */}
             {(step.id === 'action' || step.id === 'initiative') && (
               <div className="mt-5 space-y-2">
+                {step.id === 'action' && challenges.length > 0 && (
+                  <div className="rounded-lg border border-rose-200 bg-white/60 px-3 py-2">
+                    <div className="text-[11px] font-semibold text-rose-800">تحدّياتك المُضافة — وجّه إجراءك إليها:</div>
+                    <ul className="mt-1 space-y-0.5">
+                      {challenges.map((c) => (
+                        <li key={c.id} className="text-xs text-rose-900">• {c.text}{c.axis ? <span className="text-rose-500"> ({AXIS_LABEL[c.axis]})</span> : null}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {step.id === 'initiative' && axisLabel && (
                   <p className="text-[11px] text-rose-800/70">مبادرة عاجلة على محور <b>{axisLabel}</b>، مرتبطة بإجرائك التصحيحيّ.</p>
                 )}

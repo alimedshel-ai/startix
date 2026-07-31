@@ -70,6 +70,13 @@ export interface Artifact<T = unknown> {
   createdAt: string
 }
 
+/** شكل بيانات RESCUE_CHALLENGES: تحدّيات العميل المُضافة يدويّاً في الإنقاذ.
+ *  `skipped:true` يُميّز التخطّي المشروع عن كتابة فارغة فاشلة (لا يُمسَح كـ{}). */
+export interface RescueChallengesData {
+  items: { id: string; text: string; axis?: 'governance' | 'financial' | 'team' | 'digital' }[]
+  skipped?: boolean
+}
+
 export async function getArtifact<T = unknown>(companyId: string, type: ArtifactType): Promise<Artifact<T> | null> {
   const { data } = await api.get(`/api/strategic/artifacts/${companyId}/${type}`)
   return data.artifact as Artifact<T> | null

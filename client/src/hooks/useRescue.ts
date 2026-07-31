@@ -6,7 +6,10 @@ import {
   type RescueDone, type RescueResult, type RescuePlanResult, type RescueProgress, type AuditAxis,
 } from '@/journey/rescue'
 import { listDepartments } from '@/lib/deptApi'
-import { listAllArtifacts, listProjects, listInitiatives, listCorrections } from '@/lib/strategicApi'
+import { listAllArtifacts, listProjects, listInitiatives, listCorrections, type RescueChallengesData } from '@/lib/strategicApi'
+
+/** بند تحدٍّ مُضاف من العميل (للعرض في خطوة الإجراء). */
+export type RescueChallenge = RescueChallengesData['items'][number]
 
 // ─── هوك «وعي الطوارئ» — الغلاف الذي يجمع الحالة للدالّة النقيّة ──────
 // طبقة *فوق* المحرّك: لا يلمس useJourneyCompletions ولا المراحل. يجلب بيانات
@@ -23,7 +26,7 @@ import { listAllArtifacts, listProjects, listInitiatives, listCorrections } from
 //   • initiativeCreated: مبادرة بوسم source='rescue' (listInitiatives).
 
 const NO_DONE: RescueDone = { risk: false, eisenhower: false, raci: false, gantt: false }
-const NO_PROGRESS: RescueProgress = { axisPicked: false, actionRecorded: false, initiativeCreated: false }
+const NO_PROGRESS: RescueProgress = { axisPicked: false, challengesVisited: false, actionRecorded: false, initiativeCreated: false }
 const INACTIVE: RescueResult = getRescueNext({ criticalHealth: false, done: NO_DONE })
 const INACTIVE_PLAN: RescuePlanResult = resolveRescuePlan({ criticalHealth: false, healthPct: null, progress: NO_PROGRESS })
 const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null } as const
@@ -37,6 +40,8 @@ export interface RescueView {
   plan: RescuePlanResult
   /** الرقعة C — تقدّم الخطوات الدلاليّة (مُشتقّ من البيانات الحقيقيّة). */
   progress: RescueProgress
+  /** تحدّيات العميل المُضافة (خطوة challenges) — تُعرَض في خطوة الإجراء. */
+  challenges: RescueChallenge[]
   /** الرقعة C — المحور الأضعف (خطوة ١) المُشتقّ من محاور التدقيق. */
   weakestAxis: AuditAxis | null
   /** الرقعة C — معرّف الإجراء التصحيحيّ الأحدث (خطوة ٢) لربط المبادرة (خطوة ٣). */
@@ -58,6 +63,7 @@ interface Fetched {
   done: RescueDone
   plan: RescuePlanResult
   progress: RescueProgress
+  challenges: RescueChallenge[]
   weakestAxis: AuditAxis | null
   actionId: string | null
   criticalPct: number | null
@@ -67,7 +73,7 @@ interface Fetched {
 
 const EMPTY_FETCHED: Fetched = {
   forId: null, rescue: INACTIVE, done: NO_DONE, plan: INACTIVE_PLAN, progress: NO_PROGRESS,
-  weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH,
+  challenges: [], weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH,
 }
 
 export function useRescue(companyId: string | null): RescueView {
@@ -120,7 +126,14 @@ export function useRescue(companyId: string | null): RescueView {
       // خطوة ٣ (initiativeCreated): مبادرة بوسم source='rescue'.
       const iniList = inis.status === 'fulfilled' ? inis.value : []
       const initiativeCreated = iniList.some((i) => i.source === 'rescue')
-      const progress: RescueProgress = { axisPicked: weakestAxis != null, actionRecorded, initiativeCreated }
+      // خطوة challenges (اختياريّة): «زار» = **وجود** artifact RESCUE_CHALLENGES
+      // (أضاف أو تخطّى)؛ قائمة العرض = items الفعليّة (محتوى — التخطّي items:[]).
+      const challengesVisited = types.has('RESCUE_CHALLENGES')
+      const challengeArt = arts.status === 'fulfilled'
+        ? (arts.value.find((a) => a.type === 'RESCUE_CHALLENGES')?.data as RescueChallengesData | undefined)
+        : undefined
+      const challenges: RescueChallenge[] = challengeArt?.items ?? []
+      const progress: RescueProgress = { axisPicked: weakestAxis != null, challengesVisited, actionRecorded, initiativeCreated }
 
       setFetched({
         forId: companyId,
@@ -128,6 +141,7 @@ export function useRescue(companyId: string | null): RescueView {
         done,
         plan: resolveRescuePlan({ criticalHealth, healthPct: criticalDept?.auditScore ?? null, progress }),
         progress,
+        challenges,
         weakestAxis,
         actionId,
         criticalPct: criticalDept?.auditScore ?? null,
@@ -144,11 +158,11 @@ export function useRescue(companyId: string | null): RescueView {
 
   // ── مشتقّ أثناء الرندر (بلا setState متزامن) ──
   if (!companyId) {
-    return { loading: false, rescue: INACTIVE, done: NO_DONE, plan: INACTIVE_PLAN, progress: NO_PROGRESS, weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH, reload }
+    return { loading: false, rescue: INACTIVE, done: NO_DONE, plan: INACTIVE_PLAN, progress: NO_PROGRESS, challenges: [], weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH, reload }
   }
   if (fetched.forId !== companyId) {
     // بيانات عميل سابق أو لم تصل بعد → تحميل، بلا عرض حالة قديمة.
-    return { loading: true, rescue: INACTIVE, done: NO_DONE, plan: INACTIVE_PLAN, progress: NO_PROGRESS, weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH, reload }
+    return { loading: true, rescue: INACTIVE, done: NO_DONE, plan: INACTIVE_PLAN, progress: NO_PROGRESS, challenges: [], weakestAxis: null, actionId: null, criticalPct: null, reauditPath: null, health: NO_HEALTH, reload }
   }
   return {
     loading: false,
@@ -156,6 +170,7 @@ export function useRescue(companyId: string | null): RescueView {
     done: fetched.done,
     plan: fetched.plan,
     progress: fetched.progress,
+    challenges: fetched.challenges,
     weakestAxis: fetched.weakestAxis,
     actionId: fetched.actionId,
     criticalPct: fetched.criticalPct,
