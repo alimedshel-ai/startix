@@ -28,6 +28,7 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
   const scope = useClientScopedCompany()
   const company = scope.company
   const [answers, setAnswers] = useState<MaturityAnswers>({})
+  const [staleSchema, setStaleSchema] = useState(false)
   const [loading, setLoading] = useState(true)
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [generating, setGenerating] = useState(false)
@@ -41,6 +42,7 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
     let cancel = false
     setLoading(true)
     setAnswers({})
+    setStaleSchema(false)
     skipFirst.current = true
     ;(async () => {
       try {
@@ -50,7 +52,13 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
         if (a && typeof a === 'object') {
           const clean: MaturityAnswers = {}
           for (const [k, v] of Object.entries(a)) if (typeof v === 'number') clean[k] = v
-          setAnswers(clean)
+          // سقوط آمن لأي مخطّط قديم (drift إصدار): إن حُفظت إجابات لكن لا يطابق
+          // أيٌّ منها أسئلة النموذج الحاليّ، لا نعرض تقييماً فارغاً صامتاً — نبدأ
+          // نظيفاً ونُعلِم المستخدم. غير مُتلِف: القديم يبقى حتى أوّل إجابة جديدة.
+          const currentIds = new Set(config.sections.flatMap((s) => s.questions.map((q) => q.id)))
+          const matched = Object.keys(clean).filter((k) => currentIds.has(k)).length
+          if (Object.keys(clean).length > 0 && matched === 0) setStaleSchema(true)
+          else setAnswers(clean)
         }
       } catch (err) {
         if (!cancel) toast.error(apiErrorMessage(err, 'تعذّر تحميل التقييم السابق'))
@@ -142,6 +150,15 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
       <div className="flex justify-end text-xs text-muted-foreground">
         {autosave === 'saving' ? '⏳ حفظ…' : autosave === 'saved' ? '✓ محفوظ' : autosave === 'error' ? '⚠️ فشل الحفظ' : ''}
       </div>
+
+      {staleSchema && (
+        <Card className="border-amber-300 bg-amber-50/60">
+          <CardContent className="p-4 text-sm text-amber-900">
+            ⚠️ لديك تقييم سابق بإصدارٍ قديم من هذا النموذج لم يعد متوافقاً مع الأسئلة الحاليّة —
+            ابدأ تقييماً جديداً أدناه (يحلّ محلّ القديم عند أوّل إجابة). لم نحذف بياناتك القديمة.
+          </CardContent>
+        </Card>
+      )}
 
       <MaturityAssessment config={config} answers={answers} onSelect={onSelect} />
       <MaturityReport config={config} answers={answers} />
