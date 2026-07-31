@@ -57,6 +57,8 @@ export type ArtifactType =
   | 'MATURITY'
   // التحليل الكمّي لـHR — الأداء الفعليّ لـ31 مؤشراً (3 مستويات).
   | 'HR_QUANT'
+  // تحدّيات العميل المُضافة يدويّاً في مسار الإنقاذ (حتى 3) — { items, skipped? }.
+  | 'RESCUE_CHALLENGES'
   | DeptScopedArtifactType
 
 export interface Artifact<T = unknown> {
