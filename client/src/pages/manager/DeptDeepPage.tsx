@@ -203,11 +203,67 @@ const SALES_PROMPTS: DeepPrompt[] = [
   },
 ]
 
+// ─── FINANCE — بلغة المالية الفعليّة: السيولة، التحصيل، الرقابة، التقارير.
+//     (م٣a — يعالج سقوط «مالية» إلى GENERIC رغم اختيار المدير للتخصّص المالي.)
+//     يحافظ على البنية الرباعيّة (قيد → هشاشة → أتمتة → قوّة) ليبقى الربط
+//     بسلسلة القيمة (deepAnalysisToVC) شغّالاً.
+const FINANCE_PROMPTS: DeepPrompt[] = [
+  {
+    question: 'ما أكبر قيد يعيق الإدارة المالية اليوم؟',
+    hint: 'أين يتعطّل المحرّك المالي: السيولة، أم التحصيل، أم الرقابة، أم التقارير؟ اختر ما ينطبق.',
+    options: [
+      { key: 'fin_liquidity',     icon: '💧', label: 'ضعف السيولة / تذبذب التدفّق النقدي' },
+      { key: 'fin_collection',    icon: '🧾', label: 'بطء التحصيل (ذمم مدينة متضخّمة)' },
+      { key: 'fin_no_budget',     icon: '📐', label: 'غياب الموازنة أو ضعف الالتزام بها' },
+      { key: 'fin_weak_controls', icon: '🛡️', label: 'ضعف الرقابة المالية والضوابط الداخلية' },
+      { key: 'fin_reporting_lag', icon: '📊', label: 'تقارير مالية متأخّرة أو غير موثوقة' },
+      { key: 'fin_cost_control',  icon: '💸', label: 'ارتفاع التكاليف / ضعف ضبط المصروفات' },
+    ],
+  },
+  {
+    question: 'أي جانب في وضعك المالي هشّ ومكلف لو تعثّر غداً؟',
+    hint: 'نقاط الخطر التي إن سقطت تُهدّد بقاء المنشأة — لا مجرّد ربحيّتها.',
+    options: [
+      { key: 'fin_cash_run',      icon: '🔴', label: 'نضوب السيولة (عجز عن سداد الالتزامات)' },
+      { key: 'fin_bad_debt',      icon: '🚪', label: 'ذمم متعثّرة قد تتحوّل لديون معدومة' },
+      { key: 'fin_revenue_conc',  icon: '🏦', label: 'تركّز التحصيل في عميل كبير واحد' },
+      { key: 'fin_debt_load',     icon: '⚖️', label: 'مديونية مرتفعة / تجاوز حدّ الائتمان' },
+      { key: 'fin_tax_zakat',     icon: '📜', label: 'خطأ في الإقرار الضريبي/الزكوي (غرامات)' },
+      { key: 'fin_key_person',    icon: '🔑', label: 'الاعتماد على محاسب محوري واحد' },
+    ],
+  },
+  {
+    question: 'أي مهمّة مالية تستنزف وقتك وتستحقّ الأتمتة؟',
+    hint: 'المهام المتكرّرة قليلة القيمة — هي الأولى بالأتمتة.',
+    options: [
+      { key: 'fin_auto_entries',  icon: '⌨️', label: 'إدخال القيود المحاسبية اليدوي' },
+      { key: 'fin_auto_invoices', icon: '🧾', label: 'إعداد الفواتير والمطالبات' },
+      { key: 'fin_auto_recon',    icon: '🔗', label: 'مطابقة الحسابات البنكية (Reconciliation)' },
+      { key: 'fin_auto_reports',  icon: '📈', label: 'إعداد التقارير المالية الدورية' },
+      { key: 'fin_auto_dunning',  icon: '🔁', label: 'متابعة التحصيل والتذكيرات' },
+      { key: 'fin_auto_payroll',  icon: '👥', label: 'احتساب الرواتب والمستحقّات' },
+    ],
+  },
+  {
+    question: 'ما أقوى ممارسة مالية راسخة لديك وتستحقّ التوسّع؟',
+    hint: 'ما يعمل جيداً بالفعل — التوسّع فيه أرخص من بناء الجديد.',
+    options: [
+      { key: 'fin_monthly_close', icon: '📅', label: 'إغلاق شهري منتظم وفي موعده' },
+      { key: 'fin_budget_track',  icon: '📐', label: 'موازنة تقديريّة ومتابعة الانحرافات' },
+      { key: 'fin_internal_ctrl', icon: '🛡️', label: 'ضوابط داخلية وفصل المهام' },
+      { key: 'fin_cashflow_fcst', icon: '🔮', label: 'إدارة تدفّق نقدي استباقيّة (توقّع مسبق)' },
+      { key: 'fin_mgmt_reports',  icon: '📊', label: 'تقارير إدارية موثوقة تدعم القرار' },
+      { key: 'fin_collection_disc',icon: '✅', label: 'انضباط تحصيل عالٍ (أيام تحصيل منخفضة)' },
+    ],
+  },
+]
+
 // خريطة الإدارات ذات الأسئلة المتخصّصة — البقيّة تسقط على العامّة.
-// دَين: ١١ إدارة متبقّية بلا أسئلة متخصّصة — مشروع محتوى مؤجَّل.
+// دَين: ١٠ إدارات متبقّية بلا أسئلة متخصّصة — مشروع محتوى مؤجَّل.
 const DEPT_PROMPTS: Partial<Record<SpecialtyDeptType, DeepPrompt[]>> = {
   PROJECTS: PROJECTS_PROMPTS,
   SALES: SALES_PROMPTS,
+  FINANCE: FINANCE_PROMPTS,
 }
 
 function promptsFor(specialty: SpecialtyDeptType | null | undefined): DeepPrompt[] {
