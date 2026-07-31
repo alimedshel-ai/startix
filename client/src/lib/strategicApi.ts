@@ -55,6 +55,8 @@ export type ArtifactType =
   // تقييم نضج الموارد البشريّة (legacy) + النضج المعمّم لأي تخصّص.
   | 'HR_MATURITY'
   | 'MATURITY'
+  // التحليل الكمّي لـHR — الأداء الفعليّ لـ31 مؤشراً (3 مستويات).
+  | 'HR_QUANT'
   | DeptScopedArtifactType
 
 export interface Artifact<T = unknown> {

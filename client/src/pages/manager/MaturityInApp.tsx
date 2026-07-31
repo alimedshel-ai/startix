@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { MaturityAssessment, MaturityReport } from '@/components/maturity/MaturityAssessment'
+import { HrQuantitativeSection } from '@/components/maturity/HrQuantitativeSection'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { apiErrorMessage } from '@/lib/api'
@@ -144,6 +145,13 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
 
       <MaturityAssessment config={config} answers={answers} onSelect={onSelect} />
       <MaturityReport config={config} answers={answers} />
+
+      {config.specialty === 'HR' && (
+        <HrQuantitativeSection
+          companyId={company.id}
+          prefill={{ headcount: company.opex?.team, avgMonthlySalary: company.opex?.avgSalary }}
+        />
+      )}
 
       {weakSections.length > 0 && (
         <Card className="overflow-hidden border-2 border-emerald-300 bg-emerald-50/40">
