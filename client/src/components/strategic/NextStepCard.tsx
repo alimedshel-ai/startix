@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useGuidedNext, type GuidedKind } from '@/hooks/useGuidedNext'
@@ -28,9 +28,14 @@ const KIND_STYLE: Record<GuidedKind, { card: string; badge: string; badgeText: s
 
 export function NextStepCard({ companyId }: Props) {
   const { loading, next } = useGuidedNext(companyId ?? null)
+  const { pathname } = useLocation()
   // لا نعرض شيئاً أثناء الجلب أو حين لا وجهة (لا عميل / غير قابلة للنقر).
   if (loading || !next || !next.to) return null
   const s = KIND_STYLE[next.kind]
+  // المحرّك route-agnostic: قد يوصي بالأداة التي أنت عليها (مثلاً PESTEL وأنت
+  // في /manager/dept-pestel). عندها لا نعرض رابطاً دائريّاً «افتحها الآن»
+  // لصفحتك نفسها — بل إشارة «أنت هنا، أكمِلها» مع إبقاء سبب الخطوة مفيداً.
+  const isHere = next.to.split('?')[0] === pathname
 
   return (
     <Card className={s.card}>
@@ -43,12 +48,18 @@ export function NextStepCard({ companyId }: Props) {
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <p className="max-w-md text-xs text-muted-foreground">{next.reason}</p>
-        <Link
-          to={next.to}
-          className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium shadow-sm hover:opacity-90 ${s.btn}`}
-        >
-          افتحها الآن ←
-        </Link>
+        {isHere ? (
+          <span className="shrink-0 rounded-md border border-dashed px-3 py-1.5 text-sm font-medium text-muted-foreground">
+            ✓ أنت في هذه الأداة — أكمِلها واحفظ
+          </span>
+        ) : (
+          <Link
+            to={next.to}
+            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium shadow-sm hover:opacity-90 ${s.btn}`}
+          >
+            افتحها الآن ←
+          </Link>
+        )}
       </CardContent>
     </Card>
   )
