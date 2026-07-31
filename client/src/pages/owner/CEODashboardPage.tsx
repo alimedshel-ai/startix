@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
+import { DashboardTabs } from '@/components/strategic/DashboardTabs'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -43,6 +44,7 @@ export function CEODashboardPage() {
     <StrategicShell
       title="لوحة الرئيس التنفيذي"
       description="نظرة تنفيذية: الصحة العامة، نضج المسار، أداء الإدارات، تقدم الأهداف، أهم المؤشرات والمخاطر."
+      tabs={<DashboardTabs />}
     >
       {(companyId) => <Inner companyId={companyId} />}
     </StrategicShell>

@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { NextStepCard } from '@/components/strategic/NextStepCard'
+import { DashboardTabs } from '@/components/strategic/DashboardTabs'
 import { listMyCompanies, listDepartments, dangerZoneColor, type CompanyWithRole, type Department } from '@/lib/deptApi'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -104,6 +106,16 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* أ٣ — شريط التبويبات الموحّد: نظرة عامّة + لوحات القيادة كتبويبات
+          داخل بيت واحد بدل ست وجهات متنافسة في السايدبار. */}
+      <DashboardTabs />
+
+      {/* أ١ — منارة «خطوتك التالية»: مصدر واحد (useGuidedNext) يعرض خطوة
+          واحدة بالأولوية فوق الأرقام، فلا يهبط المالك على أصفار وأزرار
+          متساوية بلا معرفة أيّها أوّلاً. المكوّن نفسه المستخدَم في القمرة
+          والسايدبار — إعادة استخدام لا استنساخ. */}
+      {companies[0] && <NextStepCard companyId={companies[0].id} />}
 
       {/* Stat cards */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

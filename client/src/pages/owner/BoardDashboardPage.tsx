@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
+import { DashboardTabs } from '@/components/strategic/DashboardTabs'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -36,6 +37,7 @@ export function BoardDashboardPage() {
     <StrategicShell
       title="لوحة مجلس الإدارة"
       description="رؤية حوكمة عليا: الصحة الاستراتيجية، الامتثال، المؤشرات المالية، ملخص المخاطر."
+      tabs={<DashboardTabs />}
     >
       {(companyId) => <Inner companyId={companyId} />}
     </StrategicShell>

@@ -15,6 +15,8 @@ interface Props {
   description?: string
   breadcrumbs?: BreadcrumbItem[]
   actions?: ReactNode
+  /** أ٣ — شريط تبويبات اختياريّ يظهر تحت الترويسة (لوحات المالك الموحّدة). */
+  tabs?: ReactNode
   children: (companyId: string) => ReactNode
 }
 
@@ -23,7 +25,7 @@ interface Props {
  * state, and the "no company yet" empty state. The render callback receives
  * the resolved companyId so the inner page can fetch / mutate.
  */
-export function StrategicShell({ title, description, breadcrumbs, actions, children }: Props) {
+export function StrategicShell({ title, description, breadcrumbs, actions, tabs, children }: Props) {
   const { company, loading, error } = useCompany()
   const viewer = useAuthStore((s) => s.user)
   // §٣-٤ — المسار الموجّه مخصّص للمدير المستقل؛ غيره يبقى بالسلوك السابق.
@@ -35,6 +37,8 @@ export function StrategicShell({ title, description, breadcrumbs, actions, child
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={title} description={description} breadcrumbs={breadcrumbs} actions={actions} />
+
+      {tabs}
 
       {/* §٣ — شريط «أنت هنا» الواعي بالخطة (المستقل)، وإلا شريط التسلسل العام. */}
       {guided

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { StrategicShell } from '@/components/strategic/StrategicShell'
+import { DashboardTabs } from '@/components/strategic/DashboardTabs'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { aiPredictions, type PredictionSeries } from '@/lib/aiApi'
@@ -53,6 +54,7 @@ export function AnalyticsDashboardPage() {
     <StrategicShell
       title="التحليلات والتوقعات"
       description="خريطة المخاطر، توقعات ٩٠ يوم لكل مؤشر، اتجاهات الأداء، والتنبيهات التلقائية."
+      tabs={<DashboardTabs />}
     >
       {(companyId) => <Dashboard companyId={companyId} />}
     </StrategicShell>
