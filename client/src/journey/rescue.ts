@@ -82,12 +82,12 @@ export function getRescueNext(s: RescueState): RescueResult {
 // شرط الخروج: التدقيق ≥ ٤٠٪ (criticalHealth=false) — لا إتمام الخطوات.
 // ════════════════════════════════════════════════════════════════════
 
-export type RescueStepId = 'axis' | 'action' | 'initiative' | 'reaudit'
+export type RescueStepId = 'axis' | 'challenges' | 'action' | 'initiative' | 'reaudit'
 export type AuditAxis = 'governance' | 'financial' | 'team' | 'digital'
 
 export interface RescuePlanStep {
-  /** رقم الخطوة (١-٤) — الترتيب يمنع الحلقة بنيويّاً. */
-  n: 1 | 2 | 3 | 4
+  /** رقم الخطوة (١-٥) — الترتيب يمنع الحلقة بنيويّاً. */
+  n: 1 | 2 | 3 | 4 | 5
   id: RescueStepId
   icon: string
   label: string
@@ -95,17 +95,22 @@ export interface RescuePlanStep {
   why: string
   /** شرط الانتقال للتي تليها (توثيق للسلوك). */
   transition: string
+  /** خطوة اختياريّة (challenges): تُعرَض وتُمرَّر بالتخطّي، ولا تُعدّ في doneCount. */
+  optional?: boolean
 }
 
 export const RESCUE_PLAN: RescuePlanStep[] = [
   { n: 1, id: 'axis',       icon: '🔍', label: 'حدّد المحور الأضعف', why: 'اختر المحور الأدنى من محاور الصحّة الأربعة (حوكمة/مالي/فريق/رقمي) لتركّز جهدك عليه.', transition: 'اختيار محور واحد' },
-  { n: 2, id: 'action',     icon: '🔧', label: 'إجراء تصحيحيّ واحد', why: 'نفّذ إجراءً واحداً من بنك المقترحات السعوديّ على المحور المختار.', transition: 'تسجيل الإجراء كمنفّذ' },
+  // خطوة اختياريّة: العميل يعرف واقعه — يضيف حتى 3 تحدّيات تُثري الإجراء (التالي).
+  // التخطّي مشروع (challengesVisited عبر وجود artifact، لا محتواه — درس ق٥).
+  { n: 2, id: 'challenges', icon: '📝', label: 'أضف تحدّياتك (اختياريّ)', why: 'أضف حتى 3 تحدّيات تعرفها — تُوجّه الإجراء التصحيحيّ. أو تخطّاها وواصِل بالتشخيص.', transition: 'إضافة ≤3 أو تخطّي', optional: true },
+  { n: 3, id: 'action',     icon: '🔧', label: 'إجراء تصحيحيّ واحد', why: 'نفّذ إجراءً واحداً من بنك المقترحات السعوديّ على المحور المختار.', transition: 'تسجيل الإجراء كمنفّذ' },
   // الخطوة ٣ — قرار محسوم: الإنشاء inline في شاشة الإنقاذ (ممنوع navigate إلى ⑤
   // لأنها قد تكون مقفلة في LONG). البيانات في فضاء ⑤ بوسم source:'rescue'
   // و linkedActionId (ربط بإجراء ٢)، وتظهر لاحقاً بشارة «من الإنقاذ 🚨».
   // الاكتمال عبر listInitiatives(clientId).some(i => i.source === 'rescue').
-  { n: 3, id: 'initiative', icon: '💡', label: 'مبادرة عاجلة',       why: 'أنشئ مبادرة عاجلة مرتبطة بالإجراء التصحيحيّ في المرحلة ⑤.', transition: 'إنشاء المبادرة' },
-  { n: 4, id: 'reaudit',    icon: '🔁', label: 'أعِد التدقيق',       why: 'الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥٤٠٪)، لا بمجرّد فعل الخطوات.', transition: 'لا تُعرَض إلا بعد إتمام ٢ و٣' },
+  { n: 4, id: 'initiative', icon: '💡', label: 'مبادرة عاجلة',       why: 'أنشئ مبادرة عاجلة مرتبطة بالإجراء التصحيحيّ في المرحلة ⑤.', transition: 'إنشاء المبادرة' },
+  { n: 5, id: 'reaudit',    icon: '🔁', label: 'أعِد التدقيق',       why: 'الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥٤٠٪)، لا بمجرّد فعل الخطوات.', transition: 'لا تُعرَض إلا بعد إتمام ٢ و٣' },
 ]
 
 export interface RescueProgress {
@@ -115,6 +120,9 @@ export interface RescueProgress {
   actionRecorded: boolean
   /** خطوة ٣ — أُنشئت المبادرة العاجلة (من listInitiatives). */
   initiativeCreated: boolean
+  /** خطوة اختياريّة — زار العميل شاشة التحدّيات (أضاف أو تخطّى). اختياريّ للتوافق:
+   *  غياب/undefined = لم يُزَر بعد. المصدر: **وجود** artifact RESCUE_CHALLENGES. */
+  challengesVisited?: boolean
 }
 
 export interface RescuePlanState {
@@ -136,16 +144,25 @@ export interface RescuePlanResult {
 
 /** نقيّة: تُرجع خطوة الإنقاذ الحاليّة بالترتيب الصارم (إعادة التدقيق بعد ٢و٣ حصراً). */
 export function resolveRescuePlan(s: RescuePlanState): RescuePlanResult {
-  const { axisPicked, actionRecorded, initiativeCreated } = s.progress
+  const { axisPicked, challengesVisited, actionRecorded, initiativeCreated } = s.progress
+  // doneCount = الإلزاميّة الثلاث فقط — challenges اختياريّ لا يُعدّ (total يبقى 4).
   const doneCount = [axisPicked, actionRecorded, initiativeCreated].filter(Boolean).length
 
   // (inactive) — لا طوارئ: المحرّك الطبيعيّ يتولّى «التالي». يشمل «لا صحّة بعد»
   // (بلا تدقيق لا تُقيَّم الحرجيّة → الإنقاذ غير نشط إطلاقاً).
   if (!s.criticalHealth) return { kind: 'inactive', doneCount, total: 4, atReaudit: false }
 
-  // الترتيب الصارم يمنع الحلقة: إعادة التدقيق (٤) لا تُبلَغ إلا بعد ٢و٣.
-  const idx = !axisPicked ? 0 : !actionRecorded ? 1 : !initiativeCreated ? 2 : 3
-  return { kind: 'active', step: RESCUE_PLAN[idx], doneCount, total: 4, atReaudit: idx === 3 }
+  // اختيار بالمعرّف لا بالموضع (صامد لترتيب المصفوفة). challenges اعتراضيّة اختياريّة
+  // بعد axis وقبل action؛ التخطّي (challengesVisited=true) يمرّرها. الترتيب الصارم
+  // يمنع الحلقة: إعادة التدقيق لا تُبلَغ إلا بعد ٢و٣.
+  const byId = (id: RescueStepId) => RESCUE_PLAN.find((st) => st.id === id)!
+  const step =
+    !axisPicked ? byId('axis')
+    : !challengesVisited ? byId('challenges')
+    : !actionRecorded ? byId('action')
+    : !initiativeCreated ? byId('initiative')
+    : byId('reaudit')
+  return { kind: 'active', step, doneCount, total: 4, atReaudit: step.id === 'reaudit' }
 }
 
 /** نقيّة: المحور الأدنى من الأربعة (خطوة ١ — تُشتقّ من التدقيق لا تُخزَّن). */

@@ -50,13 +50,13 @@ describe('getRescueNext — التسلسل الخطّي', () => {
   })
 })
 
-// ─── النموذج الجديد (الموجة ١) ───────────────────────────────────────
-const P0 = { axisPicked: false, actionRecorded: false, initiativeCreated: false }
+// ─── النموذج الجديد (الموجة ١ + خطوة challenges الاختياريّة) ──────────
+const P0 = { axisPicked: false, challengesVisited: false, actionRecorded: false, initiativeCreated: false }
 function ps(over: Partial<RescuePlanState> = {}): RescuePlanState {
   return { criticalHealth: true, healthPct: 30, progress: { ...P0 }, ...over }
 }
 
-describe('resolveRescuePlan — التسلسل الدلاليّ الجديد', () => {
+describe('resolveRescuePlan — التسلسل الدلاليّ + challenges الاختياريّة', () => {
   it('inactive: صحّة غير حرجة (أو لا تدقيق) → لا إنقاذ', () => {
     expect(resolveRescuePlan(ps({ criticalHealth: false })).kind).toBe('inactive')
   })
@@ -68,29 +68,42 @@ describe('resolveRescuePlan — التسلسل الدلاليّ الجديد', (
     expect(r.step?.n).toBe(1)
   })
 
-  it('بعد المحور → إجراء تصحيحيّ', () => {
+  it('بعد المحور → التحدّيات (اعتراضيّة اختياريّة بين axis وaction)', () => {
     const r = resolveRescuePlan(ps({ progress: { ...P0, axisPicked: true } }))
+    expect(r.step?.id).toBe('challenges')
+    expect(r.step?.optional).toBe(true)
+  })
+
+  it('تخطّي التحدّيات (challengesVisited=true) → إجراء تصحيحيّ', () => {
+    const r = resolveRescuePlan(ps({ progress: { ...P0, axisPicked: true, challengesVisited: true } }))
     expect(r.step?.id).toBe('action')
   })
 
-  it('بعد المحور+الإجراء → مبادرة عاجلة', () => {
-    const r = resolveRescuePlan(ps({ progress: { axisPicked: true, actionRecorded: true, initiativeCreated: false } }))
+  it('challenges اختياريّة لا تُعدّ: doneCount = الإلزاميّة فقط', () => {
+    // axis + التحدّيات فقط → doneCount = 1 (المحور وحده)، لا 2؛ total يبقى 4.
+    const r = resolveRescuePlan(ps({ progress: { ...P0, axisPicked: true, challengesVisited: true } }))
+    expect(r.doneCount).toBe(1)
+    expect(r.total).toBe(4)
+  })
+
+  it('بعد المحور+التحدّيات+الإجراء → مبادرة عاجلة', () => {
+    const r = resolveRescuePlan(ps({ progress: { axisPicked: true, challengesVisited: true, actionRecorded: true, initiativeCreated: false } }))
     expect(r.step?.id).toBe('initiative')
   })
 
   it('منع الحلقة بنيويّاً: إعادة التدقيق لا تُبلَغ إلا بعد ٢و٣', () => {
     // إجراء بلا مبادرة → لا تزال على المبادرة، لا إعادة التدقيق.
-    const partial = resolveRescuePlan(ps({ progress: { axisPicked: true, actionRecorded: true, initiativeCreated: false } }))
+    const partial = resolveRescuePlan(ps({ progress: { axisPicked: true, challengesVisited: true, actionRecorded: true, initiativeCreated: false } }))
     expect(partial.atReaudit).toBe(false)
     expect(partial.step?.id).not.toBe('reaudit')
     // ٢و٣ تمّتا → الآن فقط إعادة التدقيق.
-    const full = resolveRescuePlan(ps({ progress: { axisPicked: true, actionRecorded: true, initiativeCreated: true } }))
+    const full = resolveRescuePlan(ps({ progress: { axisPicked: true, challengesVisited: true, actionRecorded: true, initiativeCreated: true } }))
     expect(full.step?.id).toBe('reaudit')
     expect(full.atReaudit).toBe(true)
   })
 
   it('الخروج بالصحّة لا بالخطوات: كل الخطوات تمّت لكن الصحّة تعافت → inactive', () => {
-    const r = resolveRescuePlan(ps({ criticalHealth: false, healthPct: 46, progress: { axisPicked: true, actionRecorded: true, initiativeCreated: true } }))
+    const r = resolveRescuePlan(ps({ criticalHealth: false, healthPct: 46, progress: { axisPicked: true, challengesVisited: true, actionRecorded: true, initiativeCreated: true } }))
     expect(r.kind).toBe('inactive')
   })
 })
