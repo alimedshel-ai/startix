@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, getTaggedSWOT, putTaggedSWOT, seedSwotFromDiagnostic, type TaggedSWOT } from '@/lib/strategicApi'
+import { externalSourceState, type ExternalSourceState } from '@/lib/swotExternalSource'
 import {
   createTaggedItem,
   mergePreservingUserEdits,
@@ -103,6 +104,24 @@ function Editor({ companyId }: { companyId: string }) {
       setData(next)
     }).catch(() => undefined)
   }, [companyId])
+
+  // حالة المصدر الخارجيّ (يملأ O/T) — تُحسب سلبيّاً، دائمة (لا toast عابر).
+  const [externalState, setExternalState] = useState<ExternalSourceState>('ready')
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const [deptP, coP, porter] = await Promise.all([
+        specialty ? getArtifact(companyId, `PESTEL_${specialty}`).catch(() => null) : Promise.resolve(null),
+        getArtifact(companyId, 'PESTEL').catch(() => null),
+        getArtifact(companyId, specialty ? `PORTER_${specialty}` : 'PORTER').catch(() => null),
+      ])
+      const hasExternal = !!deptP || !!coP || !!porter
+      const inc = await buildPESTEL().catch(() => null)
+      const factorCount = (inc?.opportunities?.length ?? 0) + (inc?.threats?.length ?? 0)
+      if (alive) setExternalState(externalSourceState(hasExternal, factorCount))
+    })()
+    return () => { alive = false }
+  }, [companyId, specialty])
 
   function add(q: Quadrant) {
     const v = drafts[q].trim()
@@ -533,6 +552,10 @@ function Editor({ companyId }: { companyId: string }) {
   const totalItems = data.strengths.length + data.weaknesses.length + data.opportunities.length + data.threats.length
   const emptyQuadrant = QUADRANTS.find((q) => data[q.key].length === 0)
   const isBalanced = QUADRANTS.every((q) => data[q.key].length >= 3)
+  // O/T تُملأ من مصدر خارجيّ — نفصلها عن الداخليّ (S/W) فالإشعار يوجّه للمصدر لا لليد،
+  // ويظهر حتى في حالة الصفر (totalItems === 0) — الفراغ الصامت الحقيقيّ.
+  const oppThreatEmpty = data.opportunities.length === 0 && data.threats.length === 0
+  const emptyInternalQuadrant = QUADRANTS.find((q) => (q.key === 'strengths' || q.key === 'weaknesses') && data[q.key].length === 0)
 
   return (
     <>
@@ -553,6 +576,36 @@ function Editor({ companyId }: { companyId: string }) {
           </CardContent>
         </Card>
       )}
+      {/* 🌍 المصدر الخارجيّ لـO/T — إشعار دائم بحسب الحالة (missing/empty/ready)، لا فراغ صامت */}
+      {oppThreatEmpty && (
+        <Card className="border-2 border-sky-300 bg-sky-50/50">
+          <CardContent className="p-4">
+            {externalState === 'missing' && (
+              <>
+                <div className="text-sm font-bold text-sky-900">الفرص والتهديدات تُولَّد من مسحٍ خارجيّ</div>
+                <p className="mt-1 text-xs leading-relaxed text-sky-800/80">لا مصدر خارجيّ بعد — أكمِل PESTEL (المسح الخارجيّ)، ثم ارجع واضغط «بذر من التشخيص». <span className="text-sky-700/80">أو أضِفها يدويّاً أدناه.</span></p>
+              </>
+            )}
+            {externalState === 'empty' && (
+              <>
+                <div className="text-sm font-bold text-sky-900">PESTEL محفوظ بلا عوامل</div>
+                <p className="mt-1 text-xs leading-relaxed text-sky-800/80">لديك سجلّ PESTEL لكنه بلا عوامل مُدخَلة — أكمِل عوامله، ثم ارجع واضغط «بذر». <span className="text-sky-700/80">أو أضِفها يدويّاً أدناه.</span></p>
+              </>
+            )}
+            {externalState === 'ready' && (
+              <>
+                <div className="text-sm font-bold text-sky-900">مصدرك الخارجيّ جاهز — لم يُبذَر بعد</div>
+                <p className="mt-1 text-xs leading-relaxed text-sky-800/80">اضغط «بذر من التشخيص» لتوليد الفرص والتهديدات من مصدرك الخارجيّ. <span className="text-sky-700/80">أو أضِفها يدويّاً أدناه.</span></p>
+              </>
+            )}
+            {externalState !== 'ready' && (
+              <div className="mt-2.5">
+                <Link to={sourceToUrl('PESTEL', companyId) ?? '#'} className="inline-flex items-center gap-1 rounded-lg border-2 border-sky-300 bg-white px-3 py-1.5 text-xs font-semibold text-sky-900 transition hover:-translate-y-0.5 hover:border-sky-500">🌐 {externalState === 'empty' ? 'أكمل عوامل PESTEL' : 'افتح PESTEL'}</Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       {/* 🚨 تحذير: خارج مسار الإنقاذ الرباعيّ (يظهر عند القدوم من الطوارئ) */}
       {isRescueMode && (
         <OutsideRescueBanner
@@ -561,17 +614,18 @@ function Editor({ companyId }: { companyId: string }) {
           whyOutside="التوليف الاستراتيجي طويل الأمد لا يُوقف النزيف المالي. أكمل الإنقاذ ثم ارجع لبناء استراتيجيّة كاملة."
         />
       )}
-      {/* 🧭 «إلى أين أذهب الآن؟» — يظهر عند الحاجة فقط */}
-      {totalItems > 0 && emptyQuadrant && (
+      {/* 🧭 ربع داخليّ (S/W) فارغ — إدخال يدويّ. O/T تُعالَج ببطاقة المصدر الخارجيّ
+          أعلاه (مصدرٌ لا يد). يظهر حتى في حالة الصفر — لا اشتراط totalItems. */}
+      {emptyInternalQuadrant && (
         <NextActionCard
           icon="⚠️"
-          title={`ربع «${emptyQuadrant.title}» فارغ`}
+          title={`ربع «${emptyInternalQuadrant.title}» فارغ`}
           reason="لا يمكن الانتقال لـ TOWS بربع فارغ. أضف ٢-٣ بنود أو ولّد تلقائياً من الزر أدناه."
           to="#"
-          cta={`أضف ${emptyQuadrant.title}`}
+          cta={`أضف ${emptyInternalQuadrant.title}`}
           variant="amber"
           onClick={() => {
-            const el = document.getElementById(`swot-quad-${emptyQuadrant.key}`)
+            const el = document.getElementById(`swot-quad-${emptyInternalQuadrant.key}`)
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
           }}
         />
