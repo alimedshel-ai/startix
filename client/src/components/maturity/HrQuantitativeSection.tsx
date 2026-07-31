@@ -139,6 +139,14 @@ export function HrQuantitativeSection({
             <FinInput label="متوسط الراتب الشهري (ريال)" value={fin.avgMonthlySalary} onChange={(n) => setFin((f) => ({ ...f, avgMonthlySalary: n }))} />
             <FinInput label="الإيراد السنوي (ريال)" value={fin.annualRevenue} onChange={(n) => setFin((f) => ({ ...f, annualRevenue: n }))} />
           </div>
+          {/* ق٢ — حارس نطاق الراتب ثنائي الاتجاه (تنبيه غير مانع): سنويّ حُفِظ
+              كشهريّ (>٥٠٬٠٠٠ → §د منتفخة) أو خطأ وحدة (<١٬٠٠٠ → §د أقلّ بألف). */}
+          {fin.avgMonthlySalary != null && fin.avgMonthlySalary > 50000 && (
+            <p className="mb-2 text-xs font-medium text-rose-700">⚠️ متوسّط راتب شهريّ مرتفع جدّاً ({fin.avgMonthlySalary.toLocaleString('ar-SA')} ريال) — هل أدخلتَ السنويّ؟ اقسِمه على ١٢. (لا يمنع الحساب.)</p>
+          )}
+          {fin.avgMonthlySalary != null && fin.avgMonthlySalary > 0 && fin.avgMonthlySalary < 1000 && (
+            <p className="mb-2 text-xs font-medium text-rose-700">⚠️ متوسّط راتب منخفض جدّاً ({fin.avgMonthlySalary}) — تحقّق من الوحدة (بالريال لا بالآلاف). (لا يمنع الحساب.)</p>
+          )}
           {!impact ? (
             <p className="text-xs text-amber-800/80">أدخل عدد الموظفين + الراتب + الإيراد، وقيَم التسرب/الغياب/الشغور/eNPS/تكلفة HR أعلاه — ليُحسب الأثر بالريال.</p>
           ) : (
