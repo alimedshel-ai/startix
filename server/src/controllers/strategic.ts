@@ -47,6 +47,10 @@ const BASE_ARTIFACT_TYPES = [
   'HR_MATURITY',
   // تقييم نضج معمّم لأي تخصّص. Data shape: { specialty, answers, overallPct }.
   'MATURITY',
+  // التحليل الكمّي لإدارة الموارد البشريّة (٣١ مؤشراً) + الأثر المالي §د.
+  // Data shape: { actuals: Record<id,number>, financial?: { headcount,
+  // avgMonthlySalary, annualRevenue } }. يكتبه HrQuantitativeSection.
+  'HR_QUANT',
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────
