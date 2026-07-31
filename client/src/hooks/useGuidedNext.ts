@@ -122,8 +122,10 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
 
   // ٢) وجّه: المحرّك النقيّ المختبَر بالمسار المُشتقّ (مع إشارات منع الطريق المسدود).
   // داخليّ = artifact داخليّ أو تدقيق إدارة فعليّ (كلاهما يملأ القوّة/الضعف).
+  // داخليّ (يملأ S/W): كالخارجيّ — يجب أن يكون المصدر مملوءاً لا مجرّد محفوظ.
+  // (probe أثبت INTERNAL_ENV={} فارغاً على 3 عملاء؛ تدقيق الإدارة hasAudit يبقى بديلاً.)
   const swotSourcesReady =
-    INTERNAL_SWOT_BASES.some((b) => artifactSatisfies(artifactTypes, b)) || health.hasAudit
+    INTERNAL_SWOT_BASES.some((b) => artifactSatisfies(nonEmptyArtifactTypes, b)) || health.hasAudit
   // خارجيّ (يملأ O/T): يجب أن يكون المصدر **مملوءاً** لا مجرّد محفوظ — فنستعمل
   // المجموعة الواعية بالمحتوى. PESTEL محفوظ بلا عوامل ⇒ ليس جاهزاً ⇒ يُوجَّه العميل
   // لإكمال المصدر بدل عرض SWOT بفرص/تهديدات فارغة. (103/126 يبقيان وجوديّين عمداً.)
