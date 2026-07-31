@@ -442,6 +442,10 @@ const onboardingSchema = z.object({
   // Path — اختيار المسار الاستراتيجي في الشريحة ٤ (اختياري: زر «تخطّي»).
   strategyPath: z.enum(['QUICK', 'MEDIUM', 'LONG']).optional(),
   firstCompany: z.object({
+    // اسم الشركة — يُستعمل لإنشاء أوّل شركة للمالك عند الـonboarding إن لم
+    // يملك شركةً بعد (المالك بلا تشخيص مسبق). اختياري للحفاظ على المدير
+    // المستقل الذي أُنشئت شركته وقت التسجيل (هنا نُثري OPEX فقط).
+    name: z.string().min(1).max(120).optional(),
     sector: z.string().min(1).max(80).optional(),
     subsector: z.string().min(1).max(80).optional(),
     entityType: z.string().min(1).max(40).optional(),
@@ -479,13 +483,15 @@ export const onboardingEnrich: RequestHandler = async (req, res, next) => {
         : await tx.user.findUniqueOrThrow({ where: { id: userId } });
 
       if (data.firstCompany) {
+        const c = data.firstCompany;
         const link = await tx.companyUser.findFirst({
           where: { userId },
           orderBy: { company: { createdAt: 'asc' } },
           include: { company: true },
         });
         if (link) {
-          const c = data.firstCompany;
+          // شركة موجودة (مدير مستقل bootstrap عند التسجيل، أو مالك بتشخيص
+          // مسبق) → إثراء الحقول فقط دون لمس الاسم القادم من الإنشاء.
           await tx.company.update({
             where: { id: link.companyId },
             data: {
@@ -495,6 +501,24 @@ export const onboardingEnrich: RequestHandler = async (req, res, next) => {
               size: c.size ?? undefined,
               opex: c.opex ?? undefined,
             },
+          });
+        } else if (updatedUser.userType === 'OWNER' && c.name && c.name.trim()) {
+          // بوّابة المالك: مالك بلا شركة (سجّل دون تشخيص مسبق) → أنشئ أوّل
+          // شركة الآن بنفس نمط PRO-1، فتعمل getMyFirstCompany() فوراً ولا
+          // يهبط على لوحةٍ فارغة.
+          const company = await tx.company.create({
+            data: {
+              name: c.name.trim(),
+              sector: c.sector ?? undefined,
+              subsector: c.subsector ?? undefined,
+              entityType: c.entityType ?? undefined,
+              size: c.size ?? 'SMALL',
+              opex: c.opex ?? undefined,
+              country: 'SA',
+            },
+          });
+          await tx.companyUser.create({
+            data: { userId, companyId: company.id, role: 'owner' },
           });
         }
       }

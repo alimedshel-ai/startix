@@ -19,6 +19,7 @@ export interface OnboardingDraft {
   pains?: string[]
   goals?: string[]
   firstClientMeta?: {
+    companyName?: string
     sector?: string
     subsector?: string
     entityType?: string
