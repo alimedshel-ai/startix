@@ -610,6 +610,10 @@ function DeepAnalysisBank({ embedded = false }: { embedded?: boolean } = {}) {
   // نموذج إضافة سؤال مخصّص (يظهر لكل نوع عند الضغط).
   const [addingForType, setAddingForType] = useState<AnalysisType | null>(null)
   const [newQuestionText, setNewQuestionText] = useState('')
+  // طيّ أقسام التحليل: القائمة طويلة، والقسم المكتمل (بعد التدقيق) يُطوى
+  // تلقائياً — يبقى العدّاد/النتيجة في رأسه بلا قيمة لإبقاء أسئلته مفتوحة.
+  // undefined = السلوك الافتراضي (مطويّ إن اكتمل)؛ ضغط الرأس يثبّت اختيار المستخدم.
+  const [collapseOverride, setCollapseOverride] = useState<Partial<Record<AnalysisType, boolean>>>({})
   // R6-fix — حفظ آلي: البنك ٦٠ سؤالاً على ٦ أقسام؛ المدير قد يجيب جزءاً
   // ثم يغلق. هذا يمنع فقد التقدّم. status = idle → saving → saved | error.
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -1036,31 +1040,45 @@ function DeepAnalysisBank({ embedded = false }: { embedded?: boolean } = {}) {
       {visibleGrouped.map(({ type, questions }) => {
         const typeMeta = ANALYSIS_TYPE_META[type]
         const answeredInType = questions.filter((q) => answers[q.id] != null).length
+        const done = questions.length > 0 && answeredInType === questions.length
+        // مطويّ افتراضاً حين يكتمل القسم؛ اختيار المستخدم يتجاوز الافتراضي.
+        const collapsed = collapseOverride[type] ?? done
         return (
         <Card key={type} className={`overflow-hidden border-2 ${typeMeta.color.split(' ')[0]}`}>
           <div className={`h-1 ${typeMeta.color.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-primary'}`} />
-          <CardHeader>
-            <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-              <span aria-hidden>{typeMeta.icon}</span>
-              <span>التحليل ال{typeMeta.labelAr}</span>
-              <span className="rounded-full border bg-card px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-                {answeredInType}/{questions.length}
-              </span>
-            </CardTitle>
-            <CardDescription>{typeMeta.descAr}</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            {questions.map((q) => (
-              <QuestionField
-                key={q.id}
-                q={q}
-                value={answers[q.id] ?? null}
-                onRadio={(v) => setRadio(q.id, v)}
-                onCheckbox={(v) => toggleCheckbox(q.id, v)}
-                onText={(v) => setText(q.id, v)}
-              />
-            ))}
-          </CardContent>
+          <button
+            type="button"
+            onClick={() => setCollapseOverride((p) => ({ ...p, [type]: !collapsed }))}
+            className="w-full text-right"
+            aria-expanded={!collapsed}
+          >
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                <span className="text-muted-foreground transition" aria-hidden>{collapsed ? '▸' : '▾'}</span>
+                <span aria-hidden>{typeMeta.icon}</span>
+                <span>التحليل ال{typeMeta.labelAr}</span>
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums ${done ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'bg-card text-muted-foreground'}`}>
+                  {done ? `✓ اكتمل ${answeredInType}/${questions.length}` : `${answeredInType}/${questions.length}`}
+                </span>
+                {collapsed && <span className="text-[11px] font-normal text-muted-foreground">— اضغط للعرض/التحرير</span>}
+              </CardTitle>
+              {!collapsed && <CardDescription>{typeMeta.descAr}</CardDescription>}
+            </CardHeader>
+          </button>
+          {!collapsed && (
+            <CardContent className="grid gap-5">
+              {questions.map((q) => (
+                <QuestionField
+                  key={q.id}
+                  q={q}
+                  value={answers[q.id] ?? null}
+                  onRadio={(v) => setRadio(q.id, v)}
+                  onCheckbox={(v) => toggleCheckbox(q.id, v)}
+                  onText={(v) => setText(q.id, v)}
+                />
+              ))}
+            </CardContent>
+          )}
         </Card>
         )
       })}
