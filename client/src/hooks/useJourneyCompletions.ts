@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import type { StageId } from '@/lib/journeyStages'
 import { JOURNEY_STAGES, artifactSatisfies } from '@/lib/journeyStages'
+import { deepHasContent } from '@/lib/artifactContent'
 import { listDepartments } from '@/lib/deptApi'
 import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strategicApi'
 
@@ -18,6 +19,9 @@ export interface JourneyCompletions {
   completions: Record<StageId, boolean>
   /** أنواع الـartifacts المحفوظة — لعدّ التحاليل المُنجَزة بدقّة. */
   artifactTypes: Set<string>
+  /** أنواع الـartifacts التي محتواها غير فارغ (محفوظ ومملوء) — للقرارات
+   *  الواعية بالمحتوى كجاهزية المصدر الخارجيّ. مجموعة موازية لا تعدّل الأمّ. */
+  nonEmptyArtifactTypes: Set<string>
 }
 
 const EMPTY: Record<StageId, boolean> = {
@@ -26,11 +30,11 @@ const EMPTY: Record<StageId, boolean> = {
 }
 
 export function useJourneyCompletions(companyId: string | null): JourneyCompletions {
-  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set() })
+  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, completions: EMPTY, artifactTypes: new Set() })
+      setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
       return
     }
     let alive = true
@@ -47,6 +51,12 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
         if (!alive) return
         const artifactTypes = new Set<string>(
           arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [],
+        )
+        // مجموعة موازية: الأنواع التي محتواها غير فارغ فعلاً (تُميّز «محفوظ» عن «مملوء»).
+        const nonEmptyArtifactTypes = new Set<string>(
+          arts.status === 'fulfilled'
+            ? arts.value.filter((a) => deepHasContent(a.data)).map((a) => a.type)
+            : [],
         )
         const hasSwot = swot.status === 'fulfilled' && !!swot.value && (
           (swot.value.strengths?.length ?? 0) > 0 ||
@@ -67,9 +77,9 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
           if (stage.id === 'indicators' && hasKpis)  done = true
           completions[stage.id] = done
         }
-        setState({ loading: false, completions, artifactTypes })
+        setState({ loading: false, completions, artifactTypes, nonEmptyArtifactTypes })
       } catch {
-        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set() })
+        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
       }
     })()
     return () => { alive = false }

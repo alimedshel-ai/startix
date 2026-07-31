@@ -50,7 +50,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
   const specialty = user?.specialtyDeptType ?? null
 
-  const { loading: cLoading, completions, artifactTypes } = useJourneyCompletions(companyId)
+  const { loading: cLoading, completions, artifactTypes, nonEmptyArtifactTypes } = useJourneyCompletions(companyId)
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
   // بيانات الشركة **بالمعرّف المُمرَّر** لا من الـURL — فتُحسب خطّة التحليل ①
   // للعميل المعروض فعلاً على كل الأسطح (لا لشركة «أولى» عشوائيّة). يُشترط pro
@@ -124,7 +124,10 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   // داخليّ = artifact داخليّ أو تدقيق إدارة فعليّ (كلاهما يملأ القوّة/الضعف).
   const swotSourcesReady =
     INTERNAL_SWOT_BASES.some((b) => artifactSatisfies(artifactTypes, b)) || health.hasAudit
-  const externalSourceReady = EXTERNAL_SWOT_BASES.some((b) => artifactSatisfies(artifactTypes, b))
+  // خارجيّ (يملأ O/T): يجب أن يكون المصدر **مملوءاً** لا مجرّد محفوظ — فنستعمل
+  // المجموعة الواعية بالمحتوى. PESTEL محفوظ بلا عوامل ⇒ ليس جاهزاً ⇒ يُوجَّه العميل
+  // لإكمال المصدر بدل عرض SWOT بفرص/تهديدات فارغة. (103/126 يبقيان وجوديّين عمداً.)
+  const externalSourceReady = EXTERNAL_SWOT_BASES.some((b) => artifactSatisfies(nonEmptyArtifactTypes, b))
   const usesDiagnostic = specialty != null && !!MATURITY_BY_SPECIALTY[specialty]
   const r = getNextStep({
     isPro, activeCompanyId: companyId, completions, path, specialty,
