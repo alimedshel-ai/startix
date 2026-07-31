@@ -18,8 +18,12 @@ import { TasksView } from '@/pages/owner/TasksPage'
 
 type TabKey = 'projects' | 'gantt' | 'tasks'
 
-// في وضع الطوارئ نعرض فقط جانت (الخطوة ٤)
-const RESCUE_ALLOWED: TabKey[] = ['gantt']
+// وضع الطوارئ (A1 — قرار منتج معلن): كان يقصر التبويبات على «جانت» وحده
+// (['gantt']). نُضيف «المهام» — لأن رابط «مهامها» في GanttChartPage يرسل
+// أصلاً إلى المهام بـfrom=emergency، فالمهام مبلوغة في الأزمة لكن بلا طريق
+// رجوع مرئيّ لجانت. إظهار تبويبها يجعل جانت↔المهام قابلاً للتنقّل ذهاباً
+// وإياباً (متابعة المهام على خطّ الوقت). «المشاريع» يبقى مخفيّاً في الطوارئ.
+const RESCUE_ALLOWED: TabKey[] = ['gantt', 'tasks']
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: 'projects', icon: '📁', label: 'متابعة المبادرات' },
@@ -57,6 +61,18 @@ export function ExecuteHubPage() {
             onSwitch={switchTab}
             filterKeys={isRescueMode ? RESCUE_ALLOWED : null}
           />
+          {/* A1 — جسر المهام→جانت: من تبويب المهام، أفصح عن أن جانت يعرضها
+              على خطّ الوقت (كان الرجوع غامضاً، خصوصاً في الطوارئ). */}
+          {activeTab === 'tasks' && (
+            <button
+              type="button"
+              onClick={() => switchTab('gantt')}
+              className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-right text-sm transition hover:bg-primary/10"
+            >
+              <span>💡 شاهد هذه المهام على خطّ الوقت في «مخطّط جانت» — من متى إلى متى.</span>
+              <span className="shrink-0 font-medium text-primary">📅 افتح جانت ←</span>
+            </button>
+          )}
           <div>
             {activeTab === 'projects' && <ProjectsView companyId={companyId} />}
             {activeTab === 'gantt'    && <GanttChartView companyId={companyId} />}
