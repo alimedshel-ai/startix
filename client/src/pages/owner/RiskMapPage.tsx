@@ -472,6 +472,41 @@ function Editor({ companyId }: { companyId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* A2 — مفتاح شرح: يعرّف كل رقم في الاحتمال/الأثر وكيف يُختار (مطويّ). */}
+          <details className="mb-4 rounded-lg border bg-muted/30 p-3 text-xs">
+            <summary className="cursor-pointer font-semibold text-foreground">
+              ❓ كيف أختار الأرقام؟ — دليل الاحتمال والأثر
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 font-semibold text-foreground">🎲 الاحتمال — كم مرجّح خلال السنة؟</div>
+                <ul className="space-y-0.5 text-muted-foreground">
+                  <li><b>١ نادر</b> — أقلّ من ١٠٪ · لم يقع سابقاً</li>
+                  <li><b>٢ غير مرجّح</b> — ١٠–٣٠٪ · وقع مرّة</li>
+                  <li><b>٣ ممكن</b> — ٣٠–٥٠٪ · يقع أحياناً</li>
+                  <li><b>٤ مرجّح</b> — ٥٠–٨٠٪ · متكرّر</li>
+                  <li><b>٥ شبه مؤكّد</b> — أكثر من ٨٠٪ · يقع غالباً</li>
+                </ul>
+              </div>
+              <div>
+                <div className="mb-1 font-semibold text-foreground">💥 الأثر — لو وقع، كم يضرّ؟</div>
+                <ul className="space-y-0.5 text-muted-foreground">
+                  <li><b>١ ضئيل</b> — إزعاج طفيف · بلا أثر ماليّ يُذكر</li>
+                  <li><b>٢ طفيف</b> — محدود · يُحتوى بسهولة</li>
+                  <li><b>٣ متوسّط</b> — اضطراب ملحوظ · خسارة متوسّطة</li>
+                  <li><b>٤ كبير</b> — خسارة كبيرة · تعطّل مهمّ</li>
+                  <li><b>٥ كارثيّ</b> — يهدّد بقاء المنشأة</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-3 border-t pt-2 text-muted-foreground">
+              <b className="text-foreground">الدرجة = الاحتمال × الأثر (١–٢٥):</b>{' '}
+              🔴 ١٦+ حرج · 🟠 ١٠–١٥ عالٍ · 🟡 ٥–٩ متوسّط · 🟢 أقلّ من ٥ منخفض.
+              <div className="mt-1">
+                <b className="text-foreground">كيف تختار:</b> (١) كم مرّة يقع فعلاً؟ ← الاحتمال. (٢) لو وقع غداً، كم يكلّفك (مال · عملاء · سمعة · توقّف)؟ ← الأثر. اضرب الرقمين.
+              </div>
+            </div>
+          </details>
           <div className="grid grid-cols-[40px_repeat(5,minmax(0,1fr))] gap-1 text-xs">
             <div />
             {[5, 4, 3, 2, 1].map((p) => (
