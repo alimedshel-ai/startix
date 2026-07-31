@@ -113,6 +113,11 @@ export function HrQuantitativeSection({
     )
   }, [actuals, fin])
 
+  // ق٧ — توريث تحذير الراتب (ق٢) للمشتقّات: راتبٌ خارج النطاق يُنتج أثراً «صحيح
+  // الحساب عبثيّ المعنى». المشتقّات المبنيّة عليه (التسرّب · eNPS) تحمل التنبيه معها.
+  const salaryFlagged = fin.avgMonthlySalary != null &&
+    (fin.avgMonthlySalary > 50000 || (fin.avgMonthlySalary > 0 && fin.avgMonthlySalary < 1000))
+
   return (
     <Card className="border-2 border-sky-300 bg-sky-50/30" dir="rtl">
       <CardHeader>
@@ -151,10 +156,13 @@ export function HrQuantitativeSection({
             <p className="text-xs text-amber-800/80">أدخل عدد الموظفين + الراتب + الإيراد، وقيَم التسرب/الغياب/الشغور/eNPS/تكلفة HR أعلاه — ليُحسب الأثر بالريال.</p>
           ) : (
             <div className="flex flex-col gap-1 text-sm">
-              <ImpactRow label="توفير خفض التسرب للهدف" v={impact.turnover.annualImpactSAR} />
+              {salaryFlagged && (
+                <p className="mb-1 rounded bg-rose-100/70 px-2 py-1 text-xs font-medium text-rose-800">⚠️ المصدر (متوسّط الراتب) محلّ تنبيه أعلاه — المشتقّات المبنيّة عليه (التسرّب · eNPS) قد تكون منتفخة/منكمشة. صحّح الراتب ليصحّ الأثر.</p>
+              )}
+              <ImpactRow label={`توفير خفض التسرب للهدف${salaryFlagged ? ' ⚠️ مصدر محلّ تنبيه' : ''}`} v={impact.turnover.annualImpactSAR} />
               <ImpactRow label="توفير خفض الغياب للهدف" v={impact.absence.annualImpactSAR} />
               <ImpactRow label="توفير خفض الشغور للهدف" v={impact.vacancy.annualImpactSAR} />
-              <ImpactRow label="أثر رفع eNPS (مؤشّر مسبق — غير محسوب بالإجمالي)" v={impact.enps.annualImpactSAR} muted />
+              <ImpactRow label={`أثر رفع eNPS (مؤشّر مسبق — غير محسوب بالإجمالي)${salaryFlagged ? ' ⚠️' : ''}`} v={impact.enps.annualImpactSAR} muted />
               <ImpactRow label="توفير خفض تكلفة HR للهدف" v={impact.hrCost.annualImpactSAR} />
               <div className="mt-1 flex items-center justify-between border-t border-amber-300 pt-1 font-bold text-amber-900">
                 <span>إجمالي التوفير المحتمل / سنة</span>
