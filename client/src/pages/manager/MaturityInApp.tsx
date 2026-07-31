@@ -11,6 +11,7 @@ import { HrQuantitativeSection } from '@/components/maturity/HrQuantitativeSecti
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { apiErrorMessage } from '@/lib/api'
+import { ANALYSIS_TOOLS } from '@/lib/analysisPlan'
 import { computeOverall, computeResults, type MaturityAnswers, type MaturityConfig } from '@/lib/maturityEngine'
 import { createInitiative, getArtifact, listInitiatives, upsertArtifact } from '@/lib/strategicApi'
 
@@ -200,13 +201,23 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
 // الواحد (useGuidedNext): عميل مؤسّس → التوليف/SWOT ②؛ طوارئ → الإنقاذ.
 // توليد مبادرات الأضعف يبقى «مساراً سريعاً اختياريّاً» (البطاقة الخضراء
 // أعلاه)، لا «الخطوة التالية» — لذا أُزيل زرّاه المكرّران من هنا.
+// مسارات أدوات القياس ① — من مصدر المحرّك نفسه (ANALYSIS_TOOLS)، قراءة لا مُقرِّر ثانٍ.
+const MEASURE_PATHS = new Set(Object.values(ANALYSIS_TOOLS).map((t) => t.path).filter(Boolean))
+
 export function NextAfterDiagnostic({ companyId }: { companyId: string }) {
   const { loading, next } = useGuidedNext(companyId)
+  // العنوان ديناميكيّ: إن كانت وجهة «التالي» أداةَ قياس ① (أو تدقيقاً) فالقياس
+  // لم يكتمل → «تابِع»، لا «أنهيتَ» — يمنع «أنهيتَ ① ← أكمل PESTEL» المتناقض.
+  const dest = next?.to?.split('?')[0] ?? ''
+  const stillMeasuring = MEASURE_PATHS.has(dest) || dest.endsWith('/audit')
+  const title = stillMeasuring
+    ? '🧭 تابِع القياس ① — خطوتك التالية'
+    : '🧭 أنهيتَ القياس ① — الخطوة التالية في مسارك'
   return (
     <Card className="border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5">
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <div className="text-sm font-bold">🧭 أنهيتَ القياس ① — الخطوة التالية في مسارك</div>
+          <div className="text-sm font-bold">{title}</div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {loading
               ? 'نحسب خطوتك التالية…'
