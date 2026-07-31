@@ -28,13 +28,14 @@ export interface StageTask extends StageTaskDef {
 
 // الجدول الوحيد: كل مرحلة من الأربع بمهامها. تعديل التسلسل = صفّ هنا لا منطق.
 export const STAGE_TASKS: Record<ManagerStageKey, StageTaskDef[]> = {
+  // التسلسل داخل الإداريّ: تخصّص ← تدقيق ← نضج ← كمّي (كلٌّ يشترط سابقه).
   'admin-diagnosis': [
-    { id: 'dept-audit', labelAr: 'تدقيق الإدارة',  requires: ['hasSpecialty'] },
-    { id: 'maturity',   labelAr: 'تقييم النضج',    requires: ['hasSpecialty'] },
-  ],
-  'financial-diagnosis': [
+    { id: 'dept-audit',       labelAr: 'تدقيق الإدارة', requires: ['hasSpecialty'] },
+    { id: 'maturity',         labelAr: 'تقييم النضج',   requires: ['hasSpecialty', 'hasAudit'] },
     { id: 'quant-indicators', labelAr: 'التحليل الكمّي (المؤشرات + §د)', requires: ['hasMaturity'] },
   ],
+  // مرحلة استهلاك — لا مهامّ خاصّة بها؛ تُقرأ مخرجاتها من الإداريّ. قائمة فارغة موثَّقة.
+  'financial-diagnosis': [],
   'composite-analysis': [
     { id: 'synthesis-swot', labelAr: 'التوليف (SWOT)', requires: ['hasSwotSources'] },
   ],
