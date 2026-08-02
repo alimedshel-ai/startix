@@ -106,7 +106,9 @@ const registerSchema = z.object({
   password: z.string().min(8).max(128),
   name: z.string().min(1).max(120),
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
-  managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
+  // ق١: التسجيل الذاتيّ يقبل INDEPENDENT_PRO فقط. المدير الداخليّ (INTERNAL) يُضبَط
+  // حصراً عند قبول دعوة المالك (invitations.acceptInvitation) — لا من هنا.
+  managerType: z.enum(['INDEPENDENT_PRO']).optional(),
   // مطلوب فقط عندما userType=MANAGER و managerType=INDEPENDENT_PRO.
   // يفرضه الكونترولر أدناه (Zod لا يعبّر عن التبعية بين حقلين بسهولة).
   specialtyDeptType: z.enum(DEPT_TYPES).optional(),

@@ -38,6 +38,9 @@ const schema = z.object({
   password: z.string().min(8, 'كلمة المرور يجب ألا تقل عن ٨ أحرف').max(128),
   phone: z.string().max(40).optional().or(z.literal('')),
   userType: z.enum(['OWNER', 'MANAGER', 'INVESTOR']),
+  // ق١: الإنفاذ على الخادم (auth.ts يرفض INTERNAL ذاتيّاً) + الواجهة لا تعرض راديو
+  // INTERNAL. يبقى النوع هنا واسعاً لأنّ النموذج يُبنى من selectedManagerType العامّ
+  // (ManagerType) فيتفادى تضييقُه كسر النوع (تُضبَط INTERNAL عبر الدعوة لا هنا).
   managerType: z.enum(['INTERNAL', 'INDEPENDENT_PRO']).optional(),
   specialtyDeptType: z.enum(SPECIALTY_OPTIONS.map((o) => o.value) as [SpecialtyDeptType, ...SpecialtyDeptType[]]).optional(),
   // PRO-1 — أوّل عميل يخدمه المدير المستقل: اسم (إلزامي) + قطاع + حجم.
@@ -223,7 +226,7 @@ export function JoinPage() {
   const managerSubchoiceLocked =
     userType === 'MANAGER' &&
     selectedManagerType != null &&
-    (selectedManagerType === 'INTERNAL' || selectedSpecialty != null)
+    selectedSpecialty != null
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
@@ -309,14 +312,7 @@ export function JoinPage() {
             {userType === 'MANAGER' && !managerSubchoiceLocked && (
               <div className="grid gap-2 rounded-xl border bg-muted/30 p-3">
                 <Label>نوع المدير</Label>
-                <div className="grid gap-1 sm:grid-cols-2">
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-card p-2 text-sm hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                    <input type="radio" value="INTERNAL" {...register('managerType')} />
-                    <span>
-                      <span className="block font-medium">داخلي</span>
-                      <span className="text-xs text-muted-foreground">مدير داخل شركة واحدة</span>
-                    </span>
-                  </label>
+                <div className="grid gap-1">
                   <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-card p-2 text-sm hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
                     <input type="radio" value="INDEPENDENT_PRO" {...register('managerType')} />
                     <span>

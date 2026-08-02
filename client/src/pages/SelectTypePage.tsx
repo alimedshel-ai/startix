@@ -5,7 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
 import { useAuthStore } from '@/store/authStore'
-import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
+import type { SpecialtyDeptType, UserType } from '@/types/user'
 
 const OPTIONS: { type: UserType; title: string; blurb: string; icon: string }[] = [
   {
@@ -52,7 +52,6 @@ export function SelectTypePage() {
   const setSelectedType = useAuthStore((s) => s.setSelectedType)
   const setSelectedManagerType = useAuthStore((s) => s.setSelectedManagerType)
   const setSelectedSpecialty = useAuthStore((s) => s.setSelectedSpecialty)
-  const storedManagerType = useAuthStore((s) => s.selectedManagerType)
   const storedSpecialty = useAuthStore((s) => s.selectedSpecialty)
   const [params] = useSearchParams()
 
@@ -70,7 +69,7 @@ export function SelectTypePage() {
   // خطوات هذه الشاشة: role → managerType (إن كان MANAGER) → specialty (إن
   // كان INDEPENDENT_PRO). نستعمل حالة محلية بدلاً من الاعتماد على الـ store
   // لأنها لحظية — نلتزم بها في الـ store فقط عند الضغط على "متابعة".
-  const [step, setStep] = useState<'role' | 'managerType' | 'specialty'>('role')
+  const [step, setStep] = useState<'role' | 'specialty'>('role')
 
   // لو الزائر جاي من /diagnostic/try ومعه ?role=OWNER|MANAGER|INVESTOR،
   // نتصرّف حسب ما تمّ التقاطه سابقاً:
@@ -87,37 +86,28 @@ export function SelectTypePage() {
     }
     if (r === 'MANAGER') {
       setSelectedType(r)
-      const managerReady =
-        storedManagerType === 'INTERNAL' ||
-        (storedManagerType === 'INDEPENDENT_PRO' && storedSpecialty != null)
-      if (managerReady) {
+      // ق١: المدير الذاتيّ = مستقلّ حصراً (الداخليّ دعوةً من المالك فقط، يُضبَط
+      // managerType عند قبول الدعوة لا هنا). لا خطوة اختيار نوع.
+      setSelectedManagerType('INDEPENDENT_PRO')
+      if (storedSpecialty != null) {
         navigate('/join', { replace: true })
         return
       }
-      setStep('managerType')
+      setStep('specialty')
     }
-  }, [params, navigate, setSelectedType, storedManagerType, storedSpecialty])
+  }, [params, navigate, setSelectedType, setSelectedManagerType, storedSpecialty])
 
   const chooseRole = (type: UserType) => {
     if (type === 'MANAGER') {
-      // ننتقل لخطوة فرعية بدل الذهاب مباشرة إلى /join.
+      // ق١: المدير الذاتيّ مستقلٌّ حصراً — لا خطوة اختيار نوع (الداخليّ دعوةً من
+      // المالك فقط). نضبط النوع مباشرة وننتقل للتخصّص.
       setSelectedType('MANAGER')
-      setStep('managerType')
+      setSelectedManagerType('INDEPENDENT_PRO')
+      setStep('specialty')
       return
     }
     setSelectedType(type)
     navigate('/join')
-  }
-
-  const chooseManagerType = (t: ManagerType) => {
-    setSelectedManagerType(t)
-    if (t === 'INTERNAL') {
-      // الداخلي لا يحتاج تخصّصاً — يتم توجيهه للتسجيل مباشرة.
-      setSelectedSpecialty(null)
-      navigate('/join')
-      return
-    }
-    setStep('specialty')
   }
 
   const chooseSpecialty = (s: SpecialtyDeptType) => {
@@ -129,10 +119,6 @@ export function SelectTypePage() {
 
   const back = () => {
     if (step === 'specialty') {
-      setStep('managerType')
-      return
-    }
-    if (step === 'managerType') {
       setStep('role')
       return
     }
@@ -152,12 +138,10 @@ export function SelectTypePage() {
         )}
         <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
           {step === 'role' && 'كيف ستستخدم ستارتكس؟'}
-          {step === 'managerType' && 'أيّ نوع من المدراء أنت؟'}
           {step === 'specialty' && 'ما هو تخصّصك؟'}
         </h1>
         <p className="mt-3 text-muted-foreground">
           {step === 'role' && 'اختر الدور الذي يناسبك — تقدر تغيّره لاحقاً.'}
-          {step === 'managerType' && 'المدير الداخلي يعمل في شركة واحدة. المدير المستقل يخدم عملاء متعدّدين بتخصّص واحد.'}
           {step === 'specialty' && 'اختر الإدارة التي تشرف عليها لدى عملائك — ستُستخدم لتخصيص التشخيص وتصفية لوحاتك.'}
         </p>
       </div>
@@ -179,41 +163,6 @@ export function SelectTypePage() {
               </CardFooter>
             </Card>
           ))}
-        </div>
-      )}
-
-      {step === 'managerType' && (
-        <div className="grid w-full gap-4 md:grid-cols-2">
-          <Card className="group flex flex-col transition hover:-translate-y-1 hover:shadow-md">
-            <CardHeader>
-              <div className="mb-2 text-3xl">🏢</div>
-              <CardTitle className="text-lg">مدير داخلي</CardTitle>
-              <CardDescription className="leading-relaxed">
-                تعمل داخل شركة واحدة، وتشرف على إدارة أو أكثر من إداراتها.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1" />
-            <CardFooter>
-              <Button className="w-full" onClick={() => chooseManagerType('INTERNAL')}>
-                متابعة كمدير داخلي
-              </Button>
-            </CardFooter>
-          </Card>
-          <Card className="group flex flex-col border-primary/50 transition hover:-translate-y-1 hover:shadow-md">
-            <CardHeader>
-              <div className="mb-2 text-3xl">🤝</div>
-              <CardTitle className="text-lg">مدير مستقل</CardTitle>
-              <CardDescription className="leading-relaxed">
-                خبير في تخصّص واحد (HR، مالية، تسويق…) تخدم عدّة عملاء بنفس التخصّص.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1" />
-            <CardFooter>
-              <Button className="w-full" onClick={() => chooseManagerType('INDEPENDENT_PRO')}>
-                متابعة كمدير مستقل
-              </Button>
-            </CardFooter>
-          </Card>
         </div>
       )}
 

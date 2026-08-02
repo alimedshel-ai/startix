@@ -147,6 +147,15 @@ export const acceptInvitation: RequestHandler = async (req, res, next) => {
           },
         });
       }
+      // ق١+ق٣: الدعوة هي مصدر المدير الداخليّ (لا التسجيل الذاتيّ). قبول دور
+      // «manager» يضبط managerType=INTERNAL فيرث سياق شركة المالك (companyId عبر
+      // CompanyUser) وتُطلَق شارة fromOwner (goalSource.ts). لا يدهس المستقلّ.
+      if (invitation.role === 'manager' && user.managerType !== 'INDEPENDENT_PRO') {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { managerType: 'INTERNAL' },
+        });
+      }
       await tx.invitation.update({
         where: { id: invitation.id },
         data: { status: 'accepted' },
