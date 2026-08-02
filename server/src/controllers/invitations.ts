@@ -108,22 +108,23 @@ export const listCompanyInvitations: RequestHandler = async (req, res, next) => 
   }
 };
 
-// ─── نقيّة: نوع المدير بعد قبول دعوة — تفصل قرار الهويّة عن كتابة prisma ──────
-// ق١+ق٣: دور «manager» يجعل مديرَ الشركة داخليّاً (INTERNAL) فيرث سياق شركة المالك
-// (companyId عبر CompanyUser) وتُطلَق شارة fromOwner (goalSource.ts:17). الحرّاس:
-//   • دور غير «manager» → لا تغيير.
-//   • userType ≠ MANAGER → لا تغيير (تفادي تركيبة OWNER/INVESTOR + INTERNAL غير
-//     المتّسقة — managerType لا معنى له إلا لمدير).
-//   • INDEPENDENT_PRO → لا يُدهَس (يبقى مستقلّاً).
-// تُرجِع managerType الجديد، أو null = «لا تغيير».
-export function managerTypeAfterAccept(
-  invitationRole: string,
+// ─── نقيّة: رقعة هويّة المستخدم بعد قبول دعوة — تفصل القرار عن كتابة prisma ────
+// ق١+ق٣: الدعوة **تمنح** الدور الداخليّ ولا **تعيد كتابة** هويّةٍ قائمة. الدلالات
+// الأربع بالترتيب (قرار المالك ٢٠٢٦-٠٨-٠٣):
+//   ١) role ≠ 'manager'      → لا كتابة.
+//   ٢) userType = 'OWNER'    → لا كتابة (العضويّة عبر CompanyUser تكفي؛ تركيبة
+//                              OWNER+INTERNAL **ممنوعة** — مقصود ومُوثَّق).
+//   ٣) managerType ≠ null    → لا كتابة (لا يُدهَس المستقلّ ولا مُرقّىً سابقاً).
+//   ٤) غير ذلك               → { userType: 'MANAGER', managerType: 'INTERNAL' }.
+// تُرجِع رقعة الهويّة، أو null = «لا كتابة». فتُطلَق شارة fromOwner (goalSource.ts:17).
+export function inviteIdentityPatch(
   user: { userType: string; managerType: string | null },
-): 'INTERNAL' | null {
-  if (invitationRole !== 'manager') return null;
-  if (user.userType !== 'MANAGER') return null;
-  if (user.managerType === 'INDEPENDENT_PRO') return null;
-  return 'INTERNAL';
+  role: string,
+): { userType: 'MANAGER'; managerType: 'INTERNAL' } | null {
+  if (role !== 'manager') return null;
+  if (user.userType === 'OWNER') return null;
+  if (user.managerType !== null) return null;
+  return { userType: 'MANAGER', managerType: 'INTERNAL' };
 }
 
 // ─── POST /api/invitations/:token/accept ───────────────────────────────────
@@ -165,14 +166,11 @@ export const acceptInvitation: RequestHandler = async (req, res, next) => {
           },
         });
       }
-      // ق١+ق٣: الدعوة هي مصدر المدير الداخليّ (لا التسجيل الذاتيّ). القرار نقيّ
-      // في managerTypeAfterAccept (مُختبَر معزولاً) — هنا الكتابة فقط.
-      const nextManagerType = managerTypeAfterAccept(invitation.role, user);
-      if (nextManagerType) {
-        await tx.user.update({
-          where: { id: user.id },
-          data: { managerType: nextManagerType },
-        });
+      // ق١+ق٣: الدعوة مصدر المدير الداخليّ (لا التسجيل الذاتيّ). القرار نقيّ في
+      // inviteIdentityPatch (مُختبَر معزولاً) — هنا الكتابة فقط.
+      const patch = inviteIdentityPatch(user, invitation.role);
+      if (patch) {
+        await tx.user.update({ where: { id: user.id }, data: patch });
       }
       await tx.invitation.update({
         where: { id: invitation.id },
