@@ -40,11 +40,10 @@ const CASES: Case[] = [
   { desc: 'MANAGER(null) + owner → null',
     role: 'owner', user: { userType: 'MANAGER', managerType: null }, expect: null },
 
-  // ⚠️ توتّر مكشوف: الجدول (يُرقّي كلّ غير-OWNER) يُنتج رقعةً لمستثمرٍ بلا managerType،
-  // أي يُعيد كتابة هويّة INVESTOR قائمة — وهو ما يوتّر مع مبدأ «لا تعيد كتابة هويّة».
-  // القيمة مُنتَجة صراحةً هنا ليراها المالك ويقرّ إبقاءها أو إضافة حارس INVESTOR.
-  { desc: 'INVESTOR(null) + manager → patch (⚠️ يُرقّي المستثمر — توتّر مع المبدأ)',
-    role: 'manager', user: { userType: 'INVESTOR', managerType: null }, expect: PATCH },
+  // D-٣ محسوم (قرار المالك): حارس INVESTOR مُضاف — أيّ هويّة قائمة (userType ≠ MANAGER)
+  // محروسة، فلا يُعاد كتابتها. المستثمر لا يُرقّى إلى مدير داخليّ.
+  { desc: 'INVESTOR(null) + manager → null (D-٣: هويّة قائمة محروسة)',
+    role: 'manager', user: { userType: 'INVESTOR', managerType: null }, expect: null },
 ];
 
 for (const c of CASES) {
@@ -53,10 +52,12 @@ for (const c of CASES) {
   assert.deepStrictEqual(got, c.expect, `فشل: ${c.desc}`);
 }
 
-// تأكيد صريح للحافّة: لا مسارٍ يُنتج OWNER+INTERNAL (بأيّ دور دعوة).
-const ownerCombos = ['owner', 'manager', 'member'].map((r) =>
-  inviteIdentityPatch({ userType: 'OWNER', managerType: null }, r),
-);
-assert.ok(ownerCombos.every((v) => v === null), 'حافّة: OWNER لا يصير INTERNAL بأيّ دور دعوة');
+// تأكيد صريح: لا هويّة قائمة (OWNER/INVESTOR) تُعاد كتابتها بأيّ دور دعوة (D-٣).
+for (const ut of ['OWNER', 'INVESTOR']) {
+  const combos = ['owner', 'manager', 'member'].map((r) =>
+    inviteIdentityPatch({ userType: ut, managerType: null }, r),
+  );
+  assert.ok(combos.every((v) => v === null), `هويّة قائمة (${ut}) لا تُعاد كتابتها بأيّ دور`);
+}
 
-console.log(`✔ inviteIdentityPatch: ${CASES.length} حالة — الرقعة النقيّة صحيحة (الحافّة OWNER محروسة؛ توتّر INVESTOR مكشوف)`);
+console.log(`✔ inviteIdentityPatch: ${CASES.length} حالة — الرقعة النقيّة صحيحة (كلّ هويّة قائمة محروسة؛ D-٣ محسوم)`);

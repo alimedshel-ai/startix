@@ -112,17 +112,20 @@ export const listCompanyInvitations: RequestHandler = async (req, res, next) => 
 // ق١+ق٣: الدعوة **تمنح** الدور الداخليّ ولا **تعيد كتابة** هويّةٍ قائمة. الدلالات
 // الأربع بالترتيب (قرار المالك ٢٠٢٦-٠٨-٠٣):
 //   ١) role ≠ 'manager'      → لا كتابة.
-//   ٢) userType = 'OWNER'    → لا كتابة (العضويّة عبر CompanyUser تكفي؛ تركيبة
-//                              OWNER+INTERNAL **ممنوعة** — مقصود ومُوثَّق).
+//   ٢) userType ≠ 'MANAGER'  → لا كتابة (أيّ هويّة قائمة — OWNER أو INVESTOR — لا
+//                              تُعاد كتابتها؛ العضويّة عبر CompanyUser تكفي. يُطابق
+//                              مبدأ «الدعوة تمنح ولا تعيد كتابة هويّة قائمة» — قرار D-٣).
 //   ٣) managerType ≠ null    → لا كتابة (لا يُدهَس المستقلّ ولا مُرقّىً سابقاً).
-//   ٤) غير ذلك               → { userType: 'MANAGER', managerType: 'INTERNAL' }.
+//   ٤) غير ذلك (MANAGER+null) → { userType: 'MANAGER', managerType: 'INTERNAL' }.
 // تُرجِع رقعة الهويّة، أو null = «لا كتابة». فتُطلَق شارة fromOwner (goalSource.ts:17).
+// ملاحظة: بعد حارس ٢ يُطلَق الوصل فقط لـMANAGER+null — نائمٌ حتى يُحسَم مسار تسجيل
+// المدعوّ (ROADMAP#18 / D-٢): لا مسار قائم يُنشئ MANAGER بلا managerType.
 export function inviteIdentityPatch(
   user: { userType: string; managerType: string | null },
   role: string,
 ): { userType: 'MANAGER'; managerType: 'INTERNAL' } | null {
   if (role !== 'manager') return null;
-  if (user.userType === 'OWNER') return null;
+  if (user.userType !== 'MANAGER') return null;
   if (user.managerType !== null) return null;
   return { userType: 'MANAGER', managerType: 'INTERNAL' };
 }
