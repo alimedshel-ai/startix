@@ -108,6 +108,24 @@ export const listCompanyInvitations: RequestHandler = async (req, res, next) => 
   }
 };
 
+// ─── نقيّة: نوع المدير بعد قبول دعوة — تفصل قرار الهويّة عن كتابة prisma ──────
+// ق١+ق٣: دور «manager» يجعل مديرَ الشركة داخليّاً (INTERNAL) فيرث سياق شركة المالك
+// (companyId عبر CompanyUser) وتُطلَق شارة fromOwner (goalSource.ts:17). الحرّاس:
+//   • دور غير «manager» → لا تغيير.
+//   • userType ≠ MANAGER → لا تغيير (تفادي تركيبة OWNER/INVESTOR + INTERNAL غير
+//     المتّسقة — managerType لا معنى له إلا لمدير).
+//   • INDEPENDENT_PRO → لا يُدهَس (يبقى مستقلّاً).
+// تُرجِع managerType الجديد، أو null = «لا تغيير».
+export function managerTypeAfterAccept(
+  invitationRole: string,
+  user: { userType: string; managerType: string | null },
+): 'INTERNAL' | null {
+  if (invitationRole !== 'manager') return null;
+  if (user.userType !== 'MANAGER') return null;
+  if (user.managerType === 'INDEPENDENT_PRO') return null;
+  return 'INTERNAL';
+}
+
 // ─── POST /api/invitations/:token/accept ───────────────────────────────────
 export const acceptInvitation: RequestHandler = async (req, res, next) => {
   try {
@@ -147,13 +165,13 @@ export const acceptInvitation: RequestHandler = async (req, res, next) => {
           },
         });
       }
-      // ق١+ق٣: الدعوة هي مصدر المدير الداخليّ (لا التسجيل الذاتيّ). قبول دور
-      // «manager» يضبط managerType=INTERNAL فيرث سياق شركة المالك (companyId عبر
-      // CompanyUser) وتُطلَق شارة fromOwner (goalSource.ts). لا يدهس المستقلّ.
-      if (invitation.role === 'manager' && user.managerType !== 'INDEPENDENT_PRO') {
+      // ق١+ق٣: الدعوة هي مصدر المدير الداخليّ (لا التسجيل الذاتيّ). القرار نقيّ
+      // في managerTypeAfterAccept (مُختبَر معزولاً) — هنا الكتابة فقط.
+      const nextManagerType = managerTypeAfterAccept(invitation.role, user);
+      if (nextManagerType) {
         await tx.user.update({
           where: { id: user.id },
-          data: { managerType: 'INTERNAL' },
+          data: { managerType: nextManagerType },
         });
       }
       await tx.invitation.update({
