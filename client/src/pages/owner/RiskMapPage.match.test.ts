@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findRiskTemplate, matchRiskTemplate, deptMitigationPool, riskSuggestion } from './riskTemplates'
+import { findRiskTemplate, matchRiskTemplate, deptMitigationPool, riskSuggestion, riskNameFromTaskTitle } from './riskTemplates'
 
 // شرط القبول: مخاطر محفوظة اسمها يبدأ بـ«[تشخيص]» يجب أن تُطابق قوالب HR بعد
 // إصلاح المطابقة (تجاهُل البادئة + تطبيع + إزالة واو الوصل + تقاطع كلمات).
@@ -84,6 +84,27 @@ describe('riskSuggestion — اقتراح موحَّد (بيانات العمي�
   })
   it('عبر الأقسام: خطر توريد يُرجِع اقتراحاً ولو كان المدير HR', () => {
     expect(riskSuggestion('انقطاع سلسلة التوريد', 'HR')).toBeDefined()
+  })
+})
+
+// مهامّ «معالجة: <خطر>»: المهامّ الفرعيّة = تخفيفات الخطر (لا القالب العامّ المكرّر).
+describe('riskNameFromTaskTitle + subtasks — اشتقاق فرعيّات المعالجة', () => {
+  it('يستخرج اسم الخطر من عنوان المعالجة (مع/بلا 🔧)', () => {
+    expect(riskNameFromTaskTitle('🔧 معالجة: عمليات غير مؤتمتة (اعتماد يدوي مفرط)'))
+      .toBe('عمليات غير مؤتمتة (اعتماد يدوي مفرط)')
+    expect(riskNameFromTaskTitle('معالجة: نقص البيانات لاتخاذ القرار')).toBe('نقص البيانات لاتخاذ القرار')
+  })
+  it('مهمّة عاديّة (لا بادئة معالجة) → null (تبقى للمولّد العامّ)', () => {
+    expect(riskNameFromTaskTitle('تجهيز التقرير الشهريّ')).toBeNull()
+  })
+  it('فرعيّات المعالجة محدّدة بالخطر لا مكرّرة: كلّ خطر يعطي تخفيفاته الثلاثة', () => {
+    const a = riskSuggestion(riskNameFromTaskTitle('🔧 معالجة: عمليات غير مؤتمتة (اعتماد يدوي مفرط)')!, 'HR')!.mitigations
+    const b = riskSuggestion(riskNameFromTaskTitle('🔧 معالجة: قيود مالية (ميزانية محدودة أو تكاليف مرتفعة)')!, 'HR')!.mitigations
+    expect(a).toHaveLength(3)
+    expect(b).toHaveLength(3)
+    expect(a).not.toEqual(b) // ليست «نفس المقترح»
+    // «قيود مالية» لا تُنتج «الدفع للمورّد» (عطل المولّد العامّ)
+    expect(b.join(' ')).not.toContain('الدفع للمورّد')
   })
 })
 

@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { aiInitiativeBreakdown } from '@/lib/aiApi'
 import { apiErrorMessage } from '@/lib/api'
 import { createTask, deleteTask, getArtifact, listInitiatives, listProjects, listTasks, updateTask, type Initiative, type Project, type Task } from '@/lib/strategicApi'
+import { useAuthStore } from '@/store/authStore'
+import { riskSuggestion, riskNameFromTaskTitle } from './riskTemplates'
 
 // عمليّات المهام الفرعية المُمرَّرة لكل صفّ (إضافة يدويّة · اقتراح · تحديث · حذف).
 type SubOps = {
@@ -99,6 +101,7 @@ export function TasksView({ companyId }: { companyId: string }) {
 
 function Editor({ companyId }: { companyId: string }) {
   const [searchParams] = useSearchParams()
+  const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
   const isRescueMode = searchParams.get('from') === 'emergency'
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -182,14 +185,27 @@ function Editor({ companyId }: { companyId: string }) {
         patchSubs(parent.id, [...(parent.subtasks ?? []), sub])
       } catch (err) { toast.error(apiErrorMessage(err, 'فشل إضافة المهمة الفرعية')) }
     },
-    // الاقتراح: يتراجع حتميّاً بلا مفتاح Claude (قالب)، ويصير ذكيّاً معه — مصدر واحد.
+    // الاقتراح: مهامّ «معالجة: <خطر>» تُشتقّ من كتالوج التخفيف (إجراءات محدّدة لكلّ
+    // خطر، بلا مفتاح) — لا مولّد المبادرات العامّ الذي يفترض مشروع شراء/تركيب فيكرّر
+    // «حدّد المتطلّبات + عرّف مسؤول التشغيل» لأيّ خطر. غير ذلك: المولّد كما هو.
     async suggest(parent) {
       try {
-        const bd = await aiInitiativeBreakdown({ companyId, title: parent.title, description: parent.description ?? undefined })
+        const riskName = riskNameFromTaskTitle(parent.title)
+        const sug = riskName ? riskSuggestion(riskName, specialty) : undefined
+        let titles: string[]
+        let sourceLabel: string
+        if (sug) {
+          titles = sug.mitigations
+          sourceLabel = '(من كتالوج المعالجة)'
+        } else {
+          const bd = await aiInitiativeBreakdown({ companyId, title: parent.title, description: parent.description ?? undefined })
+          titles = bd.subTasks.slice(0, 8).map((s) => s.title)
+          sourceLabel = bd.heuristic ? '(قالب تقديريّ)' : '(بالذكاء)'
+        }
         const existing = new Set((parent.subtasks ?? []).map((s) => s.title.trim()))
         const created: Task[] = []
-        for (const st of bd.subTasks.slice(0, 8)) {
-          const clean = st.title.trim()
+        for (const t of titles) {
+          const clean = t.trim()
           if (!clean || existing.has(clean)) continue
           try {
             const sub = await createTask({ companyId, title: clean, parentTaskId: parent.id, priority: parent.priority })
@@ -198,7 +214,7 @@ function Editor({ companyId }: { companyId: string }) {
         }
         if (created.length === 0) { toast.message('لا مهام فرعية جديدة تُقترَح.'); return }
         patchSubs(parent.id, [...(parent.subtasks ?? []), ...created])
-        toast.success(`أُضيفت ${created.length} مهمة فرعية ${bd.heuristic ? '(قالب تقديريّ)' : '(بالذكاء)'}.`)
+        toast.success(`أُضيفت ${created.length} مهمة فرعية ${sourceLabel}.`)
       } catch (err) { toast.error(apiErrorMessage(err, 'تعذّر الاقتراح')) }
     },
     async update(parent, sub, patch) {

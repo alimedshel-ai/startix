@@ -205,3 +205,11 @@ export function riskSuggestion(name: string, specialty: DeptCode | null):
   if (t) return { probability: t.probability, impact: t.impact, mitigations: t.mitigations }
   return undefined
 }
+
+// اسم الخطر من عنوان مهمّة معالجة «🔧 معالجة: <الخطر>» — وإلّا null (مهمّة عاديّة).
+// المهامّ الفرعيّة لهذه تُشتقّ من كتالوج التخفيف (riskSuggestion) لا مولّد المبادرات
+// العامّ الذي يفترض مشروع شراء/تركيب فيكرّر «حدّد المتطلّبات + مسؤول التشغيل».
+export function riskNameFromTaskTitle(title: string): string | null {
+  const m = title.match(/^\s*(?:🔧\s*)?معالجة\s*[:：]\s*(.+)$/)
+  return m ? m[1].trim() : null
+}
