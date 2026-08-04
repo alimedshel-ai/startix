@@ -389,6 +389,8 @@ const taskCreate = z.object({
   companyId: z.string().uuid(),
   projectId: z.string().uuid().optional(),
   assigneeId: z.string().uuid().optional(),
+  // مهمة فرعية: معرّف الأب (اختياريّ). null/غياب = مهمة رئيسيّة.
+  parentTaskId: z.string().uuid().nullish(),
   // الجهة المنفّذة (نصّ حرّ) — nullable ليُمكن مسحها في التحديث.
   owner: z.string().max(120).nullish(),
   title: z.string().min(1).max(200),
@@ -407,7 +409,13 @@ export const listTasks: RequestHandler = async (req, res, next) => {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const companyId = paramOf(req, 'companyId');
     await assertCompanyAccess(req.auth.sub, companyId);
-    const rows = await prisma.task.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } });
+    // نُرجِع المهام الرئيسيّة فقط (parentTaskId=null) مع فروعها مضمَّنةً — فلا تظهر
+    // الفروع مرّتين (رئيسيّةً وفرعيّة). الفروع بترتيب إنشائها.
+    const rows = await prisma.task.findMany({
+      where: { companyId, parentTaskId: null },
+      orderBy: { createdAt: 'desc' },
+      include: { subtasks: { orderBy: { createdAt: 'asc' } } },
+    });
     res.json(rows);
   } catch (err) { next(err); }
 };

@@ -403,14 +403,19 @@ model Task {
   dueDate     DateTime?
   completedAt DateTime?
   createdAt   DateTime   @default(now())
+  // مهمة فرعية: أبٌ اختياريّ (علاقة ذاتيّة). null = مهمة رئيسيّة. حذف الأب يحذف فروعه.
+  parentTaskId String?
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignee User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  parent   Task?    @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks Task[]   @relation("TaskSubtasks")
 
   @@index([companyId])
   @@index([projectId])
   @@index([assigneeId])
+  @@index([parentTaskId])
 }
 
 // ─── Group G: Compliance Audit ───────────────────────────────────────────────

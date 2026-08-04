@@ -386,6 +386,10 @@ export interface Task {
   dueDate?: string | null
   completedAt?: string | null
   createdAt: string
+  /** مهمة فرعية: معرّف الأب (null = رئيسيّة). */
+  parentTaskId?: string | null
+  /** الفروع المضمَّنة (تأتي من listTasks للمهام الرئيسيّة فقط). */
+  subtasks?: Task[]
 }
 
 export async function listInitiatives(companyId: string): Promise<Initiative[]> {

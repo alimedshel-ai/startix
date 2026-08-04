@@ -6,8 +6,17 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { aiInitiativeBreakdown } from '@/lib/aiApi'
 import { apiErrorMessage } from '@/lib/api'
 import { createTask, deleteTask, getArtifact, listInitiatives, listProjects, listTasks, updateTask, type Initiative, type Project, type Task } from '@/lib/strategicApi'
+
+// عمليّات المهام الفرعية المُمرَّرة لكل صفّ (إضافة يدويّة · اقتراح · تحديث · حذف).
+type SubOps = {
+  add: (parent: Task, title: string) => Promise<void>
+  suggest: (parent: Task) => Promise<void>
+  update: (parent: Task, sub: Task, patch: Partial<Task>) => void
+  remove: (parent: Task, sub: Task) => void
+}
 
 const STATUS = [
   ['todo',        'للقيام',     'border-slate-300 bg-slate-50/60',     'bg-slate-500'],
@@ -156,6 +165,54 @@ function Editor({ companyId }: { companyId: string }) {
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل التحديث'))
     }
+  }
+
+  // ─── مهام فرعية ──────────────────────────────────────────────────
+  // تُخزَّن مضمَّنةً في task.subtasks (من listTasks للآباء فقط). كل عمليّة
+  // تُحدّث مصفوفة فروع الأب في الحالة.
+  function patchSubs(parentId: string, subs: Task[]) {
+    setTasks((p) => p.map((x) => (x.id === parentId ? { ...x, subtasks: subs } : x)))
+  }
+  const subOps: SubOps = {
+    async add(parent, title) {
+      const clean = title.trim()
+      if (!clean) return
+      try {
+        const sub = await createTask({ companyId, title: clean, parentTaskId: parent.id, priority: parent.priority })
+        patchSubs(parent.id, [...(parent.subtasks ?? []), sub])
+      } catch (err) { toast.error(apiErrorMessage(err, 'فشل إضافة المهمة الفرعية')) }
+    },
+    // الاقتراح: يتراجع حتميّاً بلا مفتاح Claude (قالب)، ويصير ذكيّاً معه — مصدر واحد.
+    async suggest(parent) {
+      try {
+        const bd = await aiInitiativeBreakdown({ companyId, title: parent.title, description: parent.description ?? undefined })
+        const existing = new Set((parent.subtasks ?? []).map((s) => s.title.trim()))
+        const created: Task[] = []
+        for (const st of bd.subTasks.slice(0, 8)) {
+          const clean = st.title.trim()
+          if (!clean || existing.has(clean)) continue
+          try {
+            const sub = await createTask({ companyId, title: clean, parentTaskId: parent.id, priority: parent.priority })
+            created.push(sub); existing.add(clean)
+          } catch { /* skip واحدة */ }
+        }
+        if (created.length === 0) { toast.message('لا مهام فرعية جديدة تُقترَح.'); return }
+        patchSubs(parent.id, [...(parent.subtasks ?? []), ...created])
+        toast.success(`أُضيفت ${created.length} مهمة فرعية ${bd.heuristic ? '(قالب تقديريّ)' : '(بالذكاء)'}.`)
+      } catch (err) { toast.error(apiErrorMessage(err, 'تعذّر الاقتراح')) }
+    },
+    async update(parent, sub, patch) {
+      try {
+        const updated = await updateTask(sub.id, patch)
+        patchSubs(parent.id, (parent.subtasks ?? []).map((s) => (s.id === sub.id ? { ...s, ...updated } : s)))
+      } catch (err) { toast.error(apiErrorMessage(err, 'فشل تحديث المهمة الفرعية')) }
+    },
+    async remove(parent, sub) {
+      try {
+        await deleteTask(sub.id)
+        patchSubs(parent.id, (parent.subtasks ?? []).filter((s) => s.id !== sub.id))
+      } catch (err) { toast.error(apiErrorMessage(err, 'فشل الحذف')) }
+    },
   }
 
   // 🚨 توليد مهام إنقاذ من أيزنهاور — يقرأ «افعل الآن» + «جدولها»
@@ -561,7 +618,7 @@ function Editor({ companyId }: { companyId: string }) {
                     <p className="mb-2 text-[11px] text-muted-foreground">{hint}</p>
                     <ul className="space-y-2">
                       {items.map((t) => (
-                        <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} />
+                        <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} subOps={subOps} />
                       ))}
                       {items.length === 0 && (
                         <li className="rounded-md border border-dashed bg-card/50 p-2 text-center text-[11px] text-muted-foreground">لا مهام هنا</li>
@@ -574,7 +631,7 @@ function Editor({ companyId }: { companyId: string }) {
           ) : (
             <ul className="space-y-2">
               {filtered.map((t) => (
-                <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} />
+                <TaskRow key={t.id} t={t} projects={projects} onUpdate={update} onRemove={remove} subOps={subOps} />
               ))}
               {!loading && filtered.length === 0 && (
                 <li className="rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
@@ -590,49 +647,127 @@ function Editor({ companyId }: { companyId: string }) {
 }
 
 // ─── صفّ مهمّة واحد — مُشترَك بين عرضَي «القائمة» و«الأرباع» ──────────
-function TaskRow({ t, projects, onUpdate, onRemove }: {
+function TaskRow({ t, projects, onUpdate, onRemove, subOps }: {
   t: Task
   projects: Project[]
   onUpdate: (t: Task, patch: Partial<Task>) => void
   onRemove: (t: Task) => void
+  subOps: SubOps
 }) {
   const meta = sMeta(t.status)
   const overdue = isOverdue(t)
+  const subs = t.subtasks ?? []
+  const doneCount = subs.filter((s) => s.status === 'done').length
+  const [open, setOpen] = useState(subs.length > 0)
+  const [newSub, setNewSub] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function onSuggest() {
+    setBusy(true)
+    try { await subOps.suggest(t) } finally { setBusy(false) }
+    setOpen(true)
+  }
+  async function onAdd() {
+    const v = newSub.trim()
+    if (!v) return
+    setNewSub('')
+    await subOps.add(t, v)
+    setOpen(true)
+  }
+
   return (
-    <li className={`flex items-center gap-2 rounded-xl border p-3 ${meta[2]}`}>
-      <span className={`inline-block size-2.5 shrink-0 rounded-full ${meta[3]}`} />
-      <div className="flex-1">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <span>{t.title}</span>
-          <span className="rounded-md border bg-card px-1.5 py-0.5 text-[10px]">{pLabel(t.priority)}</span>
-          {overdue && <span className="rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">متأخرة</span>}
+    <li className={`flex flex-col gap-2 rounded-xl border p-3 ${meta[2]}`}>
+      <div className="flex items-center gap-2">
+        <span className={`inline-block size-2.5 shrink-0 rounded-full ${meta[3]}`} />
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span>{t.title}</span>
+            <span className="rounded-md border bg-card px-1.5 py-0.5 text-[10px]">{pLabel(t.priority)}</span>
+            {overdue && <span className="rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">متأخرة</span>}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            {t.projectId && <span>📁 {projects.find((p) => p.id === t.projectId)?.title ?? '—'}</span>}
+            <span className="tabular-nums">📅 {fmtDate(t.dueDate)}</span>
+            <span className="inline-flex items-center gap-1">
+              👤
+              <input
+                className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
+                placeholder="الجهة المنفّذة"
+                defaultValue={t.owner ?? ''}
+                list="task-owners"
+                onBlur={(e) => {
+                  const v = e.target.value.trim()
+                  if (v !== (t.owner?.trim() ?? '')) onUpdate(t, { owner: v || null })
+                }}
+              />
+            </span>
+          </div>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-          {t.projectId && <span>📁 {projects.find((p) => p.id === t.projectId)?.title ?? '—'}</span>}
-          <span className="tabular-nums">📅 {fmtDate(t.dueDate)}</span>
-          <span className="inline-flex items-center gap-1">
-            👤
-            <input
-              className="w-28 rounded border bg-background px-1.5 py-0.5 text-[11px]"
-              placeholder="الجهة المنفّذة"
-              defaultValue={t.owner ?? ''}
-              list="task-owners"
-              onBlur={(e) => {
-                const v = e.target.value.trim()
-                if (v !== (t.owner?.trim() ?? '')) onUpdate(t, { owner: v || null })
-              }}
-            />
-          </span>
-        </div>
+        <select
+          className="rounded-md border bg-background px-1.5 py-1 text-xs"
+          value={t.status}
+          onChange={(e) => onUpdate(t, { status: e.target.value })}
+        >
+          {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+        </select>
+        <button onClick={() => onRemove(t)} className="text-xs text-muted-foreground hover:text-destructive">×</button>
       </div>
-      <select
-        className="rounded-md border bg-background px-1.5 py-1 text-xs"
-        value={t.status}
-        onChange={(e) => onUpdate(t, { status: e.target.value })}
-      >
-        {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-      </select>
-      <button onClick={() => onRemove(t)} className="text-xs text-muted-foreground hover:text-destructive">×</button>
+
+      {/* شريط المهام الفرعية: طيّ + اقتراح */}
+      <div className="flex flex-wrap items-center gap-2 pr-4 text-[11px]">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-1 rounded-md border bg-card/60 px-2 py-0.5 font-medium text-muted-foreground hover:text-foreground"
+        >
+          <span>{open ? '▾' : '▸'}</span>
+          <span>مهام فرعية{subs.length > 0 ? ` (${doneCount}/${subs.length})` : ''}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSuggest}
+          disabled={busy}
+          className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+          title="يقترح النظام مهاماً فرعية (قالب الآن · بالذكاء عند ضبط مفتاح Claude)"
+        >
+          {busy ? '…جارٍ الاقتراح' : '✨ اقتراح'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mr-4 space-y-1 border-r-2 border-dashed pr-3">
+          {subs.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={s.status === 'done'}
+                onChange={(e) => subOps.update(t, s, { status: e.target.checked ? 'done' : 'todo' })}
+                className="size-3.5 accent-emerald-600"
+              />
+              <span className={`flex-1 ${s.status === 'done' ? 'text-muted-foreground line-through' : ''}`}>{s.title}</span>
+              <button onClick={() => subOps.remove(t, s)} className="text-muted-foreground hover:text-destructive">×</button>
+            </div>
+          ))}
+          {subs.length === 0 && <p className="text-[11px] text-muted-foreground">لا مهام فرعية — أضِف يدويّاً أو اضغط «✨ اقتراح».</p>}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              value={newSub}
+              onChange={(e) => setNewSub(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void onAdd() } }}
+              placeholder="＋ مهمة فرعية يدويّة…"
+              className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => void onAdd()}
+              disabled={!newSub.trim()}
+              className="rounded-md border px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
+            >
+              إضافة
+            </button>
+          </div>
+        </div>
+      )}
     </li>
   )
 }
