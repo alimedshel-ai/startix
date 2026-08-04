@@ -1,8 +1,8 @@
 // ─── أعلام تشغيل — تبديل زمنيّ بلا إعادة بناء (localStorage) ──────────
 // خطّة الإصلاح ن٢: الأسطح عالية الخطر (ربط القمرة) خلف flag مع تراجع فوريّ.
 // الافتراض آمن (السلوك القديم)؛ التفعيل يدويّ:
-//   localStorage.setItem('flag:USE_JOURNEY_NEXT', '1')   // تفعيل
-//   localStorage.removeItem('flag:USE_JOURNEY_NEXT')     // تراجع للقديم
+//   localStorage.setItem('flag:USE_RESCUE_PLAN', '1')   // تفعيل
+//   localStorage.removeItem('flag:USE_RESCUE_PLAN')     // تراجع للقديم
 
 export function flag(name: string, fallback = false): boolean {
   try {
@@ -14,8 +14,8 @@ export function flag(name: string, fallback = false): boolean {
   }
 }
 
-/** ربط «التالي» في القمرة بمصدر الحقيقة الواحد (useGuidedNext) بدل useJourney. */
-export const USE_JOURNEY_NEXT = 'USE_JOURNEY_NEXT'
+// علم قيادة القمرة القديم حُذف في D2 (القمرة صارت تقود بـ useGuidedNext دائماً،
+// لا فرع علمٍ موازٍ). الحظر ضدّ عودته بالاسم يعيش في divergentNextGuard.test.ts.
 
 /** الرقعة C — ترحيل سطح الإنقاذ في القمرة من RESCUE_SEQUENCE (أدوات: مخاطر/
  *  أيزنهاور/RACI/جانت) إلى RESCUE_PLAN الدلاليّ (محور ← إجراء ← مبادرة ← إعادة

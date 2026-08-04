@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest'
 //
 // نقرأ مصادر src عبر import.meta.glob (?raw) بدل node:fs — يبقى الاختبار متوافقاً
 // مع أنواع العميل (لا @types/node) ويعمل تحت vitest/vite دون تلويث البناء.
-const FORBIDDEN = ['ANALYSIS_SEQUENCE', 'getSmartActions', 'recommendedMove', 'INSIGHT_ROUTES', 'DEFAULT_MOVE']
+// USE_JOURNEY_NEXT مُضاف (D2): علم قيادة القمرة الموازي حُذف — لا يعود بالاسم.
+const FORBIDDEN = ['ANALYSIS_SEQUENCE', 'getSmartActions', 'recommendedMove', 'INSIGHT_ROUTES', 'DEFAULT_MOVE', 'USE_JOURNEY_NEXT']
 
 const SELF = 'divergentNextGuard.test.ts'
 

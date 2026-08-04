@@ -5,7 +5,7 @@ import type { StageId } from '@/lib/journeyStages'
 import { getNextStep, type NextStepState } from './nextStep'
 
 // ─── ظلّ D2 — افتراق مقرِّرَي «الخطوة القائدة» في القمرة (§٣/§٥) ───────────────
-// القمرة عند USE_JOURNEY_NEXT=OFF تقود بـ useJourney.nextStage = «أوّل خطوة غير
+// القمرة (بالعلم القديم OFF) كانت تقود بـ useJourney.nextStage = «أوّل خطوة غير
 // مكتملة بترتيب المسار» (بلا بوّابة محتوى، useJourney.ts:76-81). المحرّك getNextStep
 // واعٍ ببوّابة SWOT. نُحاكي مقرِّر OFF بدالّةٍ نقيّة صغيرة ونُظهر افتراقهما على Sₑ.
 

@@ -12,7 +12,7 @@ import {
   RESCUE_SEQUENCE, RESCUE_PLAN, type RescueDone, type RescueStep,
   type RescuePlanResult, type RescueProgress, type AuditAxis,
 } from '@/journey/rescue'
-import { flag, USE_JOURNEY_NEXT, USE_RESCUE_PLAN } from '@/lib/flags'
+import { flag, USE_RESCUE_PLAN } from '@/lib/flags'
 import { JOURNEY_STAGES } from '@/lib/journeyStages'
 import { createInitiative, createReview } from '@/lib/strategicApi'
 
@@ -41,11 +41,11 @@ export function RunCockpitPage() {
   const { companyId } = useParams<{ companyId: string }>()
   const cid = companyId ?? null
   const clientQuery = cid ? `?client=${cid}` : ''
+  // nextStage يبقى لعرض الخطّ الزمنيّ (تمييز «التالي» + رسالة القفل) — لا للقيادة (D2).
   const { loading, path, steps, total, currentIndex, progressPct, nextStage } = useJourney(cid)
   const { loading: rLoading, rescue, done: rescueDone, plan, progress, challenges, weakestAxis, actionId, criticalPct, reauditPath, health, reload } = useRescue(cid)
-  // مصدر الحقيقة الواحد لـ«التالي» (خلف flag، مع تراجع). الخطّ الزمنيّ يبقى
-  // عرضاً من useJourney؛ يتغيّر فقط مصدر «الخطوة القائدة» ليطابق السايد بار.
-  const useGuided = flag(USE_JOURNEY_NEXT)
+  // D2 القلب: «الخطوة القائدة» من المحرّك دائماً (useGuidedNext) — كالسايدبار.
+  // useJourney يبقى مصدرَ بيانات العرض فقط (الخطّ الزمنيّ). لا فرع flag يقود.
   // الرقعة C — سطح الإنقاذ الدلاليّ (RESCUE_PLAN) خلف flag مع تراجع للقديم.
   const useRescuePlan = flag(USE_RESCUE_PLAN)
   const guided = useGuidedNext(cid)
@@ -53,7 +53,7 @@ export function RunCockpitPage() {
   if (!cid) {
     return <EmptyState title="لا عميل محدّد" description="افتح القمرة من صفحة عميل." icon={<span className="text-4xl">👥</span>} />
   }
-  if ((loading && steps.length === 0) || rLoading || (useGuided && guided.loading)) {
+  if ((loading && steps.length === 0) || rLoading || guided.loading) {
     return <div className="flex justify-center py-16"><LoadingSpinner size="lg" label="جاري تحميل المسار…" /></div>
   }
 
@@ -66,21 +66,14 @@ export function RunCockpitPage() {
       : <RescueCockpit cid={cid} clientQuery={clientQuery} rescueDone={rescueDone} step={rescue.step ?? null} doneCount={rescue.doneCount} total={rescue.total} criticalPct={criticalPct} reauditPath={reauditPath} />
   }
 
-  // ─── الخطوة القائدة: من useGuidedNext (flag) أو useJourney (افتراضيّ) ───
-  // الحقول موحّدة فيبقى شكل البطاقة كما هو، ويتغيّر المصدر فقط.
+  // ─── الخطوة القائدة: من المحرّك (useGuidedNext) دائماً — مصدرٌ واحدٌ كالسايدبار (D2) ───
   interface Focus { title: string; emphasis: string; href: string; icon: string; tools: string[] }
   let focusState: 'done' | 'locked' | 'action' = 'action'
   let focus: Focus | null = null
-  if (useGuided) {
-    const n = guided.next
-    if (!n || n.kind === 'done') focusState = 'done'
-    else if (n.kind === 'locked') focusState = 'locked'
-    else focus = { title: n.label, emphasis: n.reason, href: n.to ?? '#', icon: n.icon, tools: [] }
-  } else {
-    if (!nextStage) focusState = 'done'
-    else if (nextStage.status === 'locked') focusState = 'locked'
-    else focus = { title: nextStage.titleAr, emphasis: nextStage.emphasisAr, href: `${nextStage.href}${clientQuery}`, icon: STAGE_ICON[nextStage.stageId] ?? '🎯', tools: nextStage.tools }
-  }
+  const n = guided.next
+  if (!n || n.kind === 'done') focusState = 'done'
+  else if (n.kind === 'locked') focusState = 'locked'
+  else focus = { title: n.label, emphasis: n.reason, href: n.to ?? '#', icon: n.icon, tools: [] }
   const done = focusState === 'done'
   const nextLocked = focusState === 'locked'
 

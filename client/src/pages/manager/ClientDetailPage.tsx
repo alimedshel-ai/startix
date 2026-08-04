@@ -14,7 +14,6 @@ import { getArtifact, getSWOT, getTaggedTOWS, listAllArtifacts, listProjects } f
 import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { ANALYSIS_CARD_ORDER, AUDIT_PLACEHOLDER } from '@/journey/analysisCardOrder'
 import { cardStateFor, type ToolCardState } from '@/journey/cardState'
-import { flag, USE_JOURNEY_NEXT } from '@/lib/flags'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── PRO-5 — لوحة العميل الواحد (workspace) ──────────────────────────────────
@@ -176,9 +175,8 @@ function ClientDetailContent(p: {
   const { client, companyName, specialty, sector, size, stage, healthPct, dangerZone, lastAuditAt, daysSinceLastAudit, hasAnyAudit, hasDepartment, clientQ, extras, mutedFor, user } = p
 
   // مصالحة الآليّ↔اليدويّ — شارة التقادم (توقظ منطق reconcileLevel النائم).
-  // + «التالي» الموحّد للبيكون (خلف flag، مع تراجع) — يطابق السايد بار/القمرة.
+  // + «التالي» الموحّد للبيكون من المصدر الواحد (useGuidedNext) — يطابق السايدبار/القمرة (D2).
   const { resolution, next: guidedNext } = useGuidedNext(client.companyId)
-  const useGuided = flag(USE_JOURNEY_NEXT)
 
   // ⭐ قراءة اكتمال كل أداة على حدة عبر artifact الخاصّ بها
   // (بدل completions المرحلة الواحدة التي تعتبر كل الأدوات مكتملة إذا كمُلت واحدة)
@@ -386,10 +384,9 @@ function ClientDetailContent(p: {
         <span className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">تابِع المسار ←</span>
       </Link>
 
-      {/* 🎯 ابدأ من هنا — بطاقة كبيرة موحّدة تُخبر المدير بالخطوة القادمة الفوريّة.
-          خلف flag: تُشتقّ من المصدر الواحد (useGuidedNext) فتطابق السايد بار/القمرة؛
-          افتراضيّاً: الشروط المحليّة الأربع القديمة (تراجع آمن). */}
-      {useGuided && guidedNext && guidedNext.to ? (
+      {/* 🎯 ابدأ من هنا — من المصدر الواحد (useGuidedNext) دائماً، فتطابق السايدبار
+          والقمرة (D2). StartHereBeacon يبقى تراجعاً للحظة التحميل فقط (guidedNext=null). */}
+      {guidedNext && guidedNext.to ? (
         <GuidedStartBeacon icon={guidedNext.icon} title={guidedNext.label} reason={guidedNext.reason} to={guidedNext.to} />
       ) : (
         <StartHereBeacon
@@ -414,7 +411,7 @@ function ClientDetailContent(p: {
          لا لغة «قفل» بعد الآن: التقدّم عدّ اكتمال أدوات ① الأساسيّة (CORE_STEPS،
          للعرض فقط)، و«الخطوة الحاليّة» عنوانها من guidedNext ذاته. قفل المراحل
          🔒 (إن وُجد) يعيش في المحرّك على صفحة الرحلة، لا هنا. */}
-      {dataLoaded && useGuided && guidedNext && (() => {
+      {dataLoaded && guidedNext && (() => {
         const doneCount = CORE_STEPS.filter((p) => isToolDone(p)).length
         const total = CORE_STEPS.length
         const pct = Math.round((doneCount / total) * 100)
