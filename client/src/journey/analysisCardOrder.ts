@@ -10,8 +10,13 @@ import { ANALYSIS_TOOLS } from '@/lib/analysisPlan'
 
 export const AUDIT_PLACEHOLDER = '@audit'
 
+// ٢أ-B: deep أُدخِل في العدّ ليطابق العمود الأربعيّ (البند ١) — له بطاقة غنيّة
+// في ClientDetailPage (صفحة deep-analysis) + موصى بالمحرّك. الترتيب يتبع
+// BASE_ORDER (deep قبل 7S)، فالحارس يبقى أخضر. التوسيع الكامل للإضافيّة مؤجّل
+// حتى تُبنى بطاقاتها (لا عدّ بلا بطاقة).
 export const ANALYSIS_CARD_ORDER: string[] = [
   AUDIT_PLACEHOLDER,
+  ANALYSIS_TOOLS.deep.path,   // /manager/deep-analysis — التحليل العميق (العمود)
   ANALYSIS_TOOLS.s7.path,     // /internal-environment — البيئة الداخليّة (7S)
   ANALYSIS_TOOLS.pestel.path, // /manager/dept-pestel — المسح الخارجيّ (PESTEL)
 ]
