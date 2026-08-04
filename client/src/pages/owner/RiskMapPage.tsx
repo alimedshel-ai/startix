@@ -11,7 +11,7 @@ import { listDepartments, type Department, type AxisBreakdown } from '@/lib/dept
 import { AXIS_LABEL_AR } from '@/lib/smartGap'
 import { useAuthStore } from '@/store/authStore'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
-import { COMMON_RISKS_BY_DEPT, AI_MITIGATION_ENABLED, findRiskTemplate, matchRiskTemplate, deptMitigationPool, diagnosisMitigations } from './riskTemplates'
+import { COMMON_RISKS_BY_DEPT, AI_MITIGATION_ENABLED, findRiskTemplate, deptMitigationPool, riskSuggestion } from './riskTemplates'
 
 
 interface Risk {
@@ -130,6 +130,33 @@ function Editor({ companyId }: { companyId: string }) {
   }
   function remove(id: string) {
     setData((p) => ({ risks: p.risks.filter((r) => r.id !== id) }))
+  }
+  // تطبيق التقييم المتوقّع بالجملة — يحلّ عناء ضبط كلّ خطر يدويّاً حين يكثر العدد.
+  // يمسّ فقط غير المُراجَعة أو المتروكة على الافتراض (١×١) وله قالب مطابق — فلا
+  // يدهس تقييماً وضعه المستخدم. التخفيف يُملأ فقط إن كان فارغاً.
+  function applyExpectedAssessments() {
+    const targets = data.risks.filter(
+      (r) => (r.unreviewed || (r.probability === 1 && r.impact === 1)) && riskSuggestion(r.name, specialty),
+    )
+    if (targets.length === 0) {
+      toast.info('لا مخاطر بحاجة لتقييم متوقّع (كلّها مُراجَعة أو بلا قالب مطابق).')
+      return
+    }
+    const ids = new Set(targets.map((r) => r.id))
+    setData((p) => ({
+      risks: p.risks.map((r) => {
+        if (!ids.has(r.id)) return r
+        const sug = riskSuggestion(r.name, specialty)!
+        return {
+          ...r,
+          probability: sug.probability,
+          impact: sug.impact,
+          unreviewed: false,
+          mitigation: r.mitigation.trim() ? r.mitigation : sug.mitigations[0],
+        }
+      }),
+    }))
+    toast.success(`طُبِّق التقييم المتوقّع على ${targets.length} خطراً — راجِعها وعدّل ما يلزم ثم احفظ.`)
   }
 
   async function save() {
@@ -522,10 +549,9 @@ function Editor({ companyId }: { companyId: string }) {
                   placeholder="إجراء التخفيف المقترح…"
                 />
                 {(() => {
-                  // كتالوج التشخيص أوّلاً (أدقّ مصدر للمخاطر المستوردة «[تشخيص]»)،
-                  // ثمّ بنك الأقسام (مطابقة ذكيّة عبر كلّ الأقسام)، ثمّ مطويّة القسم.
-                  const diag = diagnosisMitigations(r.name)
-                  const matched = diag ? undefined : matchRiskTemplate(r.name, specialty)
+                  // مُوحِّد واحد: كتالوج التشخيص (أدقّ للمستوردة) ← بنك الأقسام (ذكيّ عبر
+                  // كلّ الأقسام). يُرجِع ٣ تخفيفات + تقييماً متوقّعاً. وإلّا مطويّة القسم.
+                  const sug = riskSuggestion(r.name, specialty)
                   const aiBtn = AI_MITIGATION_ENABLED ? (
                     <button
                       type="button"
@@ -550,31 +576,21 @@ function Editor({ companyId }: { companyId: string }) {
                       </button>
                     )
                   }
-                  if (diag) {
-                    // بند تشخيص مُطابَق تماماً: ٣ رقائق محدّدة من كتالوجه.
+                  if (sug) {
+                    // ٣ رقائق محدّدة + رقيقة تقييمٍ متوقّع تملأ الأثر/الاحتمال فقط (لا الاسم).
+                    const needsAssessment = r.probability !== sug.probability || r.impact !== sug.impact
                     return (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">اقتراحات:</span>
-                        {diag.map(chip)}
-                        {aiBtn}
-                      </div>
-                    )
-                  }
-                  if (matched) {
-                    // مطابَقة ذكيّة: ٣ رقائق محدّدة + تقييمٌ متوقّع يملأ الأثر/الاحتمال فقط.
-                    const needsAssessment = r.probability !== matched.probability || r.impact !== matched.impact
-                    return (
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">اقتراحات:</span>
-                        {matched.mitigations.map(chip)}
+                        {sug.mitigations.map(chip)}
                         {needsAssessment && (
                           <button
                             type="button"
-                            onClick={() => update(r.id, { probability: matched.probability, impact: matched.impact, unreviewed: false })}
+                            onClick={() => update(r.id, { probability: sug.probability, impact: sug.impact, unreviewed: false })}
                             className="rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
                             title="يملأ الاحتمال والأثر المتوقّعَين لهذا الخطر — لا يغيّر الاسم"
                           >
-                            🎯 تقييم متوقّع {matched.probability}×{matched.impact}
+                            🎯 تقييم متوقّع {sug.probability}×{sug.impact}
                           </button>
                         )}
                         {aiBtn}
@@ -604,6 +620,22 @@ function Editor({ companyId }: { companyId: string }) {
           )}
           <div className="flex flex-wrap gap-2 pt-1">
             <Button variant="outline" size="sm" onClick={add}>+ خطر جديد</Button>
+            {/* تطبيق التقييم المتوقّع بالجملة — يظهر فقط حين وجود مخاطر غير مُراجَعة لها قالب. */}
+            {(() => {
+              const cnt = data.risks.filter(
+                (r) => (r.unreviewed || (r.probability === 1 && r.impact === 1)) && riskSuggestion(r.name, specialty),
+              ).length
+              return cnt > 0 ? (
+                <Button
+                  size="sm"
+                  onClick={applyExpectedAssessments}
+                  disabled={saving || importing}
+                  title="يملأ الاحتمال والأثر المتوقّعَين لكلّ خطر غير مُراجَع له قالب مطابق — لا يمسّ ما قيّمته، راجِعها بعدها"
+                >
+                  🎯 طبّق التقييم المتوقّع ({cnt})
+                </Button>
+              ) : null
+            })()}
             {/* استيرادات محصورة بالملكيّة — كالبطاقات (لا طريق مسدود لعميل الطوارئ). */}
             {(hasDeep || hasAudit) && (
               <Button variant="outline" size="sm" onClick={importFromDiagnosis} disabled={importing || saving}>

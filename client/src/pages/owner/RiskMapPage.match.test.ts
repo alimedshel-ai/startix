@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findRiskTemplate, matchRiskTemplate, deptMitigationPool, diagnosisMitigations } from './riskTemplates'
+import { findRiskTemplate, matchRiskTemplate, deptMitigationPool, riskSuggestion } from './riskTemplates'
 
 // شرط القبول: مخاطر محفوظة اسمها يبدأ بـ«[تشخيص]» يجب أن تُطابق قوالب HR بعد
 // إصلاح المطابقة (تجاهُل البادئة + تطبيع + إزالة واو الوصل + تقاطع كلمات).
@@ -42,9 +42,9 @@ describe('findRiskTemplate — تطابق حرفيّ (المسار القديم)
   })
 })
 
-// كتالوج التشخيص هو المصدر الأدقّ للمخاطر المستوردة — يغطّي بنودها الفعليّة.
-describe('diagnosisMitigations — تطابق كتالوج التشخيص (بيانات العميل الحقيقيّة)', () => {
-  // عيّنة من الأسماء المحفوظة فعلاً لهذا العميل (٢٦ خطراً «[تشخيص] …»).
+// riskSuggestion = كتالوج التشخيص (الأدقّ للمستوردة) ← بنك الأقسام. يُرجِع تقييماً
+// متوقّعاً + ٣ تخفيفات — مصدر الرقائق وزرّ «طبّق التقييم المتوقّع».
+describe('riskSuggestion — اقتراح موحَّد (بيانات العميل الحقيقيّة)', () => {
   const realNames = [
     '[تشخيص] عمليات غير مؤتمتة (اعتماد يدوي مفرط)',
     '[تشخيص] إدخال البيانات اليدوي',
@@ -55,25 +55,35 @@ describe('diagnosisMitigations — تطابق كتالوج التشخيص (بي�
     '[تشخيص] الأمن السيبراني والبيانات',
     '[تشخيص] تجديد التراخيص والاعتمادات',
   ]
-  it('كلّ بنود التشخيص المستوردة تُطابَق وتُرجِع ٣ اقتراحات', () => {
+  it('كلّ بند مستورد يُرجِع ٣ تخفيفات + تقييماً متوقّعاً صالحاً (١–٥)', () => {
     for (const n of realNames) {
-      const m = diagnosisMitigations(n)
-      expect(m, n).toBeDefined()
-      expect(m!.length).toBe(3)
+      const s = riskSuggestion(n, 'HR')
+      expect(s, n).toBeDefined()
+      expect(s!.mitigations.length).toBe(3)
+      expect(s!.probability).toBeGreaterThanOrEqual(1)
+      expect(s!.probability).toBeLessThanOrEqual(5)
+      expect(s!.impact).toBeGreaterThanOrEqual(1)
+      expect(s!.impact).toBeLessThanOrEqual(5)
     }
   })
-  it('يتجاهل بادئة «[تشخيص]» تلقائيّاً (التطبيع)', () => {
-    expect(diagnosisMitigations('[تشخيص] الأرشفة وإدارة الملفات'))
-      .toEqual(diagnosisMitigations('الأرشفة وإدارة الملفات'))
+  it('التقييم المتوقّع ليس ١×١ (يغني عن الضبط اليدويّ)', () => {
+    const s = riskSuggestion('[تشخيص] التدفق المالي / السيولة اليومية', 'HR')!
+    expect(s.probability * s.impact).toBeGreaterThan(1)
   })
-  it('بند غير موجود في الكتالوج → undefined', () => {
-    expect(diagnosisMitigations('[تشخيص] شيء غير موجود إطلاقاً')).toBeUndefined()
+  it('كتالوج التشخيص يسبق بنك الأقسام (المصدر الأدقّ للمستوردة)', () => {
+    // «سلسلة التوريد» بند تشخيص P3×I4؛ لو غلب البنك لكان قالب العمليّات (نفس القيم هنا).
+    const s = riskSuggestion('[تشخيص] سلسلة التوريد أو الإمداد', 'HR')!
+    expect(s.mitigations[0]).toBe('تأهيل مورّد ثانٍ لكلّ صنف حرج')
   })
-})
-
-describe('matchRiskTemplate — مطابقة عبر كلّ الأقسام (لا تخصّص المدير فقط)', () => {
-  it('مدير HR: خطر توريد يطابق قالب العمليّات (عبر القسم)', () => {
-    expect(matchRiskTemplate('[تشخيص] سلسلة التوريد أو الإمداد', 'HR')?.name).toBe('انقطاع سلسلة التوريد')
+  it('يتجاهل بادئة «[تشخيص]» تلقائيّاً', () => {
+    expect(riskSuggestion('[تشخيص] الأرشفة وإدارة الملفات', 'HR'))
+      .toEqual(riskSuggestion('الأرشفة وإدارة الملفات', 'HR'))
+  })
+  it('بند بلا كتالوج وبلا قالب → undefined (يسقط للمطويّة)', () => {
+    expect(riskSuggestion('[تشخيص] شيء غير موجود إطلاقاً', 'HR')).toBeUndefined()
+  })
+  it('عبر الأقسام: خطر توريد يُرجِع اقتراحاً ولو كان المدير HR', () => {
+    expect(riskSuggestion('انقطاع سلسلة التوريد', 'HR')).toBeDefined()
   })
 })
 
