@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
 
@@ -6,6 +7,7 @@ import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
 import { sendEmail } from '../lib/ses';
+import { issueSession, publicUser } from './auth';
 import { createNotification } from './notifications';
 
 // ─── C15 — دعوات الانضمام لشركة ────────────────────────────────────────────
@@ -206,6 +208,111 @@ export const acceptInvitation: RequestHandler = async (req, res, next) => {
     });
 
     res.json({ ok: true, companyId: invitation.companyId, role: invitation.role });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/invitations/:token/check — تحقّق عامّ قبل التسجيل (بلا مصادقة) ──
+// يتيح لصفحة القبول التحقّق من التوكن وجلب البريد/الدور/الشركة لملء النموذج،
+// وتمييز «للمدعوّ حساب» (يسجّل الدخول ويقبل) عن «لا حساب» (يسجّل عبر الدعوة).
+export const checkInvitation: RequestHandler = async (req, res, next) => {
+  try {
+    const token = paramOf(req, 'token');
+    const invitation = await prisma.invitation.findUnique({ where: { token } });
+    const gate = invitationGateReason(invitation, new Date());
+    if (gate !== 'ok' || !invitation) {
+      res.status(gate === 'missing' ? 404 : 400).json({ gate, message: GATE_MESSAGE[gate] });
+      return;
+    }
+    const company = await prisma.company.findUnique({ where: { id: invitation.companyId } });
+    const existingUser = await prisma.user.findUnique({ where: { email: invitation.email } });
+    res.json({
+      gate: 'ok',
+      email: invitation.email,
+      role: invitation.role,
+      companyId: invitation.companyId,
+      companyName: company?.name ?? null,
+      hasAccount: !!existingUser,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const registerViaInviteSchema = z.object({
+  name: z.string().min(1).max(120),
+  password: z.string().min(8).max(128),
+});
+
+// ─── POST /api/invitations/:token/register — مسار تسجيل المدعوّ (D-٢) ────────
+// المُنتِج **الوحيد** لحساب MANAGER+null: مُبوَّب بتوكن صالح، مقصور على دور manager
+// (الحالة التي تقبلها الرقعة). يُنشئ الحساب ثمّ الوصل (CompanyUser + رقعة INTERNAL +
+// وسم التوكن) في **معاملةٍ واحدة** (الدلالة ٥)، ويُصدر جلسةً (يدخل المستخدم فوراً).
+export const registerViaInvitation: RequestHandler = async (req, res, next) => {
+  try {
+    const token = paramOf(req, 'token');
+    const body = registerViaInviteSchema.parse(req.body);
+    const invitation = await prisma.invitation.findUnique({ where: { token } });
+
+    // حارس التوكن النقيّ (الدلالة ٦) قبل أيّ إنشاء.
+    const gate = invitationGateReason(invitation, new Date());
+    if (gate === 'expired' && invitation) {
+      await prisma.invitation.update({ where: { id: invitation.id }, data: { status: 'expired' } });
+    }
+    if (gate !== 'ok' || !invitation) {
+      throw new HttpError(gate === 'missing' ? 404 : 400, GATE_MESSAGE[gate]);
+    }
+
+    // هذا المسار يُنتج MANAGER+null→INTERNAL — مقصور على دعوات الدور manager (D-٢).
+    // الأدوار الأخرى (owner/member) تُقبل عبر تسجيل الدخول ثمّ acceptInvitation.
+    if (invitation.role !== 'manager') {
+      throw new HttpError(400, 'هذا المسار للمدعوّين مديرين؛ لأدوارٍ أخرى سجّل الدخول ثمّ اقبل الدعوة.');
+    }
+
+    // بريد الدعوة مصدر الحقيقة — لا يُدخله المستخدم. حساب موجود ⇒ يسجّل الدخول ويقبل.
+    const existing = await prisma.user.findUnique({ where: { email: invitation.email } });
+    if (existing) {
+      throw new HttpError(409, 'لديك حساب بهذا البريد — سجّل الدخول ثمّ اقبل الدعوة.');
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+
+    const user = await prisma.$transaction(async (tx) => {
+      // ١) الحساب MANAGER+null صراحةً — الحالة الوحيدة التي تقبلها رقعة الهويّة.
+      const created = await tx.user.create({
+        data: {
+          email: invitation.email,
+          passwordHash,
+          name: body.name,
+          userType: 'MANAGER',
+          managerType: null,
+          // ملكيّة البريد مُثبَتة بالتوكن المُرسَل إليه — لا حاجة لتحقّقٍ ثانٍ.
+          isVerified: true,
+        },
+      });
+      // ٢) الوصل: CompanyUser + رقعة INTERNAL (المصدر الوحيد) + وسم التوكن — كلٌّ أو لا شيء.
+      await tx.companyUser.create({
+        data: { userId: created.id, companyId: invitation.companyId, role: invitation.role },
+      });
+      const patch = inviteIdentityPatch(created, invitation.role);
+      const updated = patch
+        ? await tx.user.update({ where: { id: created.id }, data: patch })
+        : created;
+      await tx.invitation.update({ where: { id: invitation.id }, data: { status: 'accepted' } });
+      return updated;
+    });
+
+    await issueSession(res, user, req.ip, req.headers['user-agent']);
+
+    const company = await prisma.company.findUnique({ where: { id: invitation.companyId } });
+    await createNotification({
+      userId: user.id,
+      type: 'invitation_accepted',
+      message: `انضممت إلى ${company?.name ?? 'الشركة'} بدور ${invitation.role}`,
+    });
+
+    res.status(201).json({ user: publicUser(user) });
   } catch (err) {
     next(err);
   }

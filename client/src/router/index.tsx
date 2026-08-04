@@ -6,6 +6,7 @@ import { MaturityPageRoute } from '@/pages/MaturityPage'
 import { SelectTypePage } from '@/pages/SelectTypePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { JoinPage } from '@/pages/JoinPage'
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 import { PathSettingsPage } from '@/pages/PathSettingsPage'
 import { PricingPage } from '@/pages/PricingPage'
@@ -148,6 +149,7 @@ export const router = createBrowserRouter([
   { path: '/diagnostic/m/:specialty', element: <MaturityPageRoute /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/join', element: <JoinPage /> },
+  { path: '/invitations/accept', element: <AcceptInvitePage /> }, // D-٢: رابط قبول الدعوة (عامّ)
   { path: '/select-type', element: <SelectTypePage /> },
   { path: '/pricing', element: <PricingPage /> },
 

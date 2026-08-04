@@ -43,7 +43,7 @@ const DEPT_TYPES = [
 ] as const;
 type DeptTypeStr = (typeof DEPT_TYPES)[number];
 
-function publicUser(u: {
+export function publicUser(u: {
   id: string;
   email: string;
   name: string;
@@ -128,6 +128,13 @@ export const register: RequestHandler = async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
 
+    // D-٢: المدير يُسجَّل ذاتيّاً **مستقلّاً فقط**؛ الدور الداخليّ (MANAGER+null→INTERNAL)
+    // يُمنح حصراً عبر مسار الدعوة المُبوَّب بالتوكن (invitations.registerViaInvitation).
+    // هذا يغلق ثغرة إنشاء MANAGER+null بلا دعوة، فيبقى INTERNAL «دعوة فقط» (ق١).
+    if (data.userType === 'MANAGER' && data.managerType !== 'INDEPENDENT_PRO') {
+      throw new HttpError(400, 'المدير يُسجَّل مستقلّاً؛ الدور الداخليّ يُمنح عبر دعوة المالك فقط — لا تسجيل ذاتيّ.');
+    }
+
     // فرض تخصّص الإدارة على المدير المستقل — لأنه يخدم عملاء متعدّدين
     // في نطاق إدارة واحدة، فبدون التخصّص لا نعرف أي إدارة يُشرف عليها.
     if (data.userType === 'MANAGER' && data.managerType === 'INDEPENDENT_PRO' && !data.specialtyDeptType) {
@@ -201,7 +208,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-async function issueSession(
+export async function issueSession(
   res: Parameters<RequestHandler>[1],
   user: {
     id: string;
