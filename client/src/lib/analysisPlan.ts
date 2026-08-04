@@ -59,6 +59,12 @@ export const BASE_ORDER = [
   'pestel', 'porter', 'benchmarking', 'stakeholders',
 ]
 
+// ─── العمود الأربعيّ الإلزاميّ (البند ١) — لا يُفلتَر بالعمق أبداً ────────
+// التشخيص = تدقيق + عميق + 7S + PESTEL (قاعدة مغلقة: «لا حجم فجوة قبل الأربعة»).
+// deep كان تكتيكيّاً (TOOL_MIN_TIER=1) فيُستبعَد من التشغيليّة — يُرفع للعمود
+// فيظهر لكل الأعماق (مبسّطاً للتشغيليّة: نضج الإدارة، لا 60 سؤالاً). قرار المالك.
+export const ANALYSIS_COLUMN = new Set(['audit', 'deep', 's7', 'pestel'])
+
 // قطاعات كثيفة الأصول/التنظيم → تستحق عمقاً استراتيجيّاً أعلى (+١ للمستوى).
 const COMPLEX_SECTORS = new Set([
   'manufacturing', 'logistics', 'energy', 'realestate', 'healthcare', 'financial',
@@ -140,8 +146,9 @@ export function firstIncompleteAnalysisKey(
 export function recommendedForScore(score: number, sector?: string | null): string[] {
   const s = clamp02(score)
   const sectorKey = (sector ?? '').toLowerCase()
-  const recommended = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] <= s)
-  const advanced = BASE_ORDER.filter((k) => TOOL_MIN_TIER[k] > s)
+  // العمود الأربعيّ حاضر دائماً؛ الإضافيّة وحدها تخضع للعمق.
+  const recommended = BASE_ORDER.filter((k) => ANALYSIS_COLUMN.has(k) || TOOL_MIN_TIER[k] <= s)
+  const advanced = BASE_ORDER.filter((k) => !ANALYSIS_COLUMN.has(k) && TOOL_MIN_TIER[k] > s)
   const boost = SECTOR_BOOST[sectorKey]
   if (boost && advanced.includes(boost)) {
     recommended.push(boost)

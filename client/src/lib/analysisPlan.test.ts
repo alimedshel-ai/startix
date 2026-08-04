@@ -4,13 +4,21 @@ import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, recommende
 import { artifactSatisfies } from './journeyStages'
 
 describe('analysisPlanFor — المستوى (حجم × صحّة × قطاع)', () => {
-  it('صغيرة صحّتها عاديّة → تشغيليّ (٣ أدوات موصى بها، الثقيلة مخفيّة)', () => {
+  it('صغيرة صحّتها عاديّة → تشغيليّ (العمود الأربعيّ incl. deep، الثقيلة مخفيّة)', () => {
     const p = analysisPlanFor({ size: 'SMALL', sector: 'other', healthPct: 55 })
     expect(p.tier).toBe('operational')
-    expect(p.recommended).toEqual(['audit', 's7', 'pestel'])
+    // البند ١: العمود [audit, deep, s7, pestel] حاضر حتى في التشغيليّة.
+    expect(p.recommended).toEqual(['audit', 'deep', 's7', 'pestel'])
     expect(p.advanced).toContain('porter')
     expect(p.advanced).toContain('org-dna')
-    expect(p.advanced).toContain('deep')
+    expect(p.advanced).not.toContain('deep') // deep عمودٌ لا متقدّم
+  })
+
+  it('البند ١ — العمود الأربعيّ [audit, deep, s7, pestel] حاضر بكل الأعماق', () => {
+    for (const score of [0, 1, 2]) {
+      const r = recommendedForScore(score)
+      for (const col of ['audit', 'deep', 's7', 'pestel']) expect(r).toContain(col)
+    }
   })
 
   it('متوسطة → تكتيكيّ (يضيف العميق/سلسلة القيمة/المقارنة/أصحاب المصلحة)', () => {
@@ -69,7 +77,7 @@ describe('analysisPlanFor — رفع القطاع = إظهار لا تقديم',
   it('التسلسل محفوظ: أصحاب المصلحة لا يقفز أمام الأدوات الداخليّة', () => {
     const p = analysisPlanFor({ size: 'SMALL', sector: 'consulting', healthPct: 55 })
     // يتبع الترتيب المرجعيّ داخل→خارج، فيبقى أخيراً لا ثانياً.
-    expect(p.recommended[1]).toBe('s7')
+    expect(p.recommended[1]).toBe('deep') // البند ١: deep في العمود بعد audit مباشرةً
     expect(p.recommended.indexOf('stakeholders')).toBeGreaterThan(p.recommended.indexOf('pestel'))
     expect(p.recommended[p.recommended.length - 1]).toBe('stakeholders')
   })
@@ -82,7 +90,7 @@ describe('analysisPlanFor — رفع القطاع = إظهار لا تقديم',
 
   it('لا تغيير في الترتيب إن كان القطاع بلا boost (other)', () => {
     const p = analysisPlanFor({ size: 'SMALL', sector: 'other', healthPct: 55 })
-    expect(p.recommended[1]).toBe('s7')
+    expect(p.recommended[1]).toBe('deep') // البند ١: deep في العمود بعد audit مباشرةً
   })
 })
 
@@ -148,13 +156,13 @@ describe('§1.5 — اكتمال ① بالخطّة المتكيّفة + artifac
     return firstIncompleteAnalysisKey(plan.recommended, isDone)
   }
 
-  it('«شركة ثلاث»: مختصر + INTERNAL_ENV_HR/PESTEL_HR + تدقيق → ① مكتملة (→ التوليف)', () => {
+  it('«شركة العمود»: مختصر + العمود (deep=MATURITY/7S/PESTEL) + تدقيق → ① مكتملة (→ التوليف)', () => {
     const next = nextIncomplete(
       { size: 'SMALL', sector: 'other', healthPct: 55 },
-      ['INTERNAL_ENV_HR', 'PESTEL_HR', 'PORTER_HR', 'BENCHMARK_HR'],
+      ['INTERNAL_ENV_HR', 'PESTEL_HR', 'MATURITY', 'PORTER_HR', 'BENCHMARK_HR'],
       true,
     )
-    expect(next).toBeNull() // تدقيق/7S/PESTEL كلّها مُنجَزة رغم لاحقة _HR → لا قفزة خاطئة للعميق
+    expect(next).toBeNull() // العمود كلّه مُنجَز رغم لاحقة _HR (deep=MATURITY) → لا قفزة خاطئة
   })
 
   it('الفرق الحاسم: التساوي التامّ (سلوك NextStepCard المحذوف) كان يُفشِل _HR', () => {
@@ -163,23 +171,23 @@ describe('§1.5 — اكتمال ① بالخطّة المتكيّفة + artifac
     expect(artifactSatisfies(types, 'INTERNAL_ENV')).toBe(true) // الواعي بالبادئة → مُنجَز صحيحاً
   })
 
-  it('مختصر أنجز التدقيق فقط → ① غير مكتملة، التالي 7S (لا قفزة لـ SWOT)', () => {
-    expect(nextIncomplete({ size: 'SMALL', sector: 'other', healthPct: 55 }, [], true)).toBe('s7')
+  it('مختصر أنجز التدقيق فقط → ① غير مكتملة، التالي deep (العمود بعد التدقيق — البند ١)', () => {
+    expect(nextIncomplete({ size: 'SMALL', sector: 'other', healthPct: 55 }, [], true)).toBe('deep')
   })
 
-  it('معيار الاكتمال يتبع طول recommended لا رقماً ثابتاً (قطاع برفع → ٤)', () => {
+  it('معيار الاكتمال يتبع طول recommended لا رقماً ثابتاً (عمود ٤ + رفع القطاع → ٥)', () => {
     const plan = analysisPlanFor({ size: 'SMALL', sector: 'consulting', healthPct: 55 })
-    expect(plan.recommended.length).toBe(4) // تدقيق/7S/PESTEL/أصحاب (رفع القطاع)
-    // أنجز الأساس الثلاثة فقط → تبقى «أصحاب المصلحة» ناقصة، فلا يكتمل ①.
+    expect(plan.recommended.length).toBe(5) // العمود الأربعيّ + أصحاب (رفع القطاع)
+    // أنجز العمود (deep=MATURITY/7S/PESTEL) → تبقى «أصحاب المصلحة» ناقصة، فلا يكتمل ①.
     expect(nextIncomplete({ size: 'SMALL', sector: 'consulting', healthPct: 55 },
-      ['INTERNAL_ENV', 'PESTEL'], true)).toBe('stakeholders')
+      ['INTERNAL_ENV', 'PESTEL', 'MATURITY'], true)).toBe('stakeholders')
   })
 })
 
 // ─── الخطوة ٢ — البدائيّتان النقيّتان المرفوعتان ──────────────────
 describe('recommendedForScore — الموصى به من طبقة جاهزة (مجمَّدة)', () => {
-  it('score=0 → ٣ (تدقيق/7S/PESTEL)', () => {
-    expect(recommendedForScore(0, 'other')).toEqual(['audit', 's7', 'pestel'])
+  it('score=0 → ٤ (العمود: تدقيق/deep/7S/PESTEL — البند ١)', () => {
+    expect(recommendedForScore(0, 'other')).toEqual(['audit', 'deep', 's7', 'pestel'])
   })
   it('score=1 → ٧', () => {
     expect(recommendedForScore(1, 'other')).toEqual(['audit', 'deep', 's7', 'value-chain', 'pestel', 'benchmarking', 'stakeholders'])
@@ -188,7 +196,7 @@ describe('recommendedForScore — الموصى به من طبقة جاهزة (م
     expect(recommendedForScore(2, 'other')).toHaveLength(9)
   })
   it('رفع القطاع يُظهر أداة في موضعها (استشارات score=0 → +أصحاب، أخيراً)', () => {
-    expect(recommendedForScore(0, 'consulting')).toEqual(['audit', 's7', 'pestel', 'stakeholders'])
+    expect(recommendedForScore(0, 'consulting')).toEqual(['audit', 'deep', 's7', 'pestel', 'stakeholders'])
   })
   it('يطابق مخرَج analysisPlanFor (مصدر واحد، لا اشتقاق مزدوج)', () => {
     // تشغيليّ عاديّ (score يُشتقّ 0) = recommendedForScore(0)
@@ -201,25 +209,25 @@ describe('recommendedForScore — الموصى به من طبقة جاهزة (م
   it('قفل «لا تأرجح»: الطبقة المجمَّدة لا تعتمد الصحّة — score واحد → قائمة واحدة', () => {
     // بلا مدخل صحّة أصلاً: نفس الرقم يعطي نفس القائمة دائماً (لا يكبر بتعافي العميل).
     const frozen = recommendedForScore(0, 'other')
-    expect(frozen).toHaveLength(3)
+    expect(frozen).toHaveLength(4) // البند ١: العمود الأربعيّ
     expect(recommendedForScore(0, 'other')).toEqual(frozen) // ثابت مهما تغيّرت الصحّة الحيّة
   })
 })
 
 describe('stageOneComplete — الاكتمال المشترك (يُرفَع فوق الهوكين)', () => {
-  const rec0 = recommendedForScore(0, 'other') // [audit, s7, pestel]
+  const rec0 = recommendedForScore(0, 'other') // [audit, deep, s7, pestel] — العمود (البند ١)
 
-  it('مختصر بتدقيق فقط → غير مكتملة (١ من ٣)', () => {
+  it('مختصر بتدقيق فقط → غير مكتملة (١ من ٤)', () => {
     expect(stageOneComplete(rec0, new Set<string>(), true)).toBe(false)
   })
-  it('مختصر + تدقيق + INTERNAL_ENV_HR + PESTEL_HR → مكتملة (واعٍ بالبادئة)', () => {
-    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR']), true)).toBe(true)
+  it('مختصر + تدقيق + INTERNAL_ENV_HR + PESTEL_HR + MATURITY(deep) → مكتملة (واعٍ بالبادئة)', () => {
+    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR', 'MATURITY']), true)).toBe(true)
   })
   it('بلا تدقيق → غير مكتملة حتى لو وُجدت artifacts أخرى', () => {
-    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR']), false)).toBe(false)
+    expect(stageOneComplete(rec0, new Set(['INTERNAL_ENV_HR', 'PESTEL_HR', 'MATURITY']), false)).toBe(false)
   })
-  it('قفل «لا تأرجح»: عميل مريض أكمل ٣ (score مجمَّد=0) يبقى مكتملاً وإن كان الحيّ سيطلب ٧', () => {
-    const done = new Set(['INTERNAL_ENV_HR', 'PESTEL_HR'])
+  it('قفل «لا تأرجح»: عميل مريض أكمل العمود (score مجمَّد=0) يبقى مكتملاً وإن كان الحيّ سيطلب ٧', () => {
+    const done = new Set(['INTERNAL_ENV_HR', 'PESTEL_HR', 'MATURITY']) // العمود incl. deep=MATURITY
     expect(stageOneComplete(recommendedForScore(0, 'other'), done, true)).toBe(true)  // المجمَّد ٣ → مكتمل
     expect(stageOneComplete(recommendedForScore(1, 'other'), done, true)).toBe(false) // لو أُعيد حسابه حيّاً (٧) لانفتح — لهذا نجمّد
   })
