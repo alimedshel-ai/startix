@@ -18,6 +18,8 @@ import {
 } from '@/lib/strategicApi'
 import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
 import { GENERATED_STATUS, PROMOTED_STATUS, isSuggested, canPromote } from '@/lib/initiativeState'
+import { hrImpactResult, hrLeverGoal, formatHrGoal } from '@/lib/hrInitiativeImpact'
+import type { QuantActuals } from '@/lib/hrQuantIndicators'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
@@ -149,6 +151,10 @@ function Editor({ companyId }: { companyId: string }) {
   const [creating, setCreating] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sources, setSources] = useState<Sources | null>(null)
+  // الرقعة F — أثر §د مشتقٌّ وقت العرض (لا يُحفَظ · ف٥). يظهر على أيّ مبادرة
+  // — حتى الموجودة — يطابق نصّها رافعاً ما دام أساس HR_QUANT معبّأً.
+  const [hrImpact, setHrImpact] = useState<ReturnType<typeof hrImpactResult>>(null)
+  const [hrActuals, setHrActuals] = useState<QuantActuals>({})
   const [form, setForm] = useState<{ title: string; description: string; priority: string; objectiveId: string; level: PlanLevel; cost: string }>(
     () => ({ title: '', description: '', priority: 'high', objectiveId: '', level: defaultLevel, cost: '' }),
   )
@@ -159,7 +165,7 @@ function Editor({ companyId }: { companyId: string }) {
     listObjectives(companyId).then(setObjectives).catch(() => undefined)
     // فحص جاهزية كل مصدر بالتوازي — يُشرح للمدير ماذا سيُقرأ.
     ;(async () => {
-      const [swot, dir, ans, cho, h3, deep] = await Promise.all([
+      const [swot, dir, ans, cho, h3, deep, hrq] = await Promise.all([
         getSWOT(companyId).catch(() => null),
         getArtifact<{ directions?: { title: string }[] }>(companyId, 'DIRECTIONS').catch(() => null),
         getArtifact<{ initiatives?: { title: string; quadrant: string }[] }>(
@@ -170,9 +176,14 @@ function Editor({ companyId }: { companyId: string }) {
           companyId, specialty ? `THREE_HORIZONS_${specialty}` : 'THREE_HORIZONS',
         ).catch(() => null),
         getArtifact<{ weaknesses?: string[]; answers?: Record<string, { selected?: string[]; other?: string } | string> }>(companyId, 'DEPT_DEEP_ANSWERS').catch(() => null),
+        getArtifact<{ actuals?: QuantActuals; financial?: { headcount?: number; avgMonthlySalary?: number; annualRevenue?: number } }>(companyId, 'HR_QUANT').catch(() => null),
       ])
       const towsList = swot?.tows
       const towsCount = (towsList?.so?.length ?? 0) + (towsList?.st?.length ?? 0) + (towsList?.wo?.length ?? 0) + (towsList?.wt?.length ?? 0)
+      // الرقعة F — أساس §د المحفوظ ← أثرٌ مشتقّ (null إن نقص الأساس · ف٣).
+      const acts = hrq?.data?.actuals ?? {}
+      setHrActuals(acts)
+      setHrImpact(hrImpactResult(hrq?.data?.financial, acts))
       // ① التشخيص — نفس ما يقرؤه generateFromAll (weaknessesFromDeepAnswers).
       const deepWeak = weaknessesFromDeepAnswers(specialty, deep?.data).length
       setSources({
@@ -418,6 +429,7 @@ function Editor({ companyId }: { companyId: string }) {
         return
       }
       // إنشاء المبادرات بالتوازي — مع اقتراح المستوى والهدف (لا تُترَك بلا أيّهما).
+      // الرقعة F: أثر §د لا يُحشَر هنا — يُشتقّ وقت العرض كشارة (يظهر على الحاليّ أيضاً).
       const created = await Promise.all(toCreate.map((x) => createInitiative({
         companyId, title: x.title, description: x.description, priority: x.priority,
         // الرقعة A: المولَّدة تولد «مقترحة» — قسمٌ منفصل، لا تدخل «مبادراتي» ولا العدّاد
@@ -440,6 +452,21 @@ function Editor({ companyId }: { companyId: string }) {
   // الرقعة A: المقترحة معزولة عن «مبادراتي» وعدّادها — قسمٌ منفصل يُعتمَد منه.
   const active = useMemo(() => items.filter((i) => !isSuggested(i.status)), [items])
   const suggestions = useMemo(() => items.filter((i) => isSuggested(i.status)), [items])
+
+  // الرقعة F — شارة أثر §د: تُشتقّ من نصّ المبادرة + أثر §د المحفوظ. null إن لم
+  // يطابق رافعاً أو نقص الأساس (لا رقم مختلَق · ف٣). عرضٌ بحت — لا يمسّ objectiveId/cost.
+  function HrImpactBadge({ i }: { i: Initiative }) {
+    const g = hrLeverGoal(`${i.title} ${i.description ?? ''}`, hrActuals, hrImpact)
+    if (!g) return null
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/70 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+        title={formatHrGoal(g)}
+      >
+        💡 أثر §د: {fmtSAR(g.annualImpactSAR)} ريال/سنة
+      </span>
+    )
+  }
   // إحصاءات — على المعتمَدة فقط (المقترحة لا تُعدّ).
   const counts = useMemo(() => active.reduce<Record<string, number>>((acc, i) => {
     acc[i.status] = (acc[i.status] ?? 0) + 1
@@ -682,6 +709,7 @@ function Editor({ companyId }: { companyId: string }) {
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => remove(i)} title="تجاهُل المقترح">×</Button>
                   </div>
+                  <div className="mt-1 empty:hidden"><HrImpactBadge i={i} /></div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <select className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={i.objectiveId ?? ''} onChange={(e) => update(i, { objectiveId: e.target.value || null })}>
                       <option value="">— 🎯 الهدف —</option>
@@ -756,6 +784,7 @@ function Editor({ companyId }: { companyId: string }) {
                           💰 {fmtSAR(Number(i.cost))} SAR
                         </span>
                       )}
+                      <HrImpactBadge i={i} />
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2">
