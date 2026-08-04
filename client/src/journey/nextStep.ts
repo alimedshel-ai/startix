@@ -13,6 +13,7 @@
 
 import { stagesForPath, type StageId } from '@/lib/journeyStages'
 import { auditRouteFor } from '@/journey'
+import type { SaudizationStatus } from '@/lib/saudization'
 import type { SpecialtyDeptType, StrategyPath } from '@/types/user'
 
 export type NextKind = 'action' | 'locked' | 'done' | 'no-client'
@@ -42,6 +43,10 @@ export interface NextStepSignals {
   externalSourceReady?: boolean
   /** هل التخصّص يستخدم تشخيص نضج/موزون بدل أدوات التحليل التقليديّة؟ */
   usesDiagnostic?: boolean
+  /** الحالة العامّة لوحدة التوطين — يرفع فجوة التوطين كأولوية مبادرة امتثال. */
+  saudizationStatus?: SaudizationStatus
+  /** إجماليّ فجوة التوطين بعدد الموظفين — لسبب واعٍ بالبيانات. */
+  saudizationGap?: number
 }
 
 export interface NextStepState {
@@ -74,10 +79,14 @@ function reasonFor(stage: StageId, s: NextStepState): string {
       return 'من التوليف، حدّد اتّجاهك الاستراتيجي وفاضِل بين الخيارات.'
     case 'indicators':
       return 'ترجم الاستراتيجية إلى أهداف ومؤشّرات قابلة للقياس.'
-    case 'initiatives':
+    case 'initiatives': {
+      // فجوة توطين غير ممتثلة = خطر امتثال — تُرفَع كأولوية مبادرة (تكامل ④).
+      if (sig.saudizationStatus === 'non_compliant' && sig.saudizationGap)
+        return `فجوة توطين غير ممتثلة (${sig.saudizationGap} موظّف) — أدرِجها كأولوية امتثال في مبادراتك${sig.maturityWeakCount ? `، مع ${sig.maturityWeakCount} جانباً ضعيفاً` : ''}.`
       return sig.maturityWeakCount && sig.maturityWeakCount > 0
         ? `تشخيصك كشف ${sig.maturityWeakCount} جانباً ضعيفاً — حوّلها إلى مبادرات تحسين مرتّبة.`
         : 'حوّل قرارك الاستراتيجي إلى مبادرات مرتّبة بالأولويّة.'
+    }
     case 'execution':
       return 'حوّل المبادرات إلى مهام بتواريخ ومسؤولين، وتابِع التنفيذ.'
   }

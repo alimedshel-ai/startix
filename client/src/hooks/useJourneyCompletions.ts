@@ -4,6 +4,7 @@ import type { StageId } from '@/lib/journeyStages'
 import { JOURNEY_STAGES, artifactSatisfies } from '@/lib/journeyStages'
 import { deepHasContent } from '@/lib/artifactContent'
 import { listDepartments } from '@/lib/deptApi'
+import { classifySaudization, type CategoryInput, type SaudizationStatus } from '@/lib/saudization'
 import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strategicApi'
 
 // ─── قراءة اكتمال المراحل للعميل النشط ───────────────────────────
@@ -22,6 +23,9 @@ export interface JourneyCompletions {
   /** أنواع الـartifacts التي محتواها غير فارغ (محفوظ ومملوء) — للقرارات
    *  الواعية بالمحتوى كجاهزية المصدر الخارجيّ. مجموعة موازية لا تعدّل الأمّ. */
   nonEmptyArtifactTypes: Set<string>
+  /** حالة التوطين المُشتقّة من HR_QUANT.saudization (من نفس حِمل الـartifacts،
+   *  بلا طلب إضافيّ). null إن لا مدخلات توطين — فلا إشارة تُرفَع للرحلة. */
+  saudization: { status: SaudizationStatus; gap: number } | null
 }
 
 const EMPTY: Record<StageId, boolean> = {
@@ -30,11 +34,11 @@ const EMPTY: Record<StageId, boolean> = {
 }
 
 export function useJourneyCompletions(companyId: string | null): JourneyCompletions {
-  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
+  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
+      setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
       return
     }
     let alive = true
@@ -58,6 +62,16 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
             ? arts.value.filter((a) => deepHasContent(a.data)).map((a) => a.type)
             : [],
         )
+        // التوطين من نفس الحِمل: HR_QUANT.saudization → حالة عامّة + فجوة إجماليّة.
+        let saudization: JourneyCompletions['saudization'] = null
+        if (arts.status === 'fulfilled') {
+          const hq = arts.value.find((a) => a.type === 'HR_QUANT')
+          const inputs = (hq?.data as { saudization?: CategoryInput[] } | undefined)?.saudization
+          if (inputs && inputs.length > 0) {
+            const sum = classifySaudization(inputs)
+            saudization = { status: sum.overallStatus, gap: sum.totalGap }
+          }
+        }
         const hasSwot = swot.status === 'fulfilled' && !!swot.value && (
           (swot.value.strengths?.length ?? 0) > 0 ||
           (swot.value.weaknesses?.length ?? 0) > 0
@@ -77,9 +91,9 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
           if (stage.id === 'indicators' && hasKpis)  done = true
           completions[stage.id] = done
         }
-        setState({ loading: false, completions, artifactTypes, nonEmptyArtifactTypes })
+        setState({ loading: false, completions, artifactTypes, nonEmptyArtifactTypes, saudization })
       } catch {
-        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set() })
+        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
       }
     })()
     return () => { alive = false }

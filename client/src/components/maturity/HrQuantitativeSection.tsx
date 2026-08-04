@@ -14,10 +14,24 @@ import {
   HR_QUANT_INDICATORS,
   HR_QUANT_LEVELS,
   levelSummary,
+  SAUDIZATION_KPI_ID,
   type QuantActuals,
   type QuantLevel,
 } from '@/lib/hrQuantIndicators'
+import {
+  classifySaudization,
+  computeSaudizationCost,
+  saudizationAchievementPct,
+  type CategoryInput,
+  type SaudizationSolution,
+} from '@/lib/saudization'
+import { SAUDIZATION_LEGAL_NOTE } from '@/lib/saudizationCatalog'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
+
+import { SaudizationSection } from './SaudizationSection'
+
+// نسخة مخطّط قيَم HR_QUANT المحفوظة (قاعدة ٣: schemaVersion إجباريّ من v1).
+const HR_QUANT_SCHEMA_VERSION = 1
 
 // ─── التحليل الكمّي لإدارة الموارد البشرية — 31 مؤشراً / 3 مستويات ────────
 // يُدخل المدير الأداء الفعليّ فيرى الفجوة + الحالة لكل مؤشّر، وملخّص كل مستوى،
@@ -25,8 +39,18 @@ import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 // artifact 'HR_QUANT'. يظهر داخل التحليل العميق (MaturityInApp) لتخصّص HR.
 
 interface HrQuantArtifact {
+  schemaVersion?: number
   actuals: QuantActuals
+  saudization?: CategoryInput[]
+  /** متوسّط راتب غير المحتسبين — أساس ① في محرّك تكلفة التوطين. */
+  saudizationAvgLow?: number
   financial?: { headcount?: number; avgMonthlySalary?: number; annualRevenue?: number }
+}
+
+const SOLUTION_LABEL: Record<SaudizationSolution, string> = {
+  raiseSalaries: 'رفع رواتب غير المحتسبين للحدّ',
+  changeProfessions: 'تغيير مهن غير السعوديّين',
+  hire: 'توظيف سعوديّين',
 }
 
 const sar = (n: number) => `${Math.round(n).toLocaleString('ar-SA')} ريال`
@@ -44,6 +68,8 @@ export function HrQuantitativeSection({
   prefill?: { headcount?: number; avgMonthlySalary?: number }
 }) {
   const [actuals, setActuals] = useState<QuantActuals>({})
+  const [saud, setSaud] = useState<CategoryInput[]>([])
+  const [saudLow, setSaudLow] = useState<number | undefined>(undefined)
   const [fin, setFin] = useState<{ headcount?: number; avgMonthlySalary?: number; annualRevenue?: number }>({})
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -58,6 +84,8 @@ export function HrQuantitativeSection({
         const art = await getArtifact<HrQuantArtifact>(companyId, 'HR_QUANT')
         if (cancel) return
         setActuals(art?.data?.actuals ?? {})
+        setSaud(art?.data?.saudization ?? []) // ترحيل v0→v1: غياب الحقل = قائمة فارغة
+        setSaudLow(art?.data?.saudizationAvgLow)
         setFin({
           headcount: art?.data?.financial?.headcount ?? prefill?.headcount,
           avgMonthlySalary: art?.data?.financial?.avgMonthlySalary ?? prefill?.avgMonthlySalary,
@@ -75,12 +103,18 @@ export function HrQuantitativeSection({
     timer.current = setTimeout(async () => {
       setAutosave('saving')
       try {
-        await upsertArtifact<HrQuantArtifact>(companyId, 'HR_QUANT', { actuals, financial: fin })
+        await upsertArtifact<HrQuantArtifact>(companyId, 'HR_QUANT', {
+          schemaVersion: HR_QUANT_SCHEMA_VERSION,
+          actuals,
+          saudization: saud,
+          saudizationAvgLow: saudLow,
+          financial: fin,
+        })
         setAutosave('saved')
       } catch (err) { setAutosave('error'); void apiErrorMessage(err, '') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [actuals, fin, companyId])
+  }, [actuals, saud, saudLow, fin, companyId])
 
   function setActual(id: string, v: string) {
     setActuals((prev) => {
@@ -91,6 +125,30 @@ export function HrQuantitativeSection({
       return next
     })
   }
+
+  // ─── تغذية KPI_STR_04 من وحدة التوطين (لا DRV_* يوازيه — نحوّله محسوباً) ──
+  // إن وُجدت فئات توطين منطبقة، تُشتقّ نسبة السعودة وتُقفَل خانة KPI_STR_04
+  // (تُعرَض للقراءة). بلا مدخلات توطين، يبقى المؤشّر يدويّاً كسابق عهده.
+  const derivedSaudization = useMemo(() => {
+    if (saud.length === 0) return null
+    return saudizationAchievementPct(classifySaudization(saud))
+  }, [saud])
+
+  const mergedActuals = useMemo<QuantActuals>(
+    () => (derivedSaudization == null ? actuals : { ...actuals, [SAUDIZATION_KPI_ID]: derivedSaudization }),
+    [actuals, derivedSaudization],
+  )
+  const lockedIds = useMemo(
+    () => (derivedSaudization == null ? new Set<string>() : new Set([SAUDIZATION_KPI_ID])),
+    [derivedSaudization],
+  )
+
+  // §د السادس: تكلفة الحلّ الأوفر للتوطين (محرّك التكلفة). يحتاج متوسّط راتب غير
+  // المحتسبين (①). يظهر فقط حين توجد فئات توطين ذات فجوة وتكلفة موجبة.
+  const saudCost = useMemo(
+    () => (saud.length === 0 ? null : computeSaudizationCost(saud, saudLow ?? 0)),
+    [saud, saudLow],
+  )
 
   // ─── طبقة §د: الأثر بالريال من المؤشرات الخمسة الماليّة ──────────
   const impact = useMemo(() => {
@@ -133,8 +191,11 @@ export function HrQuantitativeSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {HR_QUANT_LEVELS.map((level) => (
-          <LevelGroup key={level} level={level} actuals={actuals} onSet={setActual} />
+          <LevelGroup key={level} level={level} actuals={mergedActuals} lockedIds={lockedIds} onSet={setActual} />
         ))}
+
+        {/* ─── وحدة التوطين — تُغذّي KPI_STR_04 أعلاه ─── */}
+        <SaudizationSection inputs={saud} onChange={setSaud} />
 
         {/* ─── طبقة §د: الأثر المالي بالريال ─── */}
         <div className="rounded-lg border border-amber-300 bg-amber-50/50 p-4">
@@ -170,13 +231,39 @@ export function HrQuantitativeSection({
               </div>
             </div>
           )}
+
+          {/* §د السادس — تكلفة الحلّ الأوفر للتوطين (محرّك التكلفة، لا يعتمد على المؤشرات الخمسة) */}
+          {saud.length > 0 && (
+            <div className="mt-3 border-t border-amber-300 pt-3">
+              <div className="mb-2 max-w-xs">
+                <FinInput label="متوسط راتب غير المحتسبين — أساس ① (ريال)" value={saudLow} onChange={setSaudLow} />
+              </div>
+              {saudCost && saudCost.bestCost > 0 ? (
+                <div className="flex flex-col gap-1 text-sm">
+                  <div className="flex items-center justify-between font-bold text-amber-900">
+                    <span>💡 تكلفة الحلّ الأوفر للتوطين — {SOLUTION_LABEL[saudCost.bestSolution]}</span>
+                    <span className="tabular-nums">{sar(saudCost.bestCost)}</span>
+                  </div>
+                  <p className="text-xs text-amber-800/80">
+                    البدائل/سنة: رفع الرواتب {sar(saudCost.raiseSalaries)} · تغيير المهن {sar(saudCost.changeProfessions)} · التوظيف {sar(saudCost.hire)}.
+                  </p>
+                  {saudCost.restrictedSequence && (
+                    <p className="rounded bg-rose-100/70 px-2 py-1 text-xs font-medium text-rose-800">⚠️ فئة مقصورة ١٠٠٪ — التوظيف جزءٌ من تسلسل إلزاميّ (توظيف ثمّ تغيير مهنة) لا بديلٌ مستقلّ.</p>
+                  )}
+                  <p className="text-[11px] leading-relaxed text-amber-900/70">{SAUDIZATION_LEGAL_NOTE}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-800/80">أدخل متوسط راتب غير المحتسبين لحساب تكلفة الحلّ الأوفر (①) وإظهار البدائل الثلاثة.</p>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function LevelGroup({ level, actuals, onSet }: { level: QuantLevel; actuals: QuantActuals; onSet: (id: string, v: string) => void }) {
+function LevelGroup({ level, actuals, lockedIds, onSet }: { level: QuantLevel; actuals: QuantActuals; lockedIds: Set<string>; onSet: (id: string, v: string) => void }) {
   const meta = HR_LEVEL_META[level]
   const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
   const s = levelSummary(level, actuals)
@@ -192,10 +279,13 @@ function LevelGroup({ level, actuals, onSet }: { level: QuantLevel; actuals: Qua
         {inds.map((ind) => {
           const e = evalIndicator(ind, actuals[ind.id])
           const badge = e.status === 'ok' ? '✅' : e.status === 'off' ? '🔴' : '⬜'
+          const locked = lockedIds.has(ind.id)
           return (
             <div key={ind.id} className="flex items-center gap-2 py-1.5 text-sm">
               <span className="w-5 shrink-0 text-center">{badge}</span>
-              <span className="min-w-0 flex-1 truncate" title={ind.name}>{ind.name}</span>
+              <span className="min-w-0 flex-1 truncate" title={ind.name}>
+                {locked && <span title="محسوب من وحدة التوطين">🔗 </span>}{ind.name}
+              </span>
               <span className="shrink-0 text-xs text-muted-foreground">الهدف {ind.target}{ind.unit === '%' ? '٪' : ` ${ind.unit}`}</span>
               <Input
                 type="number"
@@ -203,6 +293,8 @@ function LevelGroup({ level, actuals, onSet }: { level: QuantLevel; actuals: Qua
                 className="h-8 w-20 shrink-0 text-center"
                 placeholder="الفعليّ"
                 value={actuals[ind.id] ?? ''}
+                disabled={locked}
+                title={locked ? 'محسوب تلقائياً من وحدة التوطين أدناه' : undefined}
                 onChange={(ev) => onSet(ind.id, ev.target.value)}
               />
             </div>

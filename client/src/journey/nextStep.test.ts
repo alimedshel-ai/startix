@@ -92,6 +92,29 @@ describe('getNextStep — بوّابة الأداة + منع الطريق الم
   })
 })
 
+describe('getNextStep — إشارة التوطين تُثري سبب المبادرات (تكامل ④)', () => {
+  // QUICK: بعد environment+synthesis التالي = initiatives.
+  const c = { ...NONE, environment: true, synthesis: true }
+
+  it('توطين غير ممتثل بفجوة → السبب يرفعها كأولوية امتثال', () => {
+    const r = getNextStep(base({ path: 'QUICK', completions: c, signals: { saudizationStatus: 'non_compliant', saudizationGap: 3 } }))
+    expect(r.stageId).toBe('initiatives')
+    expect(r.reason).toContain('توطين')
+    expect(r.reason).toContain('3')
+  })
+
+  it('يدمج فجوة التوطين مع جوانب النضج الضعيفة إن وُجدت', () => {
+    const r = getNextStep(base({ path: 'QUICK', completions: c, signals: { saudizationStatus: 'non_compliant', saudizationGap: 2, maturityWeakCount: 4 } }))
+    expect(r.reason).toContain('توطين')
+    expect(r.reason).toContain('4')
+  })
+
+  it('توطين ممتثل → لا يطغى على السبب الافتراضيّ', () => {
+    const r = getNextStep(base({ path: 'QUICK', completions: c, signals: { saudizationStatus: 'compliant', saudizationGap: 0 } }))
+    expect(r.reason).not.toContain('توطين')
+  })
+})
+
 describe('getNextStep — العمق يفلتر العرض لا الاكتمال (ثبات الاكتمال)', () => {
   it('نفس الاكتمال: مرحلة مكتملة لا تُعاد كـ«تالية» مهما اختلف العمق (QUICK vs LONG)', () => {
     const c = { ...NONE, environment: true, synthesis: true }

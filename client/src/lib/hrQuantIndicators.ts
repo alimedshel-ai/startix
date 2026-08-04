@@ -102,6 +102,9 @@ export function levelSummary(level: QuantLevel, actuals: QuantActuals): LevelSum
   return { total: inds.length, entered, ok, off, achievedPct: entered ? Math.round((ok / entered) * 100) : 0 }
 }
 
+// مؤشّر السعودة: تُغذّيه وحدة التوطين (classifySaudization) بدل الإدخال اليدويّ.
+export const SAUDIZATION_KPI_ID = 'KPI_STR_04' as const
+
 // ─── جسر §د: أيّ مؤشّرات تُغذّي محرّك الأثر المالي (LINK_29..33) ──────
 export const FINANCIAL_INDICATOR_IDS = {
   turnover: 'KPI_STR_02', // معدل التسرب → turnoverCost
