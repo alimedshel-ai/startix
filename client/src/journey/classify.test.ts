@@ -104,3 +104,24 @@ describe('branchLock — قفل غير الموصى في الطوارئ فقط (
     expect(branchLock('growth', false).isLocked).toBe(false)
   })
 })
+
+// ─── §٥ COMPUTE_FINANCIAL_HEALTH_SPEC: الأرضيّة الماليّة (dormant حتى مصدر حيّ) ──
+describe('classifyClient — سطر الربط الماليّ (§٥)', () => {
+  it('غياب الصحّة الماليّة (null/undefined) → سلوكٌ مطابقٌ للسابق تماماً', () => {
+    expect(classifyClient(st({ healthPct: 75 })).level).toBe('growth')
+    expect(classifyClient(st({ healthPct: 75, financialHealthPct: null })).level).toBe('growth')
+  })
+
+  it('أرضيّة ماليّة أدنى تحدّ الصحّة الإداريّة (min لا متوسّط) → تهبط للطوارئ', () => {
+    // إدارة ممتازة ٩٠٪ لكن صحّة ماليّة ٣٠ (سيولة ٠٫١١) → الحدّ يُجبر الطوارئ.
+    const r = classifyClient(st({ healthPct: 90, financialHealthPct: 30 }))
+    expect(r.level).toBe('emergency')
+    expect(r.reasonAr).toContain('القيد الآن ماليّ')
+  })
+
+  it('أرضيّة ماليّة أعلى من الإداريّة لا ترفع الصحّة (min فقط)', () => {
+    const r = classifyClient(st({ healthPct: 50, financialHealthPct: 95 }))
+    expect(r.level).toBe('foundation') // ٥٠ لا ٩٥
+    expect(r.reasonAr).not.toContain('القيد الآن ماليّ')
+  })
+})

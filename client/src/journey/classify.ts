@@ -22,6 +22,15 @@ export interface ClassifyState {
   healthPct: number | null
   /** منطقة الخطر إن توفّرت — RED تُجبر الطوارئ مهما كانت النسبة. */
   dangerZone?: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null
+  /**
+   * سطر الربط الماليّ (§٥ COMPUTE_FINANCIAL_HEALTH_SPEC): صحّة `computeFinancialHealth`
+   * كأرضيّةٍ للصحّة الإداريّة — عمليّةٌ ممتازةٌ بسيولةٍ ٠٫١١ ليست بخير.
+   * ⚠️ **معتمد غير موصول بمصدرٍ حيّ بعد** (نمط branchLock أدناه): طبقة البيانات
+   * المعاملاتيّة (Employee/FinancialTransaction) غير مبنيّة، فلا KPIs حقيقيّة تُغذّيه.
+   * `null/undefined` → لا أثر إطلاقاً (سلوكٌ مطابقٌ للسابق). حين تُبنى الطبقة يمرّر
+   * المتّصل `computeFinancialHealth(kpis).healthPct` هنا — لا قيمة مُختلَقة قبلها.
+   */
+  financialHealthPct?: number | null
 }
 
 export interface ClientClass {
@@ -46,29 +55,36 @@ export function classifyClient(s: ClassifyState): ClientClass {
     }
   }
 
-  const h = s.healthPct
+  // §٥: الأرضيّة الماليّة تحدّ الصحّة الإداريّة — min، لا متوسّط (لا يُخفي طارئ سيولة).
+  // dormant حتى يمرّر المتّصل قيمةً حقيقيّة؛ null/undefined → h كما هي.
+  const h = s.financialHealthPct != null ? Math.min(s.healthPct, s.financialHealthPct) : s.healthPct
+  // حين تكون الأرضيّة الماليّة هي القيد (لا التدقيق) نُبيّن السبب — لا خفضٌ صامت.
+  const financialBinds = s.financialHealthPct != null && s.financialHealthPct < s.healthPct
+  const finNote = financialBinds
+    ? ` القيد الآن ماليّ لا إداريّ (الصحّة الماليّة ${Math.round(s.financialHealthPct as number)}٪ دون الإداريّة ${Math.round(s.healthPct)}٪) — عالِج السيولة/التحصيل أوّلاً.`
+    : ''
 
   if (s.dangerZone === 'RED' || h < 40) {
     return {
       level: 'emergency', journeyPath: 'QUICK', icon: '🚨', labelAr: 'طوارئ',
-      reasonAr: `الصحّة ${Math.round(h)}٪ — منطقة حمراء. أوقف النزيف بخطة الإنقاذ قبل أي تخطيط أطول. يرتقي المستوى بمجرّد تعافي الصحّة (≥٤٠٪).`,
+      reasonAr: `الصحّة ${Math.round(h)}٪ — منطقة حمراء. أوقف النزيف بخطة الإنقاذ قبل أي تخطيط أطول. يرتقي المستوى بمجرّد تعافي الصحّة (≥٤٠٪).${finNote}`,
     }
   }
   if (h < 60) {
     return {
       level: 'foundation', journeyPath: 'QUICK', icon: '🧱', labelAr: 'تأسيسي',
-      reasonAr: `الصحّة ${Math.round(h)}٪ — ثبّت الأساسيّات (إجراءات + فريق + قياس مبدئي). أعِد التدقيق ليرتقي للنموّ عند ٦٠٪.`,
+      reasonAr: `الصحّة ${Math.round(h)}٪ — ثبّت الأساسيّات (إجراءات + فريق + قياس مبدئي). أعِد التدقيق ليرتقي للنموّ عند ٦٠٪.${finNote}`,
     }
   }
   if (h < 80) {
     return {
       level: 'growth', journeyPath: 'MEDIUM', icon: '🌱', labelAr: 'نموّ',
-      reasonAr: `الصحّة ${Math.round(h)}٪ — الأساس متين. ابنِ للنموّ (توجّه + مبادرات + مؤشّرات). يرتقي للتميّز عند ٨٠٪.`,
+      reasonAr: `الصحّة ${Math.round(h)}٪ — الأساس متين. ابنِ للنموّ (توجّه + مبادرات + مؤشّرات). يرتقي للتميّز عند ٨٠٪.${finNote}`,
     }
   }
   return {
     level: 'excellence', journeyPath: 'LONG', icon: '🏆', labelAr: 'تميّز',
-    reasonAr: `الصحّة ${Math.round(h)}٪ — إدارة ناضجة. حسّن للتميّز (سيناريوهات + تحسين مستمرّ + قياس دوريّ).`,
+    reasonAr: `الصحّة ${Math.round(h)}٪ — إدارة ناضجة. حسّن للتميّز (سيناريوهات + تحسين مستمرّ + قياس دوريّ).${finNote}`,
   }
 }
 
