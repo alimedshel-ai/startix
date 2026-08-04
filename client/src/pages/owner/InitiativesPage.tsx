@@ -59,6 +59,32 @@ function sLabel(s: string): string {
   return STATUS.find((x) => x[0] === s)?.[1] ?? s
 }
 
+// ─── اقتراح المستوى + الهدف للمبادرات المولَّدة (كانت تُنشأ بلا أيّهما) ──────
+// المولّد كان يُنشئ بلا level/objectiveId فتظهر «بلا مستوى · يتيمة». نقترحهما
+// (اقتراح لا إلزام — الحقلان قابلان للتعديل إنلاين بعد الإنشاء).
+
+// المستوى من طبيعة المصدر: مصادرُ الفعل الفوريّ تشغيليّة، البعيدة استراتيجيّة،
+// والباقي تكتيكيّ — يسقط للافتراض (decisionAuthority) عند مصدرٍ غير مصنَّف.
+function suggestLevel(source: string, fallback: PlanLevel): PlanLevel {
+  if (source === 'خريطة المخاطر' || source === 'أيزنهاور' || source === 'التشخيص') return 'operational'
+  if (source === 'القرار' || source === 'الاتجاهات' || source === 'الآفاق الثلاثة') return 'strategic'
+  if (source === 'TOWS' || source === 'Ansoff') return 'tactical'
+  return fallback
+}
+
+// ربط الهدف: نربط فقط عند تقاطعٍ واثقٍ في الكلمات المميّزة (≥٤ أحرف) — وإلّا
+// تبقى يتيمةً بشارتها الداعية للربط اليدويّ (لا ربطٌ عشوائيّ خاطئ). العميل
+// الطارئ غالباً بلا أهداف بعد (تأتي لاحقاً في الرحلة) → لا مطابقة → يتيمة بحقّ.
+function suggestObjectiveId(title: string, description: string, objectives: Objective[]): string | null {
+  if (objectives.length === 0) return null
+  const hay = titleKey(`${title} ${description}`)
+  for (const o of objectives) {
+    const tokens = titleKey(o.title).split(' ').filter((t) => t.length >= 4)
+    if (tokens.length > 0 && tokens.some((t) => hay.includes(t))) return o.id
+  }
+  return null
+}
+
 // رفع أولوية المبادرات المطابقة لمسار المدير الاستراتيجي.
 function boostForPath(base: 'critical' | 'high' | 'medium' | 'low', cat: string, path: StrategyPath | null): 'critical' | 'high' | 'medium' | 'low' {
   if (!path) return base
@@ -368,9 +394,11 @@ function Editor({ companyId }: { companyId: string }) {
         toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: التشخيص السريع/SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
         return
       }
-      // إنشاء المبادرات بالتوازي.
+      // إنشاء المبادرات بالتوازي — مع اقتراح المستوى والهدف (لا تُترَك بلا أيّهما).
       const created = await Promise.all(toCreate.map((x) => createInitiative({
         companyId, title: x.title, description: x.description, priority: x.priority,
+        level: suggestLevel(x.source, defaultLevel),
+        objectiveId: suggestObjectiveId(x.title, x.description, objectives),
       }).catch(() => null)))
       const okCreated = created.filter((c): c is Initiative => c != null)
       setItems((p) => [...p, ...okCreated])
