@@ -7,7 +7,7 @@
 
 import assert from 'node:assert';
 
-import { inviteIdentityPatch } from './invitations';
+import { inviteIdentityPatch, invitationGateReason, type InviteGate } from './invitations';
 
 type Patch = { userType: 'MANAGER'; managerType: 'INTERNAL' } | null;
 type Case = {
@@ -61,3 +61,27 @@ for (const ut of ['OWNER', 'INVESTOR']) {
 }
 
 console.log(`✔ inviteIdentityPatch: ${CASES.length} حالة — الرقعة النقيّة صحيحة (كلّ هويّة قائمة محروسة؛ D-٣ محسوم)`);
+
+// ─── الدلالة ٦+٧: حارس التوكن — منتهٍ/مستخدم/مُبطَل ⇒ رفض (بالتشغيل) ──────────
+const NOW = new Date('2026-08-03T00:00:00Z');
+const FUTURE = new Date('2026-09-01T00:00:00Z');
+const PAST = new Date('2026-07-01T00:00:00Z');
+type GateCase = { desc: string; inv: { status: string; expiresAt: Date } | null; expect: InviteGate };
+const GATE_CASES: GateCase[] = [
+  { desc: 'null → missing (توكن غير موجود)',              inv: null,                                      expect: 'missing' },
+  { desc: 'accepted → not-pending (مستخدم)',             inv: { status: 'accepted',  expiresAt: FUTURE }, expect: 'not-pending' },
+  { desc: 'cancelled → not-pending (مُبطَل)',            inv: { status: 'cancelled', expiresAt: FUTURE }, expect: 'not-pending' },
+  { desc: 'pending + expiresAt ماضٍ → expired (منتهٍ)',  inv: { status: 'pending',   expiresAt: PAST },   expect: 'expired' },
+  { desc: 'pending + صالح → ok',                         inv: { status: 'pending',   expiresAt: FUTURE }, expect: 'ok' },
+];
+for (const c of GATE_CASES) {
+  const got = invitationGateReason(c.inv, NOW);
+  console.log(`  توكن ${c.inv ? `${c.inv.status}/${c.inv.expiresAt < NOW ? 'منتهٍ' : 'صالح'}` : 'null'} → ${got}`);
+  assert.strictEqual(got, c.expect, `فشل: ${c.desc} — المتوقّع ${c.expect}، الفعليّ ${got}`);
+}
+// تأكيد صريح: منتهٍ/مستخدم/مُبطَل كلّها رفض (ليست ok).
+assert.ok(
+  (['expired', 'not-pending', 'not-pending'] as InviteGate[]).every((g) => g !== 'ok'),
+  'منتهٍ/مستخدم/مُبطَل يجب أن تُرفض جميعاً',
+);
+console.log(`✔ invitationGateReason: ${GATE_CASES.length} حالة — التوكن يُرفض قبل أيّ إنشاء (الدلالة ٦+٧)`);

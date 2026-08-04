@@ -130,22 +130,39 @@ export function inviteIdentityPatch(
   return { userType: 'MANAGER', managerType: 'INTERNAL' };
 }
 
+// ─── نقيّة (D-٢ الدلالة ٦): سبب قبول/رفض التوكن قبل أيّ إنشاء ─────────────────
+// موجود → pending (غير مستخدم/مُبطَل، فحالتهما ليست pending) → غير منتهٍ. أيّ رفضٍ
+// يُوقف الإنشاء صراحةً؛ ونجاح المعاملة يعلّم التوكن accepted داخلها (إعادة مستحيلة).
+export type InviteGate = 'ok' | 'missing' | 'not-pending' | 'expired';
+export function invitationGateReason(
+  invitation: { status: string; expiresAt: Date } | null,
+  now: Date,
+): InviteGate {
+  if (!invitation) return 'missing';
+  if (invitation.status !== 'pending') return 'not-pending';
+  if (invitation.expiresAt < now) return 'expired';
+  return 'ok';
+}
+const GATE_MESSAGE: Record<InviteGate, string> = {
+  ok: '',
+  missing: 'الدعوة غير موجودة',
+  'not-pending': 'الدعوة غير متاحة للقبول (منتهية أو مقبولة أو مُلغاة)',
+  expired: 'انتهت صلاحية الدعوة',
+};
+
 // ─── POST /api/invitations/:token/accept ───────────────────────────────────
 export const acceptInvitation: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const token = paramOf(req, 'token');
     const invitation = await prisma.invitation.findUnique({ where: { token } });
-    if (!invitation) throw new HttpError(404, 'الدعوة غير موجودة');
-    if (invitation.status !== 'pending') {
-      throw new HttpError(400, 'الدعوة غير متاحة للقبول (منتهية أو مقبولة أو مُلغاة)');
+    // حارس التوكن النقيّ (الدلالة ٦) قبل أيّ إنشاء.
+    const gate = invitationGateReason(invitation, new Date());
+    if (gate === 'expired' && invitation) {
+      await prisma.invitation.update({ where: { id: invitation.id }, data: { status: 'expired' } });
     }
-    if (invitation.expiresAt < new Date()) {
-      await prisma.invitation.update({
-        where: { id: invitation.id },
-        data: { status: 'expired' },
-      });
-      throw new HttpError(400, 'انتهت صلاحية الدعوة');
+    if (gate !== 'ok' || !invitation) {
+      throw new HttpError(gate === 'missing' ? 404 : 400, GATE_MESSAGE[gate]);
     }
 
     // يجب أن يطابق بريد المستخدم بريد الدعوة.
