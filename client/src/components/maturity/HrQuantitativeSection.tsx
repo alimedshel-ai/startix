@@ -25,6 +25,7 @@ import {
   type CategoryInput,
   type SaudizationSolution,
 } from '@/lib/saudization'
+import { deriveQuantActual, QUANT_CROSSOVER } from '@/lib/hrQuantDerive'
 import { SAUDIZATION_LEGAL_NOTE } from '@/lib/saudizationCatalog'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -41,10 +42,25 @@ const HR_QUANT_SCHEMA_VERSION = 1
 interface HrQuantArtifact {
   schemaVersion?: number
   actuals: QuantActuals
+  /** المدخلات العدديّة (HRQ_*) — «الأرقام تُدخَل والنِّسَب تُشتقّ» (جدول العبور v3.3). */
+  counts?: Record<string, number>
   saudization?: CategoryInput[]
   /** متوسّط راتب غير المحتسبين — أساس ① في محرّك تكلفة التوطين. */
   saudizationAvgLow?: number
-  financial?: { headcount?: number; avgMonthlySalary?: number; annualRevenue?: number }
+  financial?: { headcount?: number; avgMonthlySalary?: number; annualRevenue?: number; workDays?: number }
+}
+
+// تسميات مختصرة للعدّادات المُدخَلة (HRQ_*) — تُعرَض على خانة العدد.
+const HRQ_LABEL: Record<string, string> = {
+  HRQ_HR_COST_YEAR: 'تكلفة الموارد/سنة (ريال)', HRQ_LEAVERS_12M: 'المغادرون (١٢ش)',
+  HRQ_TOTAL_EXP_YEARS: 'مجموع سنوات الخبرة', HRQ_RISKS_OPEN: 'مخاطر مفتوحة', HRQ_RISKS_TOTAL: 'مخاطر إجماليّة',
+  HRQ_HIRE_DAYS_SUM: 'مجموع أيام التعيين', HRQ_HIRES_COUNT: 'عدد التعيينات',
+  HRQ_VACANT: 'وظائف شاغرة', HRQ_APPROVED_HEADCOUNT: 'وظائف معتمدة',
+  HRQ_HIRING_SPENT: 'مصروف التوظيف', HRQ_HIRING_BUDGET: 'ميزانية التوظيف',
+  HRQ_APPRAISED_Q: 'مُقيَّمون (ربع)', HRQ_KPI_MET: 'محقّقو الأهداف',
+  HRQ_TRAINING_HOURS_M: 'ساعات تدريب/شهر', HRQ_PLANS_DONE: 'خطط مكتملة', HRQ_PLANS_TOTAL: 'خطط معتمدة',
+  HRQ_PAYROLL_ONTIME: 'رواتب بموعدها', HRQ_PAYROLL_TOTAL: 'إجمالي المسيّرات',
+  HRQ_ABSENCE_DAYS_M: 'أيام غياب/شهر', HRQ_LATE_CASES_M: 'حالات تأخّر/شهر', HRQ_PRESENT_TODAY: 'حاضرون اليوم',
 }
 
 const SOLUTION_LABEL: Record<SaudizationSolution, string> = {
@@ -68,9 +84,10 @@ export function HrQuantitativeSection({
   prefill?: { headcount?: number; avgMonthlySalary?: number }
 }) {
   const [actuals, setActuals] = useState<QuantActuals>({})
+  const [counts, setCounts] = useState<Record<string, number>>({})
   const [saud, setSaud] = useState<CategoryInput[]>([])
   const [saudLow, setSaudLow] = useState<number | undefined>(undefined)
-  const [fin, setFin] = useState<{ headcount?: number; avgMonthlySalary?: number; annualRevenue?: number }>({})
+  const [fin, setFin] = useState<{ headcount?: number; avgMonthlySalary?: number; annualRevenue?: number; workDays?: number }>({})
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipFirst = useRef(true)
@@ -84,12 +101,14 @@ export function HrQuantitativeSection({
         const art = await getArtifact<HrQuantArtifact>(companyId, 'HR_QUANT')
         if (cancel) return
         setActuals(art?.data?.actuals ?? {})
+        setCounts(art?.data?.counts ?? {}) // العدّادات HRQ_* — تُشتقّ منها النِّسَب
         setSaud(art?.data?.saudization ?? []) // ترحيل v0→v1: غياب الحقل = قائمة فارغة
         setSaudLow(art?.data?.saudizationAvgLow)
         setFin({
           headcount: art?.data?.financial?.headcount ?? prefill?.headcount,
           avgMonthlySalary: art?.data?.financial?.avgMonthlySalary ?? prefill?.avgMonthlySalary,
           annualRevenue: art?.data?.financial?.annualRevenue,
+          workDays: art?.data?.financial?.workDays,
         })
       } catch { /* بلا artifact سابق — نبدأ فارغاً */ }
     })()
@@ -106,6 +125,7 @@ export function HrQuantitativeSection({
         await upsertArtifact<HrQuantArtifact>(companyId, 'HR_QUANT', {
           schemaVersion: HR_QUANT_SCHEMA_VERSION,
           actuals,
+          counts,
           saudization: saud,
           saudizationAvgLow: saudLow,
           financial: fin,
@@ -114,7 +134,7 @@ export function HrQuantitativeSection({
       } catch (err) { setAutosave('error'); void apiErrorMessage(err, '') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [actuals, saud, saudLow, fin, companyId])
+  }, [actuals, counts, saud, saudLow, fin, companyId])
 
   function setActual(id: string, v: string) {
     setActuals((prev) => {
@@ -122,6 +142,16 @@ export function HrQuantitativeSection({
       const n = num(v)
       if (n == null) delete next[id]
       else next[id] = n
+      return next
+    })
+  }
+
+  function setCount(key: string, v: string) {
+    setCounts((prev) => {
+      const next = { ...prev }
+      const n = num(v)
+      if (n == null) delete next[key]
+      else next[key] = n
       return next
     })
   }
@@ -134,14 +164,45 @@ export function HrQuantitativeSection({
     return saudizationAchievementPct(classifySaudization(saud))
   }, [saud])
 
-  const mergedActuals = useMemo<QuantActuals>(
-    () => (derivedSaudization == null ? actuals : { ...actuals, [SAUDIZATION_KPI_ID]: derivedSaudization }),
-    [actuals, derivedSaudization],
-  )
-  const lockedIds = useMemo(
-    () => (derivedSaudization == null ? new Set<string>() : new Set([SAUDIZATION_KPI_ID])),
-    [derivedSaudization],
-  )
+  // ─── الاشتقاق العدديّ (جدول العبور v3.3): «الأرقام تُدخَل والنِّسَب تُشتقّ» ──
+  // العدّادات HRQ_* + الأرقام الأساسيّة FND_* تُغذّي deriveQuantActual لكل مؤشّرٍ
+  // count/derived؛ الناتج نسبةٌ محسوبةٌ تُقفَل خانتها (كنمط السعودة). المؤشّرات
+  // manual/raw تبقى بإدخال النسبة المباشر. actuals تُمرَّر أيضاً كوقودٍ خامّ
+  // لـSTR_05 (الامتثال يُشتقّ من عدّادات OPR الخام).
+  const inputs = useMemo<Record<string, number>>(() => {
+    const base: Record<string, number> = { ...counts }
+    if (fin.headcount != null) base.FND_HEADCOUNT = fin.headcount
+    if (fin.annualRevenue != null) base.FND_ANNUAL_REVENUE = fin.annualRevenue
+    if (fin.avgMonthlySalary != null) base.FND_AVG_SALARY = fin.avgMonthlySalary
+    base.FND_WORK_DAYS = fin.workDays ?? 22
+    for (const [k, v] of Object.entries(actuals)) if (v != null) base[k] = v
+    return base
+  }, [counts, fin, actuals])
+
+  const derivedActuals = useMemo<Record<string, number>>(() => {
+    const out: Record<string, number> = {}
+    for (const ind of HR_QUANT_INDICATORS) {
+      const v = deriveQuantActual(ind.id, inputs) // null لـmanual/raw/catalog
+      if (v != null) out[ind.id] = v
+    }
+    return out
+  }, [inputs])
+
+  const mergedActuals = useMemo<QuantActuals>(() => {
+    const m: QuantActuals = { ...actuals, ...derivedActuals }
+    if (derivedSaudization != null) m[SAUDIZATION_KPI_ID] = derivedSaudization
+    return m
+  }, [actuals, derivedActuals, derivedSaudization])
+
+  // المؤشّرات المشتقّة/المحسوبة تُقفَل خانة نسبتها (تُدخَل بالعدد). manual/raw حرّة.
+  const lockedIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const [id, spec] of Object.entries(QUANT_CROSSOVER)) {
+      if (spec.inputKind === 'count' || spec.inputKind === 'derived') s.add(id)
+    }
+    if (derivedSaudization != null) s.add(SAUDIZATION_KPI_ID)
+    return s
+  }, [derivedSaudization])
 
   // §د السادس: تكلفة الحلّ الأوفر للتوطين (محرّك التكلفة). يحتاج متوسّط راتب غير
   // المحتسبين (①). يظهر فقط حين توجد فئات توطين ذات فجوة وتكلفة موجبة.
@@ -191,7 +252,7 @@ export function HrQuantitativeSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {HR_QUANT_LEVELS.map((level) => (
-          <LevelGroup key={level} level={level} actuals={mergedActuals} lockedIds={lockedIds} onSet={setActual} />
+          <LevelGroup key={level} level={level} actuals={mergedActuals} lockedIds={lockedIds} onSet={setActual} counts={counts} onSetCount={setCount} />
         ))}
 
         {/* ─── وحدة التوطين — تُغذّي KPI_STR_04 أعلاه ─── */}
@@ -200,11 +261,13 @@ export function HrQuantitativeSection({
         {/* ─── طبقة §د: الأثر المالي بالريال ─── */}
         <div className="rounded-lg border border-amber-300 bg-amber-50/50 p-4">
           <div className="mb-2 text-sm font-bold text-amber-900">💰 الأثر المالي (§د) — من المؤشرات إلى الريال</div>
-          <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <FinInput label="عدد الموظفين" value={fin.headcount} onChange={(n) => setFin((f) => ({ ...f, headcount: n }))} />
             <FinInput label="متوسط الراتب الشهري (ريال)" value={fin.avgMonthlySalary} onChange={(n) => setFin((f) => ({ ...f, avgMonthlySalary: n }))} />
             <FinInput label="الإيراد السنوي (ريال)" value={fin.annualRevenue} onChange={(n) => setFin((f) => ({ ...f, annualRevenue: n }))} />
+            <FinInput label="أيام العمل/شهر (افتراضي ٢٢)" value={fin.workDays} onChange={(n) => setFin((f) => ({ ...f, workDays: n }))} />
           </div>
+          <p className="-mt-2 mb-3 text-[11px] text-amber-800/70">هذه الأرقام الأساسيّة تُغذّي النِّسَب المحسوبة (🔗) في المؤشرات أعلاه — عدد الموظفين مقامٌ لأغلبها.</p>
           {/* ق٢ — حارس نطاق الراتب ثنائي الاتجاه (تنبيه غير مانع): سنويّ حُفِظ
               كشهريّ (>٥٠٬٠٠٠ → §د منتفخة) أو خطأ وحدة (<١٬٠٠٠ → §د أقلّ بألف). */}
           {fin.avgMonthlySalary != null && fin.avgMonthlySalary > 50000 && (
@@ -263,7 +326,7 @@ export function HrQuantitativeSection({
   )
 }
 
-function LevelGroup({ level, actuals, lockedIds, onSet }: { level: QuantLevel; actuals: QuantActuals; lockedIds: Set<string>; onSet: (id: string, v: string) => void }) {
+function LevelGroup({ level, actuals, lockedIds, onSet, counts, onSetCount }: { level: QuantLevel; actuals: QuantActuals; lockedIds: Set<string>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void }) {
   const meta = HR_LEVEL_META[level]
   const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
   const s = levelSummary(level, actuals)
@@ -280,23 +343,52 @@ function LevelGroup({ level, actuals, lockedIds, onSet }: { level: QuantLevel; a
           const e = evalIndicator(ind, actuals[ind.id])
           const badge = e.status === 'ok' ? '✅' : e.status === 'off' ? '🔴' : '⬜'
           const locked = lockedIds.has(ind.id)
+          const spec = QUANT_CROSSOVER[ind.id]
+          // العدّادات التي يُدخلها المستخدم لهذا المؤشّر (HRQ_* في البسط/المقام).
+          const countKeys = spec && spec.inputKind === 'count'
+            ? [spec.numerator, spec.denominator].filter((k): k is string => !!k && k.startsWith('HRQ_'))
+            : []
+          const lockTitle = countKeys.length > 0
+            ? 'نسبةٌ محسوبةٌ من الأعداد أدناه'
+            : ind.id === SAUDIZATION_KPI_ID
+              ? 'محسوب تلقائياً من وحدة التوطين أدناه'
+              : 'محسوبٌ تلقائياً من الأرقام الأساسيّة'
           return (
-            <div key={ind.id} className="flex items-center gap-2 py-1.5 text-sm">
-              <span className="w-5 shrink-0 text-center">{badge}</span>
-              <span className="min-w-0 flex-1 truncate" title={ind.name}>
-                {locked && <span title="محسوب من وحدة التوطين">🔗 </span>}{ind.name}
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">الهدف {ind.target}{ind.unit === '%' ? '٪' : ` ${ind.unit}`}</span>
-              <Input
-                type="number"
-                inputMode="decimal"
-                className="h-8 w-20 shrink-0 text-center"
-                placeholder="الفعليّ"
-                value={actuals[ind.id] ?? ''}
-                disabled={locked}
-                title={locked ? 'محسوب تلقائياً من وحدة التوطين أدناه' : undefined}
-                onChange={(ev) => onSet(ind.id, ev.target.value)}
-              />
+            <div key={ind.id} className="flex flex-col gap-1 py-1.5 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-5 shrink-0 text-center">{badge}</span>
+                <span className="min-w-0 flex-1 truncate" title={ind.name}>
+                  {locked && <span title={lockTitle}>🔗 </span>}{ind.name}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">الهدف {ind.target}{ind.unit === '%' ? '٪' : ` ${ind.unit}`}</span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  className="h-8 w-20 shrink-0 text-center"
+                  placeholder="الفعليّ"
+                  value={actuals[ind.id] ?? ''}
+                  disabled={locked}
+                  title={locked ? lockTitle : undefined}
+                  onChange={(ev) => onSet(ind.id, ev.target.value)}
+                />
+              </div>
+              {countKeys.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pr-7">
+                  {countKeys.map((key) => (
+                    <label key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {HRQ_LABEL[key] ?? key}
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        className="h-7 w-24 text-center"
+                        placeholder="عدد"
+                        value={counts[key] ?? ''}
+                        onChange={(ev) => onSetCount(key, ev.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
