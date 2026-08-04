@@ -17,6 +17,7 @@ import {
   type Initiative, type Objective, type PlanLevel,
 } from '@/lib/strategicApi'
 import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
+import { GENERATED_STATUS, PROMOTED_STATUS, isSuggested, canPromote } from '@/lib/initiativeState'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
@@ -43,6 +44,7 @@ const PRIORITIES = [
 ] as const
 
 const STATUS = [
+  ['suggested',   'مقترح'],
   ['planned',     'مخططة'],
   ['in_progress', 'قيد التنفيذ'],
   ['done',        'مكتملة'],
@@ -211,6 +213,27 @@ function Editor({ companyId }: { companyId: string }) {
       setItems((p) => p.map((x) => (x.id === i.id ? { ...x, ...updated } : x)))
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل التحديث'))
+    }
+  }
+
+  // اعتماد مقترح → مخطّط (الرقعة A): بوابة canPromote تمنع الترقية بلا اكتمال،
+  // وتعرض الناقص بدل رفضٍ صامت. costUnestimatedAck: إقرارٌ بأنّ التكلفة غير مقدَّرة.
+  async function promote(i: Initiative, costUnestimatedAck = false) {
+    const gate = canPromote(
+      { objectiveId: i.objectiveId, level: i.level, cost: i.cost != null ? Number(i.cost) : null },
+      { costUnestimatedAck },
+    )
+    if (!gate.ok) {
+      const ar: Record<string, string> = { goal: 'هدف', level: 'مستوى', cost: 'تكلفة (أو أقرّها «غير مقدَّرة»)' }
+      toast.error(`أكمل قبل الاعتماد: ${gate.missing.map((m) => ar[m]).join(' · ')}`)
+      return
+    }
+    try {
+      const updated = await updateInitiative(i.id, { status: PROMOTED_STATUS })
+      setItems((p) => p.map((x) => (x.id === i.id ? { ...x, ...updated } : x)))
+      toast.success('✅ اعتُمِدت المبادرة — انتقلت إلى «مبادراتي».')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'تعذّر الاعتماد'))
     }
   }
 
@@ -397,6 +420,9 @@ function Editor({ companyId }: { companyId: string }) {
       // إنشاء المبادرات بالتوازي — مع اقتراح المستوى والهدف (لا تُترَك بلا أيّهما).
       const created = await Promise.all(toCreate.map((x) => createInitiative({
         companyId, title: x.title, description: x.description, priority: x.priority,
+        // الرقعة A: المولَّدة تولد «مقترحة» — قسمٌ منفصل، لا تدخل «مبادراتي» ولا العدّاد
+        // حتى يعتمدها المستخدم بعد اكتمال حقولها (canPromote).
+        status: GENERATED_STATUS,
         level: suggestLevel(x.source, defaultLevel),
         objectiveId: suggestObjectiveId(x.title, x.description, objectives),
       }).catch(() => null)))
@@ -411,11 +437,14 @@ function Editor({ companyId }: { companyId: string }) {
     }
   }
 
-  // إحصاءات
-  const counts = useMemo(() => items.reduce<Record<string, number>>((acc, i) => {
+  // الرقعة A: المقترحة معزولة عن «مبادراتي» وعدّادها — قسمٌ منفصل يُعتمَد منه.
+  const active = useMemo(() => items.filter((i) => !isSuggested(i.status)), [items])
+  const suggestions = useMemo(() => items.filter((i) => isSuggested(i.status)), [items])
+  // إحصاءات — على المعتمَدة فقط (المقترحة لا تُعدّ).
+  const counts = useMemo(() => active.reduce<Record<string, number>>((acc, i) => {
     acc[i.status] = (acc[i.status] ?? 0) + 1
     return acc
-  }, {}), [items])
+  }, {}), [active])
   const inProgress = counts.in_progress ?? 0
   const done = counts.done ?? 0
   // حارس الميزانيّة: Σ تكاليف المبادرات مقابل Company.opex.budget (تحذير لا حظر).
@@ -630,16 +659,65 @@ function Editor({ companyId }: { companyId: string }) {
         </Card>
       )}
 
-      {/* قائمة المبادرات — بترقيم وأيقونات فئة */}
-      {items.length > 0 && (
+      {/* الرقعة A — قسم «مقترحات» منفصل: مولَّدة من التحليل، تُعتمَد بعد اكتمال حقولها. */}
+      {suggestions.length > 0 && (
+        <Card className="border-2 border-dashed border-primary/40 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">🧪 مقترحات ({suggestions.length}) — أكملها ثمّ اعتمِدها</CardTitle>
+            <CardDescription className="text-xs">
+              مبادرات مولَّدة من تحليلك. تُعتمَد بعد تحديد الهدف والمستوى والتكلفة — ولا تدخل «مبادراتي» ولا عدّادها قبل ذلك.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {sortedForDisplay(suggestions).map((i) => {
+              const gate = canPromote({ objectiveId: i.objectiveId, level: i.level, cost: i.cost != null ? Number(i.cost) : null })
+              const arField: Record<string, string> = { goal: 'هدف', level: 'مستوى', cost: 'تكلفة' }
+              return (
+                <div key={i.id} className="rounded-lg border bg-card p-2.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-base">{CATEGORY_META[categorize(i.title + ' ' + (i.description ?? ''))].icon}</span>
+                    <span className="flex-1 text-sm font-medium leading-tight">{i.title}</span>
+                    <Button size="sm" disabled={!gate.ok} onClick={() => promote(i)} title={gate.ok ? 'اعتمِد وانقل إلى مبادراتي' : 'أكمل الحقول الناقصة أوّلاً'}>
+                      ✅ اعتمِد
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove(i)} title="تجاهُل المقترح">×</Button>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <select className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={i.objectiveId ?? ''} onChange={(e) => update(i, { objectiveId: e.target.value || null })}>
+                      <option value="">— 🎯 الهدف —</option>
+                      {objectives.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+                    </select>
+                    <select className="rounded-md border bg-background px-2 py-1 text-xs" value={i.level ?? ''} onChange={(e) => update(i, { level: (e.target.value || null) as PlanLevel | null })}>
+                      <option value="">— المستوى —</option>
+                      {LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                    </select>
+                    <Input
+                      type="number" min={0} inputMode="numeric"
+                      defaultValue={i.cost != null ? String(Number(i.cost)) : ''}
+                      onBlur={(e) => { const raw = e.target.value.trim(); const next = raw ? Number(raw) : null; const cur = i.cost != null ? Number(i.cost) : null; if (next !== cur) update(i, { cost: next }) }}
+                      placeholder="التكلفة SAR" className="h-8 w-24 text-xs"
+                    />
+                  </div>
+                  {!gate.ok && (
+                    <div className="mt-1 text-[10px] text-amber-700 dark:text-amber-300">ينقص: {gate.missing.map((m) => arField[m]).join(' · ')}</div>
+                  )}
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* قائمة المبادرات المعتمَدة — بترقيم وأيقونات فئة */}
+      {active.length > 0 && (
         <div>
           <div className="mb-2 flex items-center justify-between px-2">
             <div className="text-sm font-semibold">
-              💡 مبادراتي — {items.length} مبادرة ({inProgress} قيد التنفيذ · {done} مكتَملة)
+              💡 مبادراتي — {active.length} مبادرة ({inProgress} قيد التنفيذ · {done} مكتَملة)
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {sortedForDisplay(items).map((i, idx) => {
+            {sortedForDisplay(active).map((i, idx) => {
               const cat = categorize(i.title + ' ' + (i.description ?? ''))
               const catMeta = CATEGORY_META[cat]
               return (
@@ -747,7 +825,7 @@ function Editor({ companyId }: { companyId: string }) {
         </div>
       )}
 
-      {!loading && items.length === 0 && (
+      {!loading && active.length === 0 && suggestions.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
             لا مبادرات بعد — اضغط «✨ ولّد الآن» أعلاه أو أنشئ يدوياً.
