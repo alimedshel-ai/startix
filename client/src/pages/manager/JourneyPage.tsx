@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/api'
+import { deepHasContent } from '@/lib/artifactContent'
 import { getProOverview, type OverviewClient } from '@/lib/proApi'
 import { buildJourneyPayload, type JourneyPayload } from '@/lib/journeyPayload'
 import {
@@ -53,7 +54,7 @@ export function JourneyPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [client, setClient] = useState<OverviewClient | null>(null)
-  const [artifactTypes, setArtifactTypes] = useState<Set<string>>(new Set())
+  const [nonEmptyArtifactTypes, setNonEmptyArtifactTypes] = useState<Set<string>>(new Set())
   const [hasSwot, setHasSwot] = useState(false)
   const [hasObjectives, setHasObjectives] = useState(false)
   const [hasKpis, setHasKpis] = useState(false)
@@ -84,7 +85,9 @@ export function JourneyPage() {
         ])
         if (!alive) return
         if (artifacts.status === 'fulfilled') {
-          setArtifactTypes(new Set(artifacts.value.map((a) => a.type)))
+          // القلب (D1 §٤): مصدر الإكمال واعٍ بالمحتوى — نُرشّح بـ deepHasContent
+          // (selector المحرّك، لا فحص فراغٍ محلّيّ). أداةٌ موجودةٌ فارغة {} لا تُحسب مكتملة.
+          setNonEmptyArtifactTypes(new Set(artifacts.value.filter((a) => deepHasContent(a.data)).map((a) => a.type)))
         }
         if (swot.status === 'fulfilled' && swot.value) {
           const s = swot.value
@@ -125,7 +128,7 @@ export function JourneyPage() {
       const matched: string[] = []
       for (const t of stage.completionArtifacts) {
         // واعٍ بالإدارة: PESTEL_HR يُرضي PESTEL (المدير المستقل يخزّن مقيّداً).
-        if (artifactSatisfies(artifactTypes, t)) matched.push(ARTIFACT_LABEL[t] ?? t)
+        if (artifactSatisfies(nonEmptyArtifactTypes, t)) matched.push(ARTIFACT_LABEL[t] ?? t)
       }
       // مصادر خاصة لكل مرحلة (SWOT/Objectives/KPIs):
       if (stage.id === 'synthesis' && hasSwot) matched.push('SWOT')
@@ -141,7 +144,7 @@ export function JourneyPage() {
       canOpen: canOpenStage(stage.id, completionMap, user?.strategyPath ?? null),
       matched: matchedMap[stage.id],
     }))
-  }, [artifactTypes, hasSwot, hasObjectives, hasKpis, user?.strategyPath])
+  }, [nonEmptyArtifactTypes, hasSwot, hasObjectives, hasKpis, user?.strategyPath])
 
   const progressPct = useMemo(() => {
     const map: Record<StageId, boolean> = Object.fromEntries(
