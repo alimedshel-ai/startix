@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findRiskTemplate, matchRiskTemplate, deptMitigationPool } from './riskTemplates'
+import { findRiskTemplate, matchRiskTemplate, deptMitigationPool, diagnosisMitigations } from './riskTemplates'
 
 // شرط القبول: مخاطر محفوظة اسمها يبدأ بـ«[تشخيص]» يجب أن تُطابق قوالب HR بعد
 // إصلاح المطابقة (تجاهُل البادئة + تطبيع + إزالة واو الوصل + تقاطع كلمات).
@@ -24,8 +24,10 @@ describe('matchRiskTemplate — مطابقة ذكيّة للأسماء المس�
     expect(matchRiskTemplate('[تشخيص] جدولة المواعيد', 'HR')).toBeUndefined()
   })
 
-  it('بلا تخصّص أو اسم فارغ → undefined', () => {
-    expect(matchRiskTemplate('استقالة الموظفين', null)).toBeUndefined()
+  it('بلا تخصّص: المطابقة تعمل عبر كلّ الأقسام (لم تعد مقيّدة بالتخصّص)', () => {
+    expect(matchRiskTemplate('استقالة الموظفين', null)?.name).toBe('استقالة مواهب رئيسيّة')
+  })
+  it('اسم فارغ → undefined', () => {
     expect(matchRiskTemplate('   ', 'HR')).toBeUndefined()
   })
 })
@@ -37,6 +39,41 @@ describe('findRiskTemplate — تطابق حرفيّ (المسار القديم)
   })
   it('البادئة «[تشخيص]» لا تُطابق حرفيّاً (صارم عمداً — لا ملء تلقائيّ خاطئ)', () => {
     expect(findRiskTemplate('[تشخيص] استقالة الموظفين', 'HR')).toBeUndefined()
+  })
+})
+
+// كتالوج التشخيص هو المصدر الأدقّ للمخاطر المستوردة — يغطّي بنودها الفعليّة.
+describe('diagnosisMitigations — تطابق كتالوج التشخيص (بيانات العميل الحقيقيّة)', () => {
+  // عيّنة من الأسماء المحفوظة فعلاً لهذا العميل (٢٦ خطراً «[تشخيص] …»).
+  const realNames = [
+    '[تشخيص] عمليات غير مؤتمتة (اعتماد يدوي مفرط)',
+    '[تشخيص] إدخال البيانات اليدوي',
+    '[تشخيص] الموافقات والاعتمادات',
+    '[تشخيص] المراجعات الدورية',
+    '[تشخيص] الأرشفة وإدارة الملفات',
+    '[تشخيص] سلسلة التوريد أو الإمداد',
+    '[تشخيص] الأمن السيبراني والبيانات',
+    '[تشخيص] تجديد التراخيص والاعتمادات',
+  ]
+  it('كلّ بنود التشخيص المستوردة تُطابَق وتُرجِع ٣ اقتراحات', () => {
+    for (const n of realNames) {
+      const m = diagnosisMitigations(n)
+      expect(m, n).toBeDefined()
+      expect(m!.length).toBe(3)
+    }
+  })
+  it('يتجاهل بادئة «[تشخيص]» تلقائيّاً (التطبيع)', () => {
+    expect(diagnosisMitigations('[تشخيص] الأرشفة وإدارة الملفات'))
+      .toEqual(diagnosisMitigations('الأرشفة وإدارة الملفات'))
+  })
+  it('بند غير موجود في الكتالوج → undefined', () => {
+    expect(diagnosisMitigations('[تشخيص] شيء غير موجود إطلاقاً')).toBeUndefined()
+  })
+})
+
+describe('matchRiskTemplate — مطابقة عبر كلّ الأقسام (لا تخصّص المدير فقط)', () => {
+  it('مدير HR: خطر توريد يطابق قالب العمليّات (عبر القسم)', () => {
+    expect(matchRiskTemplate('[تشخيص] سلسلة التوريد أو الإمداد', 'HR')?.name).toBe('انقطاع سلسلة التوريد')
   })
 })
 

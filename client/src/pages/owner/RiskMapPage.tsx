@@ -11,7 +11,7 @@ import { listDepartments, type Department, type AxisBreakdown } from '@/lib/dept
 import { AXIS_LABEL_AR } from '@/lib/smartGap'
 import { useAuthStore } from '@/store/authStore'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
-import { COMMON_RISKS_BY_DEPT, AI_MITIGATION_ENABLED, findRiskTemplate, matchRiskTemplate, deptMitigationPool } from './riskTemplates'
+import { COMMON_RISKS_BY_DEPT, AI_MITIGATION_ENABLED, findRiskTemplate, matchRiskTemplate, deptMitigationPool, diagnosisMitigations } from './riskTemplates'
 
 
 interface Risk {
@@ -522,7 +522,10 @@ function Editor({ companyId }: { companyId: string }) {
                   placeholder="إجراء التخفيف المقترح…"
                 />
                 {(() => {
-                  const matched = matchRiskTemplate(r.name, specialty)
+                  // كتالوج التشخيص أوّلاً (أدقّ مصدر للمخاطر المستوردة «[تشخيص]»)،
+                  // ثمّ بنك الأقسام (مطابقة ذكيّة عبر كلّ الأقسام)، ثمّ مطويّة القسم.
+                  const diag = diagnosisMitigations(r.name)
+                  const matched = diag ? undefined : matchRiskTemplate(r.name, specialty)
                   const aiBtn = AI_MITIGATION_ENABLED ? (
                     <button
                       type="button"
@@ -545,6 +548,16 @@ function Editor({ companyId }: { companyId: string }) {
                       >
                         {s}
                       </button>
+                    )
+                  }
+                  if (diag) {
+                    // بند تشخيص مُطابَق تماماً: ٣ رقائق محدّدة من كتالوجه.
+                    return (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">اقتراحات:</span>
+                        {diag.map(chip)}
+                        {aiBtn}
+                      </div>
                     )
                   }
                   if (matched) {
