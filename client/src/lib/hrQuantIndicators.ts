@@ -29,7 +29,7 @@ export const HR_QUANT_INDICATORS: QuantIndicator[] = [
   { id: 'KPI_STR_02', level: 'strategic', axis: 'WORK', name: 'معدل التسرب السنوي',                        unit: '%',   target: 10,     direction: 'lower'  },
   { id: 'KPI_STR_03', level: 'strategic', axis: 'WORK', name: 'متوسط سنوات الخبرة',                        unit: 'سنة', target: 3,      direction: 'higher' },
   { id: 'KPI_STR_04', level: 'strategic', axis: 'COMP', name: 'نسبة السعودة الفعلية / المستهدفة',          unit: '%',   target: 100,    direction: 'higher' },
-  { id: 'KPI_STR_05', level: 'strategic', axis: 'COMP', name: 'نسبة الامتثال القانوني',                    unit: '%',   target: 90,     direction: 'higher' },
+  { id: 'KPI_STR_05', level: 'strategic', axis: 'COMP', name: 'نسبة الامتثال القانوني',                    unit: '%',   target: 100,    direction: 'higher' },
   { id: 'KPI_STR_06', level: 'strategic', axis: 'PROD', name: 'الإيراد لكل موظف',                          unit: 'ريال', target: 150000, direction: 'higher' },
   { id: 'KPI_STR_07', level: 'strategic', axis: 'PROD', name: 'ROI التدريب',                               unit: '%',   target: 150,    direction: 'higher' },
   { id: 'KPI_STR_08', level: 'strategic', axis: 'EMP',  name: 'مؤشر رضا الموظفين (eNPS)',                  unit: 'درجة', target: 50,     direction: 'higher' },

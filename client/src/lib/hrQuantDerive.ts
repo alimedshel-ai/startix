@@ -29,7 +29,7 @@ export const QUANT_CROSSOVER: Record<string, CrossoverSpec> = {
   KPI_STR_04: { inputKind: 'catalog' }, // محرّك السعودة يشتقّها ويقفلها
   KPI_STR_05: { inputKind: 'derived' }, // الامتثال — تجميع خاصّ (أدناه)
   KPI_STR_06: { inputKind: 'derived', numerator: 'FND_ANNUAL_REVENUE', denominator: 'FND_HEADCOUNT' },
-  KPI_STR_07: { inputKind: 'manual' },
+  KPI_STR_07: { inputKind: 'count',   numerator: 'HRQ_TRAINING_RETURN', denominator: 'HRQ_TRAINING_COST' }, // ROI التدريب — اقتراح قابل للتجاوز (ت٥/حزمة v2)
   KPI_STR_08: { inputKind: 'manual' },
   KPI_STR_09: { inputKind: 'count',   numerator: 'HRQ_RISKS_OPEN',     denominator: 'HRQ_RISKS_TOTAL' },
   // ⚔️ تكتيكي

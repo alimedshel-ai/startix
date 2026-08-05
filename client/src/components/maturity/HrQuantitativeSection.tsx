@@ -61,6 +61,13 @@ const HRQ_LABEL: Record<string, string> = {
   HRQ_TRAINING_HOURS_M: 'ساعات تدريب/شهر', HRQ_PLANS_DONE: 'خطط مكتملة', HRQ_PLANS_TOTAL: 'خطط معتمدة',
   HRQ_PAYROLL_ONTIME: 'رواتب بموعدها', HRQ_PAYROLL_TOTAL: 'إجمالي المسيّرات',
   HRQ_ABSENCE_DAYS_M: 'أيام غياب/شهر', HRQ_LATE_CASES_M: 'حالات تأخّر/شهر', HRQ_PRESENT_TODAY: 'حاضرون اليوم',
+  HRQ_TRAINING_COST: 'تكلفة التدريب (ريال)', HRQ_TRAINING_RETURN: 'عائد التدريب (ريال)',
+}
+
+// ت٥ — مؤشّرات «إدخال خارجيّ» (يدويّة بمصدرٍ خارج النظام) — تُوسَم بمبرّرها الظاهر.
+const EXTERNAL_MANUAL: Record<string, string> = {
+  KPI_STR_08: 'استبيان eNPS خارجيّ',
+  KPI_TAC_09: 'مقارنة رواتب السوق',
 }
 
 const SOLUTION_LABEL: Record<SaudizationSolution, string> = {
@@ -364,6 +371,7 @@ function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSe
           const hasSug = suggestion != null
           const overridden = hasSug && manual[ind.id] != null
           const unitSuffix = ind.unit === '%' ? '٪' : ` ${ind.unit}`
+          const externalReason = spec && spec.inputKind === 'manual' ? EXTERNAL_MANUAL[ind.id] : undefined
           return (
             <div key={ind.id} className="flex flex-col gap-1 py-1.5 text-sm">
               <div className="flex items-center gap-2">
@@ -386,6 +394,9 @@ function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSe
                   💡 مقترَح محسوب: <b>{suggestion}{unitSuffix}</b>
                   {overridden ? ' — تجاوزٌ يدويّ مُثبَت' : ' — اكتب رقماً لتتجاوزه'}
                 </div>
+              )}
+              {externalReason && (
+                <div className="pr-7 text-[11px] text-violet-700">📋 إدخال خارجيّ — {externalReason}</div>
               )}
               {countKeys.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 pr-7">
