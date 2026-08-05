@@ -700,9 +700,24 @@ function heuristicDeptFor(text: string): string {
   return 'الإدارة العامة';
 }
 
+// بادئات فعل معروفة فقط تُقشَّر — لا أيّ «كلمة:» (ذاك يبتلع الموضوع نفسه، فيصير
+// «الامتثال القانوني: نضج جيّد» ← «نضج جيّد»).
+const ACTION_PREFIX = /^(?:معالجة|تخفيف|عالج)\s*[:：]\s*/;
+// واصف نضج لاحق يُزال: «: نضج جيّد (100٪)» / «نضج متوسط (60%)» — درجةٌ لا عمل.
+const MATURITY_SUFFIX = /\s*[:：]?\s*نضج\s+[^()]*\([^)]*\)\s*$/;
+
+/** ينظّف عنوان المبادرة إلى «الموضوع» الفعليّ قبل التفكيك (شارة/بادئة/واصف نضج). */
+function cleanBreakdownSubject(title: string): string {
+  return title
+    .replace(/^🔧\s*/, '')
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(ACTION_PREFIX, '')
+    .replace(MATURITY_SUFFIX, '')
+    .trim();
+}
+
 function splitComponents(title: string): string[] {
-  // أزل الشارة والبادئة «…:» ثم قسّم على الفواصل الصريحة (+ ، ثم) دون «و» المتّصلة.
-  const body = title.replace(/^🔧\s*/, '').replace(/^\[[^\]]+\]\s*/, '').replace(/^[^:：]{3,40}[:：]\s*/, '');
+  const body = cleanBreakdownSubject(title);
   return body
     .split(/\s*\+\s*|\s*،\s*|\s+ثم\s+|\s*;\s*/)
     .map((s) => s.trim().replace(/[.،]$/, ''))
@@ -713,7 +728,7 @@ function splitComponents(title: string): string[] {
 function buildHeuristicBreakdown(title: string, description?: string): InitiativeBreakdown {
   const full = `${title} ${description ?? ''}`.toLowerCase();
   const parts = splitComponents(title);
-  const components = (parts.length ? parts : [title]).map((p) => ({
+  const components = (parts.length ? parts : [cleanBreakdownSubject(title) || title]).map((p) => ({
     title: p,
     dept: heuristicDeptFor(p),
     purpose: `تنفيذ «${p}» كجزء من المبادرة.`,
