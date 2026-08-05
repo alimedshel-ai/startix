@@ -67,6 +67,7 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
   const [error, setError] = useState<string | null>(null)
   const [savedScore, setSavedScore] = useState<AuditScore | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [savedType, setSavedType] = useState<string | null>(null)
   const [requestingSmart, setRequestingSmart] = useState(false)
 
   // يحمّل آخر تدقيق للإدارة. يُستدعى عند التحميل الأول وبعد اكتمال تدقيق
@@ -76,6 +77,7 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
     if (latest.audit) {
       setSavedScore(latest.audit.scores)
       setSavedAt(latest.audit.createdAt)
+      setSavedType(latest.audit.auditType)
       return true
     }
     return false
@@ -98,6 +100,7 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
     setDeptId(null)
     setSavedScore(null)
     setSavedAt(null)
+    setSavedType(null)
     ;(async () => {
       try {
         const dept = await createDepartment({ companyId: company.id, type: deptCode })
@@ -189,6 +192,13 @@ export function DeptAuditPage({ deptCode, variant = 'basic', afterResult }: Prop
             savedAt={savedAt}
             onRetake={() => setMode('wizard')}
           />
+          {/* تنبيه المقارنة: تدقيقٌ سابق بالبنك الأساسيّ (١٢ سؤالاً) لا يُقارَن
+              مباشرةً بتدقيقٍ احترافيّ (البنك الكامل) — «المُقدَّم = المُقيَّم». */}
+          {savedType === 'basic' && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50/50 px-3 py-2 text-xs text-sky-800">
+              ℹ️ تدقيقك السابق كان بالبنك <b>الأساسيّ</b>؛ درجاته صحيحة بذاتها لكنّها لا تُقارَن مباشرةً بتدقيقٍ احترافيّ بالبنك الكامل.
+            </p>
+          )}
           {/* الثانويّ (الأدوات المفتوحة + اللقطة) مطويّ — لتبقى «الخطوة التالية» أعلاه هي الوجهة الواضحة */}
           <details className="group rounded-xl border bg-card/40">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold transition hover:bg-accent/40">

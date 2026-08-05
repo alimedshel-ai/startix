@@ -146,6 +146,13 @@ export const getDepartmentQuestions: RequestHandler = async (req, res, next) => 
     const dept = await getDeptOr404(paramId(req, 'id'));
     await assertCompanyAccess(req.auth.sub, dept.companyId);
     const variant = (req.query.variant as string) === 'pro' ? 'pro' : 'basic';
+    // حدُّ الباقة على الجلب أيضاً (لا الإرسال وحده): بنك pro أصلٌ مدفوع، فلا
+    // يُقرأ نصّه لمن دون الاحترافيّة. يوازي requirePlan على POST /audit-pro.
+    if (variant === 'pro' && req.auth.plan === 'BASIC') {
+      throw new HttpError(402, 'أسئلة التدقيق الاحترافي تتطلب الباقة الاحترافية', {
+        requiredPlan: 'PROFESSIONAL', currentPlan: req.auth.plan, upgradeUrl: '/pricing',
+      });
+    }
     if (!DEPT_BANKS[dept.type as DeptCode]) throw new HttpError(404, 'لا يوجد بنك أسئلة لهذا القسم');
     const size = await companySizeOf(dept.companyId);
     // المصدر الواحد: نفس المجموعة التي سيقيّمها auditEngine (قيد الصحّة).
