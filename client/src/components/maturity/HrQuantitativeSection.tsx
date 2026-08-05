@@ -175,9 +175,23 @@ export function HrQuantitativeSection({
     if (fin.annualRevenue != null) base.FND_ANNUAL_REVENUE = fin.annualRevenue
     if (fin.avgMonthlySalary != null) base.FND_AVG_SALARY = fin.avgMonthlySalary
     base.FND_WORK_DAYS = fin.workDays ?? 22
+    // ت٢ — تقدير مبدئيّ لتكلفة الموارد السنويّة = عدد × راتب × ١٢، إن لم يُدخِلها
+    // المستخدم عدّاً؛ فيُقترَح STR_01 تلقائياً، والعدّ اليدويّ يتجاوزه (قابل للتعديل).
+    if (base.HRQ_HR_COST_YEAR == null && fin.headcount != null && fin.avgMonthlySalary != null) {
+      base.HRQ_HR_COST_YEAR = fin.headcount * fin.avgMonthlySalary * 12
+    }
     for (const [k, v] of Object.entries(actuals)) if (v != null) base[k] = v
     return base
   }, [counts, fin, actuals])
+
+  // ت٢ — تلميح «مقدّر» يُعرَض placeholder على خانة عدّ تكلفة الموارد (قابل للتعديل لا مقفول).
+  const countHints = useMemo<Record<string, number>>(() => {
+    const h: Record<string, number> = {}
+    if (fin.headcount != null && fin.avgMonthlySalary != null) {
+      h.HRQ_HR_COST_YEAR = fin.headcount * fin.avgMonthlySalary * 12
+    }
+    return h
+  }, [fin.headcount, fin.avgMonthlySalary])
 
   const derivedActuals = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {}
@@ -250,7 +264,7 @@ export function HrQuantitativeSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {HR_QUANT_LEVELS.map((level) => (
-          <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} />
+          <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} countHints={countHints} />
         ))}
 
         {/* ─── وحدة التوطين — تُغذّي KPI_STR_04 أعلاه ─── */}
@@ -324,7 +338,7 @@ export function HrQuantitativeSection({
   )
 }
 
-function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSetCount }: { level: QuantLevel; effective: QuantActuals; manual: QuantActuals; suggestions: Record<string, number>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void }) {
+function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSetCount, countHints }: { level: QuantLevel; effective: QuantActuals; manual: QuantActuals; suggestions: Record<string, number>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void; countHints: Record<string, number> }) {
   const meta = HR_LEVEL_META[level]
   const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
   const s = levelSummary(level, effective)
@@ -381,8 +395,8 @@ function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSe
                       <Input
                         type="number"
                         inputMode="decimal"
-                        className="h-7 w-24 text-center"
-                        placeholder="عدد"
+                        className="h-7 w-28 text-center"
+                        placeholder={countHints[key] != null ? `مقدّر ${countHints[key].toLocaleString('ar-SA')}` : 'عدد'}
                         value={counts[key] ?? ''}
                         onChange={(ev) => onSetCount(key, ev.target.value)}
                       />
