@@ -4,9 +4,13 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
-import { DEPT_BANKS, type DeptCode, type DeptBank } from '../lib/deptQuestions';
 import {
-  scoreAudit,
+  DEPT_BANKS,
+  questionsForSizeAndVariant,
+  type DeptCode,
+  type CompanySize,
+} from '../lib/deptQuestions';
+import {
   scoreBasicAuditFor,
   scoreProAuditFor,
   type AuditAnswer,
@@ -49,6 +53,16 @@ async function assertCompanyAccess(userId: string, companyId: string) {
     where: { userId_companyId: { userId, companyId } },
   });
   if (!link) throw new HttpError(403, 'لا تملك صلاحية الوصول إلى هذه الشركة');
+}
+
+// حجم الكيان من DB (مصدر موثوق) — لا يُمرَّر من العميل، فلا سطح تلاعب.
+async function companySizeOf(companyId: string): Promise<CompanySize> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { size: true },
+  });
+  if (!company) throw new HttpError(404, 'الشركة غير موجودة');
+  return company.size as CompanySize;
 }
 
 // ─── POST /api/departments — create (idempotent) dept for a company ─────────
@@ -131,10 +145,11 @@ export const getDepartmentQuestions: RequestHandler = async (req, res, next) => 
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
     const dept = await getDeptOr404(paramId(req, 'id'));
     await assertCompanyAccess(req.auth.sub, dept.companyId);
-    const variant = (req.query.variant as string) ?? 'basic';
-    const bank: DeptBank = DEPT_BANKS[dept.type as DeptCode];
-    if (!bank) throw new HttpError(404, 'لا يوجد بنك أسئلة لهذا القسم');
-    const questions = variant === 'pro' && bank.pro ? [...bank.basic, ...bank.pro] : bank.basic;
+    const variant = (req.query.variant as string) === 'pro' ? 'pro' : 'basic';
+    if (!DEPT_BANKS[dept.type as DeptCode]) throw new HttpError(404, 'لا يوجد بنك أسئلة لهذا القسم');
+    const size = await companySizeOf(dept.companyId);
+    // المصدر الواحد: نفس المجموعة التي سيقيّمها auditEngine (قيد الصحّة).
+    const questions = questionsForSizeAndVariant(dept.type as DeptCode, variant, size);
     res.json({ deptType: dept.type, variant, questions });
   } catch (err) {
     next(err);
@@ -149,7 +164,8 @@ export const submitDeptAudit: RequestHandler = async (req, res, next) => {
     await assertCompanyAccess(req.auth.sub, dept.companyId);
     const body = auditSubmitSchema.parse(req.body);
     const answers: AuditAnswer[] = body.answers;
-    const score = scoreBasicAuditFor(dept.type as DeptCode, answers);
+    const size = await companySizeOf(dept.companyId);
+    const score = scoreBasicAuditFor(dept.type as DeptCode, answers, size);
 
     await prisma.$transaction(async (tx) => {
       await tx.deptAudit.create({
@@ -183,11 +199,11 @@ export const submitDeptAuditPro: RequestHandler = async (req, res, next) => {
     await assertCompanyAccess(req.auth.sub, dept.companyId);
     const body = auditSubmitSchema.parse(req.body);
     const answers: AuditAnswer[] = body.answers;
-    const bank = DEPT_BANKS[dept.type as DeptCode];
-    if (!bank.pro) throw new HttpError(404, 'لا يوجد تدقيق Pro لهذا القسم');
-    const score = scoreProAuditFor(dept.type as DeptCode, answers);
-    // The pro version also computes detailed per-axis maturity from the basic+pro union.
-    const detailed = scoreAudit([...bank.basic, ...bank.pro], answers);
+    if (!DEPT_BANKS[dept.type as DeptCode].pro) throw new HttpError(404, 'لا يوجد تدقيق Pro لهذا القسم');
+    const size = await companySizeOf(dept.companyId);
+    // basic+pro مفلتر بالحجم عبر المصدر الواحد؛ detailed هو نفس التقييم (لكل محور).
+    const detailed = scoreProAuditFor(dept.type as DeptCode, answers, size);
+    const score = detailed;
 
     await prisma.$transaction(async (tx) => {
       await tx.deptAudit.create({

@@ -3,7 +3,16 @@
 // مع تقييم Likert 0..3 لكل خيار. auditEngine يضبط النقاط الخام لسقف
 // المحور (حوكمة/مالية 30، فريق/رقمي 20).
 
+import type { EntitySize } from '@prisma/client';
+
 export type AuditAxis = 'governance' | 'financial' | 'team' | 'digital';
+
+// حجم الكيان — مشتقٌّ حرفيّاً من enum EntitySize في Prisma (schema.prisma)، لا
+// اتّحادٌ يدويّ: إضافةُ حجمٍ خامس للـ enum تكسر الترجمة هنا فوراً بدل الانحراف
+// الصامت. الفلترة بالحجم مستقلّة عن الاشتراك: البُعدان متعامدان (الحجم يقرّر
+// أيّ أسئلة بنيويّة، الاشتراك يقرّر basic/pro).
+export type CompanySize = EntitySize;
+const SIZE_RANK: Record<CompanySize, number> = { MICRO: 0, SMALL: 1, MEDIUM: 2, LARGE: 3 };
 
 export type DeptCode =
   | 'HR'
@@ -31,6 +40,8 @@ export interface DeptQuestion {
   axis: AuditAxis;
   prompt: string;
   options: [DeptQOption, DeptQOption, DeptQOption, DeptQOption];
+  // أدنى حجم يُظهر السؤال. غيابه = MICRO = يظهر للجميع (النواة العالميّة).
+  minSize?: CompanySize;
 }
 
 export interface DeptBank {
@@ -44,7 +55,8 @@ function q(
   id: string,
   axis: AuditAxis,
   prompt: string,
-  labels: [string, string, string, string]
+  labels: [string, string, string, string],
+  minSize?: CompanySize
 ): DeptQuestion {
   return {
     id,
@@ -56,6 +68,7 @@ function q(
       { value: 'good', label: labels[2], score: 2 },
       { value: 'great', label: labels[3], score: 3 },
     ],
+    ...(minSize ? { minSize } : {}),
   };
 }
 
@@ -81,6 +94,14 @@ const HR: DeptBank = {
     q('hr_dig_1', 'digital', 'نظام معلومات الموارد البشرية (HRIS)', STANDARD_LIKERT),
     q('hr_dig_2', 'digital', 'تتبّع رقمي للإجازات والحضور', STANDARD_LIKERT),
     q('hr_dig_3', 'digital', 'بوّابة خدمة ذاتية للموظفين', STANDARD_LIKERT),
+    // ── أسئلة بنيويّة موسومة بالحجم (§2، مستقلّة عن الاشتراك) ──
+    // صيغت قياساً للقدرة لا افتراضاً للبنية: الكيان الواحد الموقع يجيب بصدق «تامّ»
+    // (لا عقوبة على بنية)، ومتمايزة نصّاً عن أسئلة محورها في النواة الـ١٢.
+    q('hr_gov_4', 'governance', 'تخطيط القوى العاملة المستقبليّة (أعداد وكفاءات) بأفق ١٢ شهراً', STANDARD_LIKERT, 'MEDIUM'),
+    q('hr_gov_5', 'governance', 'نطاق الإشراف مُقاس ومضبوط (متوسّط عدد المرؤوسين لكل مدير)', STANDARD_LIKERT, 'MEDIUM'),
+    q('hr_team_4', 'team', 'اتّساق ممارسات الموارد البشرية (سياسات وإجراءات) عبر كل وحدات الشركة', STANDARD_LIKERT, 'MEDIUM'),
+    q('hr_fin_4', 'financial', 'تُخطَّط وتُوازَن تكلفة القوى العاملة مسبقاً لكل وحدة تشغيليّة', STANDARD_LIKERT, 'MEDIUM'),
+    q('hr_dig_4', 'digital', 'أنظمة الموارد البشرية متكاملة ومتزامنة (HRIS ↔ الرواتب/ERP) دون إدخال مزدوج', STANDARD_LIKERT, 'LARGE'),
   ],
   pro: [
     q('hr_pro_gov_1', 'governance', 'خطة تعاقب للأدوار الرئيسية', STANDARD_LIKERT),
@@ -109,6 +130,14 @@ const FINANCE: DeptBank = {
     q('fin_dig_1', 'digital', 'برنامج محاسبة (ERP / سحابي)', STANDARD_LIKERT),
     q('fin_dig_2', 'digital', 'مطابقة بنكية آلية', STANDARD_LIKERT),
     q('fin_dig_3', 'digital', 'لوحة ذكاء أعمال لمؤشرات المالية', STANDARD_LIKERT),
+    // ── أسئلة بنيويّة موسومة بالحجم (§2). قوبلت بالنواة قبل الاعتماد (قاعدة ٨.١)،
+    // وصيغت قياساً للقدرة لا افتراضاً للبنية (قاعدة ٨.٢). FINANCE بلا بنك pro.
+    q('fin_gov_4', 'governance', 'وظيفة خزينة: إدارة العلاقات البنكيّة والفائض والتسهيلات', STANDARD_LIKERT, 'MEDIUM'),
+    q('fin_gov_5', 'governance', 'القوائم الماليّة موحَّدة عبر كل الكيانات التي تملكها الشركة', STANDARD_LIKERT, 'LARGE'),
+    q('fin_fin_4', 'financial', 'محاسبة تكاليف عبر مراكز تكلفة/أنشطة (توزيع التكلفة على الوحدات)', STANDARD_LIKERT, 'MEDIUM'),
+    q('fin_fin_5', 'financial', 'تخطيط ماليّ استشرافيّ ونمذجة سيناريوهات (ماذا-لو) للقرارات', STANDARD_LIKERT, 'LARGE'),
+    q('fin_dig_4', 'digital', 'تكامل نظام المحاسبة مع أنظمة المصدر (مبيعات/مشتريات/مخزون) دون إدخال يدويّ', STANDARD_LIKERT, 'MEDIUM'),
+    q('fin_team_4', 'team', 'فصل أدوار دورة المعاملة: أشخاص مستقلّون للإدخال والاعتماد والمطابقة', STANDARD_LIKERT, 'MEDIUM'),
   ],
 };
 
@@ -339,4 +368,25 @@ export const DEPT_BANKS: Record<DeptCode, DeptBank> = {
 
 export function getDeptBank(code: DeptCode): DeptBank {
   return DEPT_BANKS[code];
+}
+
+/**
+ * المصدر الواحد للحقيقة: أسئلة القسم بعد الفلترة بالحجم، ضمن ما يسمح به variant.
+ *
+ * قيد الصحّة الحاكم (auditEngine.scoreAudit يقسم على عدد أسئلة البنك لا الإجابات):
+ * مجموعة الأسئلة المُقدَّمة للمستخدم = مجموعة الأسئلة المُقيَّمة، بالحرف. لذا يجب
+ * أن يستدعي مسارُ التقديم (controllers) ومسارُ التقييم (auditEngine) هذه الدالّة
+ * نفسها بالحجم نفسه — وإلّا يُعاقَب الكيان الصغير على أسئلة لم تُطرح عليه.
+ *
+ * الفلترة داخل base (وليست فوقه) → لا تتجاوز pro المدفوع: الحجم والاشتراك متعامدان.
+ */
+export function questionsForSizeAndVariant(
+  code: DeptCode,
+  variant: 'basic' | 'pro',
+  size: CompanySize
+): DeptQuestion[] {
+  const bank = DEPT_BANKS[code];
+  const base =
+    variant === 'pro' && bank.pro ? [...bank.basic, ...bank.pro] : bank.basic;
+  return base.filter((qq) => !qq.minSize || SIZE_RANK[qq.minSize] <= SIZE_RANK[size]);
 }

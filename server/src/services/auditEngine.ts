@@ -3,7 +3,13 @@
 // Per plan §5.1, the question bank differs per department but the scoring
 // formula is identical.
 
-import { getDeptBank, type DeptCode, type DeptQuestion, type AuditAxis } from '../lib/deptQuestions';
+import {
+  questionsForSizeAndVariant,
+  type DeptCode,
+  type DeptQuestion,
+  type AuditAxis,
+  type CompanySize,
+} from '../lib/deptQuestions';
 
 export const AXIS_CAP: Record<AuditAxis, number> = {
   governance: 30,
@@ -100,15 +106,24 @@ export function scoreAudit(
   return { byAxis: axes, governance, financial, team, digital, total, healthPct, dangerZone };
 }
 
-/** Helper that fetches the basic question bank for a department. */
-export function scoreBasicAuditFor(dept: DeptCode, answers: AuditAnswer[]): AuditScore {
-  const bank = getDeptBank(dept);
-  return scoreAudit(bank.basic, answers);
+// قيد الصحّة: كلا المساعدين يفلتران بالحجم عبر المصدر الواحد
+// questionsForSizeAndVariant — نفس المجموعة التي قدّمها الـcontroller للمستخدم —
+// كي لا ينكمش المقام على أسئلة لم تُطرح على الكيان الصغير.
+
+/** يقيّم تدقيقاً أساسيّاً مفلتراً بحجم الكيان. */
+export function scoreBasicAuditFor(
+  dept: DeptCode,
+  answers: AuditAnswer[],
+  size: CompanySize
+): AuditScore {
+  return scoreAudit(questionsForSizeAndVariant(dept, 'basic', size), answers);
 }
 
-/** Helper that fetches the pro question bank (falls back to basic). */
-export function scoreProAuditFor(dept: DeptCode, answers: AuditAnswer[]): AuditScore {
-  const bank = getDeptBank(dept);
-  const questions = bank.pro ? [...bank.basic, ...bank.pro] : bank.basic;
-  return scoreAudit(questions, answers);
+/** يقيّم تدقيقاً احترافيّاً (basic+pro) مفلتراً بحجم الكيان. */
+export function scoreProAuditFor(
+  dept: DeptCode,
+  answers: AuditAnswer[],
+  size: CompanySize
+): AuditScore {
+  return scoreAudit(questionsForSizeAndVariant(dept, 'pro', size), answers);
 }
