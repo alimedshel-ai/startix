@@ -86,6 +86,11 @@ const SECTOR_BOOST: Record<string, string> = {
   hospitality: 'benchmarking',
 }
 
+// ٣ درجات عمقٍ متعمّدة (قرار المستخدم): الأصغران MICRO≡SMALL ينالان العمق
+// التشغيليّ نفسه — شركة ‹10–49› لا تحتمل عمق ‹متوسّطة›. هذا الدمج في **عمق
+// التحليل فقط**؛ SMALL يبقى حجماً متمايزاً في الهويّة والتدقيق البنيويّ عبر
+// SIZE_RANK (deptQuestions.ts). فالواجهة تعرض ٤ أحجام (هويّة) بينما العمق ٣
+// درجات — لا تناقض. (الدَّين ٧: مُغلق متعمّداً، لا خلل.)
 const SIZE_SCORE: Record<CompanySize, 0 | 1 | 2> = {
   MICRO: 0, SMALL: 0, MEDIUM: 1, LARGE: 2,
 }
