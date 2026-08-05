@@ -218,6 +218,21 @@ function RolePicker({ onPick }: { onPick: (r: DiagnosticRole) => void }) {
 //   1) المالك — يستعمل العقل الكامل من server/services/diagnosticEngine
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ─── جوهر قصير + عمق اختياريّ (تقليل عدد أسئلة التشخيص المبدئيّ) ──────────
+// الجوهر: الهوية + ٤ أسئلة تكفي لنتيجةٍ فوريّة (المرحلة · الحجم · التتبّع الماليّ
+// · السيولة — إشارتان ماليّتان تقودان توصية المسار). العمق: ٤ أسئلة اختياريّة
+// «للدقّة» يمكن تخطّيها؛ عند التخطّي تُملأ بقيمٍ حياديّة (لا تنفخ النتيجة) فتبقى
+// دورة الحفظ (draft → API) كاملةً دون أيّ تغيير في محرّك الخادم.
+const OWNER_CORE_KEYS = ['stage', 'size', 'financialTracking', 'liquidity'] as const
+const OWNER_DEPTH_KEYS = ['ownerDependency', 'governance', 'scalability', 'exitStrategy'] as const
+const OWNER_CORE_QUESTIONS = OWNER_CORE_KEYS.map((k) => OWNER_QUESTIONS.find((q) => q.key === k)!)
+const OWNER_DEPTH_QUESTIONS = OWNER_DEPTH_KEYS.map((k) => OWNER_QUESTIONS.find((q) => q.key === k)!)
+const OWNER_ORDERED_QUESTIONS = [...OWNER_CORE_QUESTIONS, ...OWNER_DEPTH_QUESTIONS]
+// قيمٌ حياديّة (متوسّطة، لا مثاليّة ولا متعثّرة) للعمق المُتخطَّى — لا تُحابي النتيجة.
+const OWNER_DEPTH_DEFAULTS: Pick<OwnerAnswers, (typeof OWNER_DEPTH_KEYS)[number]> = {
+  ownerDependency: 'high', governance: 'partial', scalability: 'mid', exitStrategy: 'none',
+}
+
 function OwnerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const navigate = useNavigate()
   const draft = useDiagnosticStore((s) => s.ownerDraft)
@@ -228,22 +243,36 @@ function OwnerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   const setResult = useDiagnosticStore((s) => s.setOwnerResult)
   const markPendingPersist = useDiagnosticStore((s) => s.markPendingPersist)
   const [submitting, setSubmitting] = useState(false)
+  // هل اختار المستخدم إضافة أسئلة الدقّة (العمق)؟ افتراضاً: الجوهر فقط.
+  const [wantsDepth, setWantsDepth] = useState(false)
 
-  const TOTAL_STEPS = 1 + OWNER_QUESTIONS.length
-  const progress = Math.round(((step + 1) / TOTAL_STEPS) * 100)
+  const CORE_STEPS = 1 + OWNER_CORE_QUESTIONS.length // الهوية + الجوهر
+  const totalSteps = wantsDepth ? 1 + OWNER_ORDERED_QUESTIONS.length : CORE_STEPS
+  const progress = Math.round(((step + 1) / totalSteps) * 100)
   const isIdentificationStep = step === 0
-  const question = isIdentificationStep ? null : OWNER_QUESTIONS[step - 1]
+  const question = isIdentificationStep ? null : OWNER_ORDERED_QUESTIONS[step - 1]
   const currentValue = question
     ? (draft[question.key as keyof OwnerAnswers] as string | undefined)
     : undefined
   const canAdvance = isIdentificationStep
     ? Boolean(draft.companyName && draft.sector)
     : Boolean(currentValue)
+  const isLastCoreStep = step === CORE_STEPS - 1 // آخر خطوة جوهر — نقطة قرار «احسب الآن / أضِف دقّة»
+  const isDepthStep = step > CORE_STEPS - 1       // خطوةٌ من العمق الاختياريّ
+  const atEnd = step === totalSteps - 1
 
   async function submit() {
     setSubmitting(true)
     try {
-      const { data } = await api.post<{ result: OwnerDiagnosticResult }>('/api/diagnostic/preview', draft)
+      // املأ العمق المُتخطَّى بقيمٍ حياديّة، وثبّتها في المسودّة لتبقى دورة الحفظ كاملة.
+      // بناءٌ عبر fromEntries (قالبٌ واحد عند الحدّ) — الكتابة المباشرة patch[k]
+      // عبر مفتاحٍ اتّحاديّ يرفضها TS (تقاطع أنواع القيم = never).
+      const patch = Object.fromEntries(
+        OWNER_DEPTH_KEYS.filter((k) => draft[k] == null).map((k) => [k, OWNER_DEPTH_DEFAULTS[k]]),
+      ) as Partial<OwnerAnswers>
+      if (Object.keys(patch).length > 0) setDraft(patch)
+      const full = { ...draft, ...patch }
+      const { data } = await api.post<{ result: OwnerDiagnosticResult }>('/api/diagnostic/preview', full)
       setResult(data.result)
       markPendingPersist()
       toast.success('اكتمل التشخيص — نتيجتك جاهزة')
@@ -255,7 +284,7 @@ function OwnerFlow({ onChangeRole }: { onChangeRole: () => void }) {
   }
 
   function next() {
-    if (step < TOTAL_STEPS - 1) {
+    if (step < totalSteps - 1) {
       setStep(step + 1)
       return
     }
@@ -268,18 +297,23 @@ function OwnerFlow({ onChangeRole }: { onChangeRole: () => void }) {
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-12">
-      <RoleHeader title="تشخيص المالك" subtitle="9 خطوات · نتيجة فورية" onChangeRole={onChangeRole} />
+      <RoleHeader title="تشخيص المالك" subtitle={`جوهر ${CORE_STEPS} خطوات · نتيجة فورية${wantsDepth ? ` + ${OWNER_DEPTH_QUESTIONS.length} للدقّة` : ''}`} onChangeRole={onChangeRole} />
 
       <Card className="overflow-hidden shadow-sm">
         <div className="h-1.5 bg-gradient-to-l from-primary via-violet-500 to-rose-500" />
         <CardHeader>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>الخطوة {step + 1} من {TOTAL_STEPS}</span>
+            <span>الخطوة {step + 1} من {totalSteps}</span>
             <span className="tabular-nums">{progress}%</span>
           </div>
           <Progress value={progress} className="h-2" />
-          <CardTitle className="mt-3">
+          <CardTitle className="mt-3 flex items-center gap-2">
             {isIdentificationStep ? 'معلومات الشركة' : question!.label}
+            {isDepthStep && (
+              <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">
+                اختياريّ · للدقّة
+              </span>
+            )}
           </CardTitle>
           {!isIdentificationStep && question && (
             <CardDescription className="leading-relaxed">{question.prompt}</CardDescription>
@@ -320,13 +354,29 @@ function OwnerFlow({ onChangeRole }: { onChangeRole: () => void }) {
           )}
         </CardContent>
 
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="ghost" onClick={() => step > 0 && setStep(step - 1)} disabled={step === 0 || submitting}>
             السابق
           </Button>
-          <Button onClick={next} disabled={!canAdvance || submitting}>
-            {submitting ? 'جاري الحساب…' : step === TOTAL_STEPS - 1 ? 'عرض النتيجة' : 'التالي'}
-          </Button>
+          {isLastCoreStep && !wantsDepth ? (
+            // نقطة القرار: نتيجةٌ فوريّة بالجوهر، أو إضافة أسئلة الدقّة.
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setWantsDepth(true); setStep(step + 1) }}
+                disabled={!canAdvance || submitting}
+              >
+                أضِف دقّة ({OWNER_DEPTH_QUESTIONS.length} أسئلة) ←
+              </Button>
+              <Button onClick={submit} disabled={!canAdvance || submitting}>
+                {submitting ? 'جاري الحساب…' : 'احسب النتيجة الآن'}
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={next} disabled={!canAdvance || submitting}>
+              {submitting ? 'جاري الحساب…' : atEnd ? 'عرض النتيجة' : 'التالي'}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </section>

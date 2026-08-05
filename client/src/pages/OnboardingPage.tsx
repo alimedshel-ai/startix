@@ -12,7 +12,8 @@ import { MATURITY_CONFIGS } from '@/lib/maturityConfigs'
 import { api, apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type DeptCode } from '@/lib/deptApi'
 import { EXPERIENCE_OPTIONS, TEAM_SIZE_OPTIONS, TOOLING_OPTIONS } from '@/lib/managerInvestorQuestions'
-import { ONBOARDING_GOALS, ONBOARDING_PAINS } from '@/lib/onboardingOptions'
+import { ONBOARDING_GOALS, ONBOARDING_PAINS, SECTORS } from '@/lib/onboardingOptions'
+import { recommendPathFromFinancials } from '@/lib/pathRecommendation'
 import type { GoalCode, PainCode } from '@/types/user'
 import { useAuthStore } from '@/store/authStore'
 import { useDiagnosticStore } from '@/store/diagnosticStore'
@@ -28,9 +29,18 @@ import type { OpexData, StrategyPath, User } from '@/types/user'
 //   • Manager INDEPENDENT_PRO: الأربع كاملة.
 //   • Investor: نفس Owner (بلا OPEX).
 
-type SlideId = 'identity' | 'pains' | 'goals' | 'path'
+type SlideId = 'company' | 'identity' | 'pains' | 'goals' | 'path'
+
+// خيارات حجم الكيان — تطابق Company.size في Prisma وشريحة AddCompanyPage.
+const SIZES: { code: 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE'; labelAr: string }[] = [
+  { code: 'MICRO',  labelAr: 'متناهية الصغر (١–٩)' },
+  { code: 'SMALL',  labelAr: 'صغيرة (١٠–٤٩)' },
+  { code: 'MEDIUM', labelAr: 'متوسطة (٥٠–٢٤٩)' },
+  { code: 'LARGE',  labelAr: 'كبيرة (٢٥٠+)' },
+]
 
 interface FormState {
+  companyName?: string
   sector?: string
   subsector?: string
   entityType?: string
@@ -128,7 +138,18 @@ export function OnboardingPage() {
   const draft = useAuthStore((s) => s.onboardingDraft)
   // 📥 قراءة بيانات التشخيص السابق (guest) — نستعملها لتخصيص الأسئلة
   const diagnosticManagerDraft = useDiagnosticStore((s) => s.managerDraft)
+  const diagnosticOwnerDraft = useDiagnosticStore((s) => s.ownerDraft)
   const diagnosticRole = useDiagnosticStore((s) => s.role)
+
+  // 🎯 توصية المسار من الإشارات الماليّة للتشخيص (السيولة + التتبّع) — إن وُجدت.
+  // اقتراحٌ يُبرَز ويُحدَّد مسبقاً، ويبقى للمستخدم تغييره (لا إلزام).
+  const pathRec = useMemo(
+    () => recommendPathFromFinancials({
+      liquidity: diagnosticOwnerDraft.liquidity,
+      financialTracking: diagnosticOwnerDraft.financialTracking,
+    }),
+    [diagnosticOwnerDraft.liquidity, diagnosticOwnerDraft.financialTracking],
+  )
 
   // نقل مسودّة تقييم النضج (قبل التسجيل) إلى أوّل عميل — مرّة واحدة بعد التسجيل.
   useEffect(() => {
@@ -161,6 +182,9 @@ export function OnboardingPage() {
   const [state, setState] = useState<FormState>(() => ({
     ...EMPTY,
     ...draft.firstClientMeta,
+    // اسم الشركة من تشخيص المالك (إن أُجري) — يبقى قابلاً للتعديل.
+    companyName: draft.firstClientMeta?.companyName ?? diagnosticOwnerDraft.companyName,
+    sector: draft.firstClientMeta?.sector ?? diagnosticOwnerDraft.sector,
     size: draft.firstClientMeta?.size ?? sizeFromDx, // من التشخيص إن وُجد
     opex: {
       ...(draft.firstClientMeta?.opex ?? {}),
@@ -172,10 +196,18 @@ export function OnboardingPage() {
     goals: draft.goals && draft.goals.length > 0
       ? draft.goals
       : topGoalsForSpecialty.slice(0, 2),
+    // تحديد مسبق للمسار الموصى به من الإشارات الماليّة (يبقى قابلاً للتغيير).
+    // ملاحظة: firstClientMeta لا يحمل strategyPath (ليس في OnboardingDraft)، فالمصدر
+    // الحيّ الوحيد هنا توصيةُ الإشارات الماليّة pathRec — لا قراءةَ ميّتة.
+    strategyPath: pathRec?.path,
   }))
   const [saving, setSaving] = useState(false)
 
   const showIdentity = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
+  // المالك بلا شركة (سجّل دون تشخيص مسبق) يُنشئ شركته هنا — شريحة إلزامية
+  // تمنع الهبوط على لوحةٍ فارغة. المالك الذي أجرى تشخيصاً مسبقاً لا يمرّ
+  // على /onboarding أصلاً (يذهب إلى /diagnostic/result)، فلا ازدواج.
+  const showOwnerCompany = user?.userType === 'OWNER'
 
   // بيانات التشخيص المطابِقة لدور المستخدم الحاليّ
   const hasDiagnosticData = diagnosticRole === user?.userType && (
@@ -191,12 +223,21 @@ export function OnboardingPage() {
   const toolingLabel = TOOLING_OPTIONS.find((o) => o.value === diagnosticManagerDraft.toolingMaturity)?.label
   // شريحة «path» تظهر لكل الأدوار — كلٌّ منهم يختار طموحه الاستراتيجي.
   const slides = useMemo<SlideId[]>(
-    () => (showIdentity ? ['identity', 'pains', 'goals', 'path'] : ['pains', 'goals', 'path']),
-    [showIdentity],
+    () =>
+      showIdentity
+        ? ['identity', 'pains', 'goals', 'path']
+        : showOwnerCompany
+          ? ['company', 'pains', 'goals', 'path']
+          : ['pains', 'goals', 'path'],
+    [showIdentity, showOwnerCompany],
   )
   const [step, setStep] = useState(0)
   const currentSlide = slides[step]
   const isLast = step === slides.length - 1
+  // شريحة الشركة إلزامية للمالك: الاسم + القطاع + الحجم قبل المتابعة/الحفظ.
+  const companyReady =
+    !showOwnerCompany ||
+    Boolean(state.companyName?.trim() && state.sector && state.size)
 
   if (!user) {
     return (
@@ -235,9 +276,17 @@ export function OnboardingPage() {
         pains: state.pains,
         goals: state.goals,
         strategyPath: state.strategyPath,
-        // القطاع والحجم أُدخِلا في التسجيل — هنا نُثري OPEX فقط (Prisma يتجاهل
-        // الحقول المحذوفة فلا يُمسح القطاع/الحجم القادمان من التسجيل).
-        firstCompany: showIdentity ? { opex: state.opex } : undefined,
+        // المدير المستقل: شركته أُنشئت وقت التسجيل — هنا نُثري OPEX فقط.
+        // المالك: نرسل هوية الشركة (اسم/قطاع/حجم) لينشئها السيرفر إن لم توجد.
+        firstCompany: showIdentity
+          ? { opex: state.opex }
+          : showOwnerCompany
+            ? {
+                name: state.companyName?.trim(),
+                sector: state.sector,
+                size: state.size,
+              }
+            : undefined,
       }
       const { data } = await api.post<{ user: User }>('/api/auth/onboarding', payload)
       setUser(data.user)
@@ -315,6 +364,7 @@ export function OnboardingPage() {
             ))}
           </div>
           <CardTitle>
+            {currentSlide === 'company'  && '🏢 عرّف شركتك'}
             {currentSlide === 'identity' && 'أرقام أوّل عميل التشغيليّة (OPEX)'}
             {currentSlide === 'pains'    && (
               specialtyLabel
@@ -329,6 +379,7 @@ export function OnboardingPage() {
             {currentSlide === 'path'     && '🎯 اختر مسارك الاستراتيجي'}
           </CardTitle>
           <CardDescription>
+            {currentSlide === 'company'  && 'نُنشئ ملف شركتك لتبدأ فوراً — الاسم والقطاع والحجم تُشغّل التشخيص وKPIs ولوحتك. (يمكنك إضافة شركات أخرى لاحقاً)'}
             {currentSlide === 'identity' && (
               user?.managerType === 'INDEPENDENT_PRO'
                 ? 'بياناتك تُستخدم في KPIs / تحليل الفجوة / أنسوف / RACI بلا سؤالك مرّة أخرى — لكل عميل جديد.'
@@ -353,6 +404,56 @@ export function OnboardingPage() {
         </CardHeader>
 
         <CardContent className="grid gap-6">
+          {currentSlide === 'company' && (
+            <div className="grid gap-4">
+              <div className="grid gap-1">
+                <Label htmlFor="companyName" className="text-xs">
+                  اسم الشركة <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="companyName"
+                  value={state.companyName ?? ''}
+                  onChange={(e) => setState((p) => ({ ...p, companyName: e.target.value }))}
+                  placeholder="مثال: شركة الأفق للتجارة"
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="sector" className="text-xs">
+                  القطاع <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="sector"
+                  className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                  value={state.sector ?? ''}
+                  onChange={(e) => setState((p) => ({ ...p, sector: e.target.value || undefined }))}
+                >
+                  <option value="" disabled>اختر القطاع…</option>
+                  {SECTORS.map((s) => (
+                    <option key={s.code} value={s.code}>{s.labelAr}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="size" className="text-xs">
+                  حجم الكيان <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="size"
+                  className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                  value={state.size ?? ''}
+                  onChange={(e) =>
+                    setState((p) => ({ ...p, size: (e.target.value || undefined) as FormState['size'] }))
+                  }
+                >
+                  <option value="" disabled>اختر الحجم…</option>
+                  {SIZES.map((s) => (
+                    <option key={s.code} value={s.code}>{s.labelAr}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           {currentSlide === 'identity' && (
             <div className="grid gap-4">
               <div className="rounded-lg border bg-primary/5 p-4">
@@ -502,51 +603,80 @@ export function OnboardingPage() {
           )}
 
           {currentSlide === 'path' && (
-            <div className="grid gap-3 lg:grid-cols-3">
-              {PATH_OPTIONS.map((opt) => {
-                const selected = state.strategyPath === opt.code
-                return (
-                  <button
-                    key={opt.code}
-                    type="button"
-                    onClick={() => setState((p) => ({ ...p, strategyPath: opt.code }))}
-                    className={`flex flex-col gap-2 rounded-xl border-2 p-4 text-right transition ${
-                      selected
-                        ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/40'
-                        : opt.colorClass
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-3xl" aria-hidden>{opt.icon}</span>
-                      <span className="rounded-md bg-card px-2 py-0.5 text-[10px] font-medium">{opt.timeAr}</span>
-                    </div>
-                    <div className="text-lg font-bold">{opt.labelAr}</div>
-                    <div className="text-xs leading-relaxed text-muted-foreground">
-                      <div><strong className="text-foreground">التركيز:</strong> {opt.focusAr}</div>
-                      <div className="mt-1">{opt.stagesAr}</div>
-                      <div className="mt-1 text-muted-foreground/80">{opt.toolsAr}</div>
-                    </div>
-                    {selected && <div className="mt-1 text-xs font-medium text-primary">✓ مختار</div>}
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              {pathRec && (
+                <div className="mb-1 flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50/70 p-3 text-[12px] leading-relaxed text-emerald-900">
+                  <span className="text-base" aria-hidden>🎯</span>
+                  <span>
+                    <b>اقترحنا مسارك من تحليلك الماليّ.</b> {pathRec.reasonAr}
+                    <span className="mt-0.5 block text-[10px] text-emerald-800/70">اخترناه لك مسبقاً — غيّره بحرّية إن أردت.</span>
+                  </span>
+                </div>
+              )}
+              <div className="grid gap-3 lg:grid-cols-3">
+                {PATH_OPTIONS.map((opt) => {
+                  const selected = state.strategyPath === opt.code
+                  const isRecommended = pathRec?.path === opt.code
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setState((p) => ({ ...p, strategyPath: opt.code }))}
+                      className={`relative flex flex-col gap-2 rounded-xl border-2 p-4 text-right transition ${
+                        selected
+                          ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/40'
+                          : isRecommended
+                            ? 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-500'
+                            : opt.colorClass
+                      }`}
+                    >
+                      {isRecommended && (
+                        <span className="absolute -top-2 right-3 rounded-full border border-emerald-400 bg-white px-2 py-0.5 text-[9px] font-bold text-emerald-800 shadow-sm">
+                          ⭐ موصى به
+                        </span>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-3xl" aria-hidden>{opt.icon}</span>
+                        <span className="rounded-md bg-card px-2 py-0.5 text-[10px] font-medium">{opt.timeAr}</span>
+                      </div>
+                      <div className="text-lg font-bold">{opt.labelAr}</div>
+                      <div className="text-xs leading-relaxed text-muted-foreground">
+                        <div><strong className="text-foreground">التركيز:</strong> {opt.focusAr}</div>
+                        <div className="mt-1">{opt.stagesAr}</div>
+                        <div className="mt-1 text-muted-foreground/80">{opt.toolsAr}</div>
+                      </div>
+                      {selected && <div className="mt-1 text-xs font-medium text-primary">✓ مختار</div>}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
         </CardContent>
 
         <div className="flex items-center justify-between gap-2 border-t p-4">
-          <Button variant="ghost" onClick={skip}>
-            تخطّي الجميع
-          </Button>
+          {/* المالك لا يتخطّى: إنشاء الشركة إلزامي حتى لا تكون لوحته فارغة. */}
+          {showOwnerCompany ? (
+            <span />
+          ) : (
+            <Button variant="ghost" onClick={skip}>
+              تخطّي الجميع
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             {step > 0 && (
               <Button variant="outline" onClick={() => setStep((s) => s - 1)}>السابق</Button>
             )}
             {!isLast && (
-              <Button onClick={() => setStep((s) => s + 1)}>التالي ←</Button>
+              <Button
+                onClick={() => setStep((s) => s + 1)}
+                disabled={currentSlide === 'company' && !companyReady}
+              >
+                التالي ←
+              </Button>
             )}
             {isLast && (
-              <Button onClick={submit} disabled={saving}>
+              <Button onClick={submit} disabled={saving || !companyReady}>
                 {saving ? 'جاري الحفظ…' : 'حفظ والمتابعة'}
               </Button>
             )}

@@ -1,4 +1,3 @@
-import { auditRouteFor } from '@/journey'
 import type { DeptCode } from '@/lib/deptApi'
 import type { StageId } from '@/lib/journeyStages'
 import type { ManagerType, SpecialtyDeptType, UserType } from '@/types/user'
@@ -61,6 +60,9 @@ const ownerNav: NavSection[] = [
       { to: '/dashboard',    label: 'لوحة القيادة',  icon: '🏠' },
       { to: '/live-board',   label: 'اللوحة الحيّة',  icon: '⚡' },
       { to: '/activity-feed', label: 'سجل النشاط',   icon: '📰' },
+      // أ٣ — لوحة المسؤول تبقى هنا (adminOnly) بعد حذف قسم «لوحات القيادة»
+      // المبعثر؛ لوحات الرئيس/الفريق/المجلس/التحليلات صارت تبويبات في البيت.
+      { to: '/admin-dashboard', label: 'لوحة المسؤول', icon: '🛠️', adminOnly: true },
     ],
   },
   {
@@ -171,18 +173,6 @@ const ownerNav: NavSection[] = [
       { to: '/companies/add', label: 'إضافة شركة',   icon: '➕' },
       { to: '/invitations',   label: 'دعوات الفريق', icon: '✉️' },
       { to: '/org-dna',       label: 'DNA المنظّمة',  icon: '🧬' },
-    ],
-  },
-  {
-    title: '💼 لوحات القيادة',
-    accent: 'violet',
-    layer: 'context',
-    items: [
-      { to: '/ceo-dashboard',       label: 'لوحة الرئيس التنفيذي', icon: '👔' },
-      { to: '/exec-dashboard',      label: 'لوحة الفريق التنفيذي', icon: '👥' },
-      { to: '/board-dashboard',     label: 'لوحة المجلس',          icon: '🏛️' },
-      { to: '/analytics-dashboard', label: 'التحليلات',            icon: '📈' },
-      { to: '/admin-dashboard',     label: 'لوحة المسؤول',         icon: '🛠️', adminOnly: true },
     ],
   },
   {
@@ -577,19 +567,19 @@ export function homeFor(
 }
 
 // ─── §١ — الوجهة مباشرةً بعد اكتمال التسجيل/التهيئة ────────────────
-// المدير المستقل يهبط **مباشرة** على المرحلة ① (تدقيق إدارته) — لا على
-// قائمة الصفحات ولا حتى على قائمة العملاء. نقطة الدخول الوحيدة = خطوته
-// الحاليّة. (strategyPath يُختار داخل onboarding قبل هذه اللحظة، فلا حاجة
-// لسؤال إضافي.) بلا تخصّص أو لأدوار أخرى → السلوك الافتراضي homeFor.
+// بيتٌ **موحّد** بعد التسجيل ثمّ كل دخول لاحق (نفس ما يستخدمه LoginPage/JoinPage
+// عبر homeFor) — فلا يختلف «أين أذهب بعد التسجيل» عن «أين أذهب بعد الدخول».
+//
+// المدير المستقل → /manager/clients: صفحةٌ فيها بطاقة «🧭 إلى أين أذهب الآن؟»
+// (NextActionHero) تقوده خطوةً واحدةً واضحة (أضف أوّل عميل ← ابدأ تدقيقه ← تابع
+// خطّته). كان يهبط سابقاً على /manager/<dept>/audit — لكنّ المدير المستقل يُدقّق
+// إداراتِ عملائه لا إدارته، ومدير جديد بلا عميل يصل صفحةَ تدقيقٍ بلا سياق (طريق
+// مسدود يُعيده للبداية = «كل ما ضعت رجعت للصفحة نفسها»). التوحيد يُزيل هذا التناقض.
 export function landingAfterOnboarding(user: {
   userType: UserType | null | undefined
   managerType?: ManagerType | null
   specialtyDeptType?: SpecialtyDeptType | null
 }): string {
-  if (user.userType === 'MANAGER' && user.managerType === 'INDEPENDENT_PRO') {
-    const audit = auditRouteFor(user.specialtyDeptType ?? null)
-    if (audit) return audit
-  }
   return homeFor(user.userType, user.managerType)
 }
 
