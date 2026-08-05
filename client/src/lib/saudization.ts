@@ -111,6 +111,30 @@ export function saudizationAchievementPct(summary: SaudizationSummary): number |
   return Math.min(100, Math.round((counted / required) * 100))
 }
 
+/**
+ * النسبة الفعليّة للسعودة (٪) = إجماليّ المحتسبين ÷ إجماليّ العاملين عبر الفئات
+ * المنطبقة — **لا نسبة التحقيق**. تُغذّي اقتراح KPI_STR_04 (ت١/حزمة v2): «سعوديّون
+ * ÷ الإجمالي». يعود null إن لا فئة منطبقة (لا اقتراح قبل اكتمال المصادر).
+ */
+export function saudizationActualRatio(
+  inputs: CategoryInput[],
+  catalog: SaudizationRule[] = SAUDIZATION_CATALOG,
+): number | null {
+  const byId = new Map(catalog.map((r) => [r.id, r]))
+  let counted = 0
+  let total = 0
+  for (const inp of inputs) {
+    const rule = byId.get(inp.ruleId)
+    if (!rule) continue
+    const res = classifyCategory(inp, rule)
+    if (res.status === 'not_applicable') continue
+    const saudi = clampNonNeg(inp.saudiCount)
+    counted += Math.min(clampNonNeg(inp.countedCount), saudi)
+    total += res.total
+  }
+  return total === 0 ? null : Math.round((counted / total) * 100)
+}
+
 // ─── محرّك تكلفة الحلول الثلاثة (الصيغ المعتمدة) — KPI_BEST_SOLUTION_COST ─────
 export const HIRE_MONTHLY_SALARY = 4500      // ③ راتب السعوديّ المُوظَّف (ريال/شهر)
 export const PROFESSION_CHANGE_ONCE = 2500   // ② تكلفة تغيير مهنة غير سعوديّ (لمرّة واحدة)

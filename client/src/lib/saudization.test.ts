@@ -5,6 +5,7 @@ import {
   classifySaudization,
   computeSaudizationCost,
   saudizationAchievementPct,
+  saudizationActualRatio,
   type CategoryInput,
 } from './saudization'
 import { isStale, SAUDIZATION_CATALOG, type SaudizationRule } from './saudizationCatalog'
@@ -184,6 +185,22 @@ describe('classifySaudization — التجميع', () => {
   })
   it('الحالة الإجماليّة = أسوأ منطبقة = غير ممتثل', () => {
     expect(s.overallStatus).toBe('non_compliant')
+  })
+})
+
+describe('saudizationActualRatio — اقتراح KPI_STR_04 (سعوديّون÷الإجمالي)', () => {
+  it('٥ سعوديّ / ٥ غير / ٥ محتسَب → ٥٠٪ (لا نسبة التحقيق ٨٣٪)', () => {
+    const r = saudizationActualRatio([{ ruleId: 'sales', saudiCount: 5, nonSaudiCount: 5, countedCount: 5 }])
+    expect(r).toBe(50)
+  })
+  it('لا فئة منطبقة → null', () => {
+    const r = saudizationActualRatio([{ ruleId: 'sales', saudiCount: 1, nonSaudiCount: 1, countedCount: 1 }])
+    expect(r).toBeNull()
+  })
+  it('محتسَب أقلّ من السعوديّين (راتب دون الحدّ) يخفض الفعليّة', () => {
+    // ٦ سعوديّ (٤ محتسَب) + ٤ غير → ٤/١٠ = ٤٠٪
+    const r = saudizationActualRatio([{ ruleId: 'sales', saudiCount: 6, nonSaudiCount: 4, countedCount: 4 }])
+    expect(r).toBe(40)
   })
 })
 

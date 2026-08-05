@@ -19,9 +19,8 @@ import {
   type QuantLevel,
 } from '@/lib/hrQuantIndicators'
 import {
-  classifySaudization,
   computeSaudizationCost,
-  saudizationAchievementPct,
+  saudizationActualRatio,
   type CategoryInput,
   type SaudizationSolution,
 } from '@/lib/saudization'
@@ -164,11 +163,11 @@ export function HrQuantitativeSection({
   }
 
   // ─── تغذية KPI_STR_04 من وحدة التوطين (لا DRV_* يوازيه — نحوّله محسوباً) ──
-  // إن وُجدت فئات توطين منطبقة، تُشتقّ نسبة السعودة وتُقفَل خانة KPI_STR_04
-  // (تُعرَض للقراءة). بلا مدخلات توطين، يبقى المؤشّر يدويّاً كسابق عهده.
+  // ت١ — النسبة الفعليّة (سعوديّون÷الإجمالي) تُقترَح لـKPI_STR_04 فوق خانةٍ مفتوحة.
+  // بلا مدخلات توطين منطبقة، لا اقتراح (null) — ويبقى الإدخال اليدويّ.
   const derivedSaudization = useMemo(() => {
     if (saud.length === 0) return null
-    return saudizationAchievementPct(classifySaudization(saud))
+    return saudizationActualRatio(saud)
   }, [saud])
 
   // ─── الاشتقاق العدديّ (جدول العبور v3.3): «الأرقام تُدخَل والنِّسَب تُشتقّ» ──
