@@ -453,6 +453,24 @@ function Editor({ companyId }: { companyId: string }) {
   const active = useMemo(() => items.filter((i) => !isSuggested(i.status)), [items])
   const suggestions = useMemo(() => items.filter((i) => isSuggested(i.status)), [items])
 
+  // حلقة التقدّم: المبادرة تحيا بمهامها. شريط = المهام المنجزة ÷ الكلّ عبر مشاريعها.
+  // null إن لا مهامّ (لا شريط فارغ). المصدر: listInitiatives يكشف projects[].tasks[].status.
+  function InitiativeProgress({ i }: { i: Initiative }) {
+    const tasks = (i.projects ?? []).flatMap((p) => p.tasks ?? [])
+    const total = tasks.length
+    if (!total) return null
+    const done = tasks.filter((t) => t.status === 'done').length
+    const pct = Math.round((done / total) * 100)
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-1.5 py-0.5 tabular-nums text-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+        title={`${done} من ${total} مهمّة منجزة — تُحرّكها مهامّ المبادرة`}
+      >
+        📊 {done}/{total} ({pct}٪)
+      </span>
+    )
+  }
+
   // الرقعة F — شارة أثر §د: تُشتقّ من نصّ المبادرة + أثر §د المحفوظ. null إن لم
   // يطابق رافعاً أو نقص الأساس (لا رقم مختلَق · ف٣). عرضٌ بحت — لا يمسّ objectiveId/cost.
   function HrImpactBadge({ i }: { i: Initiative }) {
@@ -709,7 +727,7 @@ function Editor({ companyId }: { companyId: string }) {
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => remove(i)} title="تجاهُل المقترح">×</Button>
                   </div>
-                  <div className="mt-1 empty:hidden"><HrImpactBadge i={i} /></div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 empty:hidden"><HrImpactBadge i={i} /><InitiativeProgress i={i} /></div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <select className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={i.objectiveId ?? ''} onChange={(e) => update(i, { objectiveId: e.target.value || null })}>
                       <option value="">— 🎯 الهدف —</option>
@@ -785,6 +803,7 @@ function Editor({ companyId }: { companyId: string }) {
                         </span>
                       )}
                       <HrImpactBadge i={i} />
+                      <InitiativeProgress i={i} />
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2">

@@ -271,7 +271,9 @@ export const listInitiatives: RequestHandler = async (req, res, next) => {
     await assertCompanyAccess(req.auth.sub, companyId);
     const rows = await prisma.initiative.findMany({
       where: { companyId },
-      include: { projects: true, objective: true },
+      // حلقة التقدّم: نكشف حالات مهامّ كل مشروع (id+status فقط) ليحسب العميل
+      // شريط تقدّم المبادرة (منجزة ÷ الكلّ) دون نداء إضافيّ.
+      include: { projects: { include: { tasks: { select: { id: true, status: true } } } }, objective: true },
     });
     res.json(rows);
   } catch (err) { next(err); }
@@ -420,6 +422,42 @@ export const listTasks: RequestHandler = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ─── حلقة تقدّم المبادرة: المهام تحرّك حالة مبادرتها آليّاً ────────────────────
+// المهمّة ← المشروع ← المبادرة. عند تغيّر مهمة (إنشاء/تحديث/حذف) نُعيد حساب حالة
+// المبادرة المرتبطة: كلّها منجزة → done · بعضها بدأ → in_progress · لا شيء → planned.
+// نُدير الحالات {planned,in_progress,done} فقط — لا نلمس suggested (مقترحة/الرقعة A)
+// ولا cancelled. فشل الحساب لا يُسقط عمليّة المهمّة (best-effort).
+const AUTO_INITIATIVE_STATES = new Set(['planned', 'in_progress', 'done']);
+
+async function initiativeIdForProject(projectId: string | null | undefined): Promise<string | null> {
+  if (!projectId) return null;
+  const p = await prisma.project.findUnique({ where: { id: projectId }, select: { initiativeId: true } });
+  return p?.initiativeId ?? null;
+}
+
+async function recomputeInitiativeStatus(initiativeId: string): Promise<void> {
+  const init = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true, status: true } });
+  if (!init || !AUTO_INITIATIVE_STATES.has(init.status)) return;
+  const tasks = await prisma.task.findMany({ where: { project: { initiativeId } }, select: { status: true } });
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.status === 'done').length;
+  const started = tasks.some((t) => t.status !== 'todo'); // in_progress/done/blocked = انطلقت المبادرة
+  const next = total === 0 ? 'planned' : done === total ? 'done' : started ? 'in_progress' : 'planned';
+  if (next !== init.status) await prisma.initiative.update({ where: { id: initiativeId }, data: { status: next } });
+}
+
+/** يُعيد حساب حالة مبادرة المهمّة (وأيّ مشروع قديم إن تغيّر) — بلا إسقاط الطلب. */
+async function bubbleTaskToInitiative(...projectIds: (string | null | undefined)[]): Promise<void> {
+  try {
+    const initIds = new Set<string>();
+    for (const pid of projectIds) {
+      const initId = await initiativeIdForProject(pid);
+      if (initId) initIds.add(initId);
+    }
+    for (const initId of initIds) await recomputeInitiativeStatus(initId);
+  } catch { /* best-effort: تقدّم الحالة لا يُسقط عمليّة المهمّة */ }
+}
+
 export const createTask: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, 'غير مصادق');
@@ -428,6 +466,7 @@ export const createTask: RequestHandler = async (req, res, next) => {
     const row = await prisma.task.create({
       data: { ...body, dueDate: body.dueDate ? new Date(body.dueDate) : null },
     });
+    await bubbleTaskToInitiative(row.projectId);
     res.status(201).json(row);
   } catch (err) { next(err); }
 };
@@ -449,6 +488,7 @@ export const updateTask: RequestHandler = async (req, res, next) => {
         completedAt: completedAt ?? (body.status && body.status !== 'done' ? null : undefined),
       },
     });
+    await bubbleTaskToInitiative(row.projectId, found.projectId);
     res.json(row);
   } catch (err) { next(err); }
 };
@@ -461,6 +501,7 @@ export const deleteTask: RequestHandler = async (req, res, next) => {
     if (!found) throw new HttpError(404, 'المهمة غير موجودة');
     await assertCompanyAccess(req.auth.sub, found.companyId);
     await prisma.task.delete({ where: { id } });
+    await bubbleTaskToInitiative(found.projectId);
     res.status(204).end();
   } catch (err) { next(err); }
 };

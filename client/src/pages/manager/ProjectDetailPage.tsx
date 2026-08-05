@@ -39,6 +39,11 @@ const TASK_STATUS_META: Record<string, { labelAr: string; icon: string; chipClas
   blocked:     { labelAr: 'متعطلة',      icon: '⛔', chipClass: 'border-rose-400 bg-rose-50 text-rose-800' },
 }
 
+// حالة المبادرة (تتقدّم آليّاً من مهامها عبر حلقة التقدّم في الخادم).
+const INIT_STATUS_LABEL: Record<string, string> = {
+  suggested: 'مقترحة', planned: 'مخطّطة', in_progress: 'قيد التنفيذ', done: 'منجزة', cancelled: 'ملغاة',
+}
+
 // ─── بنك أفكار مهام تنفيذ خطّة — خطوات قياسيّة لأي مشروع ──────────
 // نقرة تُضيف المهمّة؛ تُخفى إن أُضيفت سلفاً. تُوزَّع بعدها على الجهات.
 
@@ -294,6 +299,12 @@ export function ProjectDetailPage() {
     try {
       const updated = await updateTask(taskId, { status })
       setTasks((p) => p.map((t) => (t.id === taskId ? updated : t)))
+      // حلقة التقدّم: الخادم قد يكون قدّم حالة المبادرة (planned→قيد→منجزة) — نُنعشها.
+      if (initiative && companyId) {
+        listInitiatives(companyId)
+          .then((all) => setInitiative(all.find((i) => i.id === initiative.id) ?? initiative))
+          .catch(() => undefined)
+      }
     } catch (err) {
       toast.error(apiErrorMessage(err, 'فشل التحديث'))
     }
@@ -382,6 +393,7 @@ export function ProjectDetailPage() {
                 {initiative && (
                   <span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                     💡 من مبادرة: {initiative.title}
+                    <span className="ms-1 opacity-70">· {INIT_STATUS_LABEL[initiative.status] ?? initiative.status}</span>
                   </span>
                 )}
               </div>
