@@ -261,6 +261,27 @@ export function DeptGapPage() {
         />
       </div>
 
+      {/* حارس §3 الناعم: بلا تدقيق سابق، الخطوة الموصى بها تتصدّر التحليل (لا حجب). */}
+      {!auditData && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="flex items-center gap-3 p-4">
+            <span className="text-2xl">💡</span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">ابدأ بالتدقيق الأساسي لتحليل أدقّ</div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                التدقيق ينتج ٤ درجات (حوكمة/مالي/فريق/رقمي) — كل واحدة تصير فجوة تلقائية بمعالجة مقترحة. بدونه، ما يظهر أدناه قيم افتراضية للتعديل.
+              </p>
+            </div>
+            <Link
+              to={`/manager/${auditRoute(specialty)}/audit${clientQ}`}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              ابدأ التدقيق
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {/* المقترحات الذكية */}
       {smartSuggestions.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
@@ -319,26 +340,6 @@ export function DeptGapPage() {
                 </div>
               )
             })}
-          </CardContent>
-        </Card>
-      )}
-
-      {!auditData && (
-        <Card className="border-amber-200 bg-amber-50/40">
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="text-2xl">💡</span>
-            <div className="flex-1">
-              <div className="text-sm font-semibold">أَجرِ التدقيق الأساسي لتحصل على تحليل أدقّ</div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                التدقيق ينتج ٤ درجات (حوكمة/مالي/فريق/رقمي) — كل واحدة تصير فجوة تلقائية بمعالجة مقترحة.
-              </p>
-            </div>
-            <Link
-              to={`/manager/${auditRoute(specialty)}/audit${clientQ}`}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-            >
-              ابدأ التدقيق
-            </Link>
           </CardContent>
         </Card>
       )}
