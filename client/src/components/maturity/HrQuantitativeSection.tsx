@@ -188,21 +188,19 @@ export function HrQuantitativeSection({
     return out
   }, [inputs])
 
-  const mergedActuals = useMemo<QuantActuals>(() => {
-    const m: QuantActuals = { ...actuals, ...derivedActuals }
-    if (derivedSaudization != null) m[SAUDIZATION_KPI_ID] = derivedSaudization
-    return m
-  }, [actuals, derivedActuals, derivedSaudization])
-
-  // المؤشّرات المشتقّة/المحسوبة تُقفَل خانة نسبتها (تُدخَل بالعدد). manual/raw حرّة.
-  const lockedIds = useMemo(() => {
-    const s = new Set<string>()
-    for (const [id, spec] of Object.entries(QUANT_CROSSOVER)) {
-      if (spec.inputKind === 'count' || spec.inputKind === 'derived') s.add(id)
-    }
-    if (derivedSaudization != null) s.add(SAUDIZATION_KPI_ID)
+  // ت١ — الاقتراحات المحسوبة (count/derived + السعودة catalog). تُعرَض **فوق خانةٍ
+  // مفتوحة**، لا تُقفِلها: «الأرقام تُدخَل، النِّسَب تُقترَح، والخبير يتجاوز».
+  const suggestions = useMemo<Record<string, number>>(() => {
+    const s: Record<string, number> = { ...derivedActuals }
+    if (derivedSaudization != null) s[SAUDIZATION_KPI_ID] = derivedSaudization
     return s
-  }, [derivedSaudization])
+  }, [derivedActuals, derivedSaudization])
+
+  // القيمة الفعّالة للتقييم: اليدويّ **يتجاوز** الاقتراح (لا العكس) — فالتعديل يثبت.
+  const mergedActuals = useMemo<QuantActuals>(
+    () => ({ ...suggestions, ...actuals }),
+    [suggestions, actuals],
+  )
 
   // §د السادس: تكلفة الحلّ الأوفر للتوطين (محرّك التكلفة). يحتاج متوسّط راتب غير
   // المحتسبين (①). يظهر فقط حين توجد فئات توطين ذات فجوة وتكلفة موجبة.
@@ -252,7 +250,7 @@ export function HrQuantitativeSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {HR_QUANT_LEVELS.map((level) => (
-          <LevelGroup key={level} level={level} actuals={mergedActuals} lockedIds={lockedIds} onSet={setActual} counts={counts} onSetCount={setCount} />
+          <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} />
         ))}
 
         {/* ─── وحدة التوطين — تُغذّي KPI_STR_04 أعلاه ─── */}
@@ -326,10 +324,10 @@ export function HrQuantitativeSection({
   )
 }
 
-function LevelGroup({ level, actuals, lockedIds, onSet, counts, onSetCount }: { level: QuantLevel; actuals: QuantActuals; lockedIds: Set<string>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void }) {
+function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSetCount }: { level: QuantLevel; effective: QuantActuals; manual: QuantActuals; suggestions: Record<string, number>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void }) {
   const meta = HR_LEVEL_META[level]
   const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
-  const s = levelSummary(level, actuals)
+  const s = levelSummary(level, effective)
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -340,38 +338,41 @@ function LevelGroup({ level, actuals, lockedIds, onSet, counts, onSetCount }: { 
       </div>
       <div className="flex flex-col divide-y">
         {inds.map((ind) => {
-          const e = evalIndicator(ind, actuals[ind.id])
+          const e = evalIndicator(ind, effective[ind.id])
           const badge = e.status === 'ok' ? '✅' : e.status === 'off' ? '🔴' : '⬜'
-          const locked = lockedIds.has(ind.id)
           const spec = QUANT_CROSSOVER[ind.id]
           // العدّادات التي يُدخلها المستخدم لهذا المؤشّر (HRQ_* في البسط/المقام).
           const countKeys = spec && spec.inputKind === 'count'
             ? [spec.numerator, spec.denominator].filter((k): k is string => !!k && k.startsWith('HRQ_'))
             : []
-          const lockTitle = countKeys.length > 0
-            ? 'نسبةٌ محسوبةٌ من الأعداد أدناه'
-            : ind.id === SAUDIZATION_KPI_ID
-              ? 'محسوب تلقائياً من وحدة التوطين أدناه'
-              : 'محسوبٌ تلقائياً من الأرقام الأساسيّة'
+          // اقتراحٌ محسوب (إن اكتملت مصادره) — فوق خانةٍ مفتوحة، لا يُقفِلها.
+          const suggestion = suggestions[ind.id]
+          const hasSug = suggestion != null
+          const overridden = hasSug && manual[ind.id] != null
+          const unitSuffix = ind.unit === '%' ? '٪' : ` ${ind.unit}`
           return (
             <div key={ind.id} className="flex flex-col gap-1 py-1.5 text-sm">
               <div className="flex items-center gap-2">
                 <span className="w-5 shrink-0 text-center">{badge}</span>
                 <span className="min-w-0 flex-1 truncate" title={ind.name}>
-                  {locked && <span title={lockTitle}>🔗 </span>}{ind.name}
+                  {hasSug && <span title="مقترَح محسوب — قابل للتعديل">💡 </span>}{ind.name}
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">الهدف {ind.target}{ind.unit === '%' ? '٪' : ` ${ind.unit}`}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">الهدف {ind.target}{unitSuffix}</span>
                 <Input
                   type="number"
                   inputMode="decimal"
                   className="h-8 w-20 shrink-0 text-center"
-                  placeholder="الفعليّ"
-                  value={actuals[ind.id] ?? ''}
-                  disabled={locked}
-                  title={locked ? lockTitle : undefined}
+                  placeholder={hasSug ? `مقترَح ${suggestion}` : 'الفعليّ'}
+                  value={manual[ind.id] ?? ''}
                   onChange={(ev) => onSet(ind.id, ev.target.value)}
                 />
               </div>
+              {hasSug && (
+                <div className="pr-7 text-[11px] text-sky-700">
+                  💡 مقترَح محسوب: <b>{suggestion}{unitSuffix}</b>
+                  {overridden ? ' — تجاوزٌ يدويّ مُثبَت' : ' — اكتب رقماً لتتجاوزه'}
+                </div>
+              )}
               {countKeys.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 pr-7">
                   {countKeys.map((key) => (
