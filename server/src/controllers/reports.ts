@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { RequestHandler } from 'express';
 import { z } from 'zod';
 
@@ -5,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import { HttpError } from '../middleware/error';
 import { assertCompanyAccess, paramOf } from '../lib/companyGuard';
 import { DEPT_LABEL_AR } from '../lib/deptLabels';
+import { sendEmail } from '../lib/ses';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -276,6 +278,66 @@ export const deleteReport: RequestHandler = async (req, res, next) => {
     await assertCompanyAccess(req.auth.sub, report.companyId);
     await prisma.report.delete({ where: { id } });
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/reports/:id/share — سكّ رابط عامّ (PROFESSIONAL+) ─────────────
+// يُنشئ توكناً فريداً ينتهي بعد N يوماً، ويُعيد رابطاً عامّاً بلا تسجيل. إن مُرِّر
+// recipientEmail أُرسل الرابط بريديّاً (SES حيّ مع stub). إعادة السكّ تُدوّر التوكن.
+const shareSchema = z.object({
+  recipientEmail: z.string().email().optional(),
+  expiresInDays: z.number().int().min(1).max(180).default(30),
+});
+export const shareReport: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, 'غير مصادق');
+    const id = paramOf(req, 'id');
+    const body = shareSchema.parse(req.body ?? {});
+    const report = await prisma.report.findUnique({ where: { id } });
+    if (!report) throw new HttpError(404, 'التقرير غير موجود');
+    await assertCompanyAccess(req.auth.sub, report.companyId);
+
+    const shareToken = crypto.randomBytes(24).toString('base64url');
+    const shareExpires = new Date(Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000);
+    await prisma.report.update({ where: { id }, data: { shareToken, shareExpires } });
+
+    const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
+    const url = `${clientUrl}/r/${shareToken}`;
+
+    if (body.recipientEmail) {
+      await sendEmail({
+        to: body.recipientEmail,
+        subject: `تقريرٌ استراتيجيّ من ستارتكس — ${report.title}`,
+        text: `تمّت مشاركة تقرير «${report.title}» معك.\nاطّلع عليه (بلا تسجيل) عبر:\n${url}\n\nالرابط ينتهي خلال ${body.expiresInDays} يوماً.`,
+        html: `<p>تمّت مشاركة تقرير <strong>${report.title}</strong> معك.</p><p><a href="${url}">اطّلع على التقرير</a> (بلا تسجيل).</p><p>الرابط ينتهي خلال ${body.expiresInDays} يوماً.</p>`,
+      });
+    }
+
+    res.status(201).json({ url, shareToken, shareExpires, emailed: Boolean(body.recipientEmail) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/reports/shared/:token — قراءة عامّة بلا مصادقة ─────────────────
+// الحماية بالتوكن نفسه. إسقاطٌ للقراءة فقط: يجرّد companyId وكلّ معرّف داخليّ —
+// لا يُعاد صفّ Report كاملاً. 404 على توكنٍ مفقود/منتهٍ (لا 401، تفادياً لدورة
+// تحديث الجلسة في متصفّح الزائر غير المسجّل).
+export const getSharedReport: RequestHandler = async (req, res, next) => {
+  try {
+    const token = paramOf(req, 'token');
+    const report = await prisma.report.findUnique({ where: { shareToken: token } });
+    if (!report || !report.shareExpires || report.shareExpires < new Date()) {
+      throw new HttpError(404, 'الرابط غير صالح أو منتهٍ');
+    }
+    res.json({
+      type: report.type,
+      title: report.title,
+      data: report.data,
+      createdAt: report.createdAt,
+    });
   } catch (err) {
     next(err);
   }

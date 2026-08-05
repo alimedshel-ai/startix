@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { API_BASE_URL, apiErrorMessage } from '@/lib/api'
 import {
-  deleteReport, generateReport, getReport, listReports,
+  deleteReport, generateReport, getReport, listReports, shareReport,
   type Report, type ReportSummary, type ReportType,
 } from '@/lib/reportsApi'
 
@@ -39,6 +39,7 @@ function Inner({ companyId }: { companyId: string }) {
   const [generating, setGenerating] = useState<ReportType | null>(null)
   const [opened, setOpened] = useState<Report | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
 
   useEffect(() => {
     listReports(companyId).then(setReports).catch(() => undefined).finally(() => setLoading(false))
@@ -96,6 +97,25 @@ function Inner({ companyId }: { companyId: string }) {
   function openPrintTab() {
     if (!opened) return
     window.open(`/reports/${opened.id}/print`, '_blank', 'noopener,noreferrer')
+  }
+
+  // مشاركة عامّة (PROFESSIONAL+): يسكّ رابط /r/:token — للمالك الذي لم يسجّل.
+  // بريدٌ اختياريّ يُرسله؛ وفي الحالتين يُنسخ الرابط. إلغاء prompt = لا شيء.
+  async function share() {
+    if (!opened) return
+    const entered = prompt('بريد المالك لإرسال الرابط (اتركه فارغاً لنسخ الرابط فقط):')
+    if (entered === null) return
+    const email = entered.trim()
+    setSharing(true)
+    try {
+      const { url, emailed } = await shareReport(opened.id, email ? { recipientEmail: email } : {})
+      await navigator.clipboard?.writeText(url).catch(() => undefined)
+      toast.success(emailed ? `أُرسل الرابط إلى ${email} ونُسخ` : 'نُسخ رابط المشاركة العامّ')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'فشلت المشاركة'))
+    } finally {
+      setSharing(false)
+    }
   }
 
   async function downloadExcel() {
@@ -199,6 +219,9 @@ function Inner({ companyId }: { companyId: string }) {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={openPrintTab}>
                 📄 تنزيل PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={share} disabled={sharing}>
+                {sharing ? 'مشاركة…' : '🔗 مشاركة'}
               </Button>
               <Button variant="outline" size="sm" onClick={downloadExcel}>
                 📊 Excel

@@ -38,3 +38,26 @@ export async function getReport(id: string): Promise<Report> {
 export async function deleteReport(id: string): Promise<void> {
   await api.delete(`/api/reports/${id}`)
 }
+
+// ─── مشاركة عامّة ────────────────────────────────────────────────────────────
+export interface ShareResult {
+  url: string
+  shareToken: string
+  shareExpires: string
+  emailed: boolean
+}
+
+/** سكّ رابط مشاركة عامّ (PROFESSIONAL+). recipientEmail اختياريّ → يُرسِله بريديّاً. */
+export async function shareReport(
+  id: string,
+  opts: { recipientEmail?: string; expiresInDays?: number } = {},
+): Promise<ShareResult> {
+  const { data } = await api.post(`/api/reports/${id}/share`, opts)
+  return data
+}
+
+/** قراءة عامّة بالتوكن — بلا مصادقة (404 على منتهٍ/مفقود، لا 401). */
+export async function getSharedReport(token: string): Promise<{ type: string; title: string; data: unknown; createdAt: string }> {
+  const { data } = await api.get(`/api/reports/shared/${token}`)
+  return data
+}

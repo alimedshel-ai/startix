@@ -469,13 +469,15 @@ model Scenario {
 }
 
 model Report {
-  id        String   @id @default(uuid())
-  companyId String
-  type      String
-  title     String
-  fileUrl   String?
-  data      Json?
-  createdAt DateTime @default(now())
+  id           String    @id @default(uuid())
+  companyId    String
+  type         String
+  title        String
+  fileUrl      String?
+  data         Json?
+  shareToken   String?   @unique // رابط عامّ للمشاركة مع مالكٍ لم يسجّل؛ null = غير مشارَك
+  shareExpires DateTime?
+  createdAt    DateTime  @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
