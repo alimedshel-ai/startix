@@ -10,6 +10,14 @@ describe('deepHasContent — «محفوظ» مقابل «مملوء» (محرّ�
     expect(deepHasContent([])).toBe(false)
   })
 
+  it('null متداخل لا يرمي ويُعدّ فارغاً (حارس التعاود)', () => {
+    // Object.values يمرّر null للتعاود → يجب أن يرجع false لا أن يرمي.
+    expect(deepHasContent({ a: null })).toBe(false)
+    expect(deepHasContent({ s: { a: null, b: '' } })).toBe(false)
+    expect(deepHasContent([null, [], undefined])).toBe(false)
+    expect(deepHasContent({ a: null, b: 'قيمة' })).toBe(true) // null بجانب محتوى حقيقيّ
+  })
+
   it('مفاتيح موجودة لكن مصفوفاتها فارغة (شكل PESTEL اليتيم) → false', () => {
     expect(deepHasContent({ political: [], economic: [], social: [] })).toBe(false)
     expect(deepHasContent({ opportunities: [], threats: [] })).toBe(false)
