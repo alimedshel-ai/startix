@@ -1,35 +1,5 @@
-import { useState } from 'react'
-
-import { DeptAuditPage } from '@/components/dept/DeptAuditPage'
-import { Button } from '@/components/ui/button'
-import { useAuthStore } from '@/store/authStore'
+import { DeptAuditWithProToggle } from '@/components/dept/DeptAuditWithProToggle'
 
 export function MarketingAuditPage() {
-  const plan = useAuthStore((s) => s.user?.plan ?? 'BASIC')
-  const proAllowed = plan === 'PROFESSIONAL' || plan === 'ENTERPRISE'
-  const [variant, setVariant] = useState<'basic' | 'pro'>('basic')
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex justify-end gap-2">
-        <Button
-          variant={variant === 'basic' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setVariant('basic')}
-        >
-          أساسي
-        </Button>
-        <Button
-          variant={variant === 'pro' ? 'default' : 'outline'}
-          size="sm"
-          disabled={!proAllowed}
-          title={proAllowed ? '' : 'يتطلّب خطة احترافية'}
-          onClick={() => setVariant('pro')}
-        >
-          احترافي
-        </Button>
-      </div>
-      <DeptAuditPage deptCode="MARKETING" variant={variant} />
-    </div>
-  )
+  return <DeptAuditWithProToggle deptCode="MARKETING" />
 }

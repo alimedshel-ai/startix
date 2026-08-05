@@ -1,5 +1,5 @@
-import { DeptAuditPage } from '@/components/dept/DeptAuditPage'
+import { DeptAuditWithProToggle } from '@/components/dept/DeptAuditWithProToggle'
 
 export function HRAuditPage() {
-  return <DeptAuditPage deptCode="HR" />
+  return <DeptAuditWithProToggle deptCode="HR" />
 }
