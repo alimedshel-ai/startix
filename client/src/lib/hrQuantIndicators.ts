@@ -15,6 +15,16 @@ export interface QuantIndicator {
   unit: string        // وحدة العرض
   target: number      // الهدف بالقيمة البشريّة (25 = ٢٥٪ · 150000 ريال · 0 حالة)
   direction: QuantDirection
+  /** ت٣ — أدنى حجمٍ يُعرَض له المؤشّر (غيابه = يُعرَض للكلّ). ترشيح عرضٍ لا حذف بيانات. */
+  minSize?: 'MICRO' | 'SMALL' | 'MEDIUM'
+}
+
+// ت٣ — رتبة الحجم (نفس منطق deptQuestions.ts:391): يُعرَض المؤشّر إن كان
+// minSize رتبته ≤ رتبة حجم المنشأة. المصدر الحقيقيّ للحجم: company.size.
+export const SIZE_RANK: Record<string, number> = { MICRO: 0, SMALL: 1, MEDIUM: 2, LARGE: 3 }
+export function isVisibleForSize(ind: QuantIndicator, size?: string | null): boolean {
+  if (!ind.minSize || !size) return true // بلا حجم معروف → البنك الكامل (لا إخفاء)
+  return SIZE_RANK[ind.minSize] <= (SIZE_RANK[size] ?? 3)
 }
 
 export const HR_LEVEL_META: Record<QuantLevel, { labelAr: string; icon: string; freqAr: string }> = {
@@ -31,19 +41,19 @@ export const HR_QUANT_INDICATORS: QuantIndicator[] = [
   { id: 'KPI_STR_04', level: 'strategic', axis: 'COMP', name: 'نسبة السعودة الفعلية / المستهدفة',          unit: '%',   target: 100,    direction: 'higher' },
   { id: 'KPI_STR_05', level: 'strategic', axis: 'COMP', name: 'نسبة الامتثال القانوني',                    unit: '%',   target: 100,    direction: 'higher' },
   { id: 'KPI_STR_06', level: 'strategic', axis: 'PROD', name: 'الإيراد لكل موظف',                          unit: 'ريال', target: 150000, direction: 'higher' },
-  { id: 'KPI_STR_07', level: 'strategic', axis: 'PROD', name: 'ROI التدريب',                               unit: '%',   target: 150,    direction: 'higher' },
-  { id: 'KPI_STR_08', level: 'strategic', axis: 'EMP',  name: 'مؤشر رضا الموظفين (eNPS)',                  unit: 'درجة', target: 50,     direction: 'higher' },
-  { id: 'KPI_STR_09', level: 'strategic', axis: 'RISK', name: 'نسبة المخاطر المفتوحة / إجمالي المخاطر',     unit: '%',   target: 5,      direction: 'lower'  },
+  { id: 'KPI_STR_07', level: 'strategic', axis: 'PROD', name: 'ROI التدريب',                               unit: '%',   target: 150,    minSize: 'MEDIUM', direction: 'higher' },
+  { id: 'KPI_STR_08', level: 'strategic', axis: 'EMP',  name: 'مؤشر رضا الموظفين (eNPS)',                  unit: 'درجة', target: 50,     minSize: 'SMALL', direction: 'higher' },
+  { id: 'KPI_STR_09', level: 'strategic', axis: 'RISK', name: 'نسبة المخاطر المفتوحة / إجمالي المخاطر',     unit: '%',   target: 5,      minSize: 'SMALL', direction: 'lower'  },
   // ─── تكتيكي (11) ────────────────────────────────────────────────
-  { id: 'KPI_TAC_01', level: 'tactical', axis: 'RECR', name: 'متوسط أيام التعيين',                         unit: 'يوم', target: 14,  direction: 'lower'  },
+  { id: 'KPI_TAC_01', level: 'tactical', axis: 'RECR', name: 'متوسط أيام التعيين',                         unit: 'يوم', target: 14,  minSize: 'SMALL', direction: 'lower'  },
   { id: 'KPI_TAC_02', level: 'tactical', axis: 'RECR', name: 'معدل الشغور الوظيفي',                        unit: '%',   target: 5,   direction: 'lower'  },
-  { id: 'KPI_TAC_03', level: 'tactical', axis: 'RECR', name: 'نسبة الالتزام بميزانية التوظيف',             unit: '%',   target: 95,  direction: 'higher' },
-  { id: 'KPI_TAC_04', level: 'tactical', axis: 'PERF', name: 'نسبة الموظفين المقيّمين أداءً ربعياً',       unit: '%',   target: 100, direction: 'higher' },
-  { id: 'KPI_TAC_05', level: 'tactical', axis: 'PERF', name: 'نسبة تحقيق الأهداف الفردية (KPIs)',          unit: '%',   target: 85,  direction: 'higher' },
+  { id: 'KPI_TAC_03', level: 'tactical', axis: 'RECR', name: 'نسبة الالتزام بميزانية التوظيف',             unit: '%',   target: 95,  minSize: 'MEDIUM', direction: 'higher' },
+  { id: 'KPI_TAC_04', level: 'tactical', axis: 'PERF', name: 'نسبة الموظفين المقيّمين أداءً ربعياً',       unit: '%',   target: 100, minSize: 'SMALL', direction: 'higher' },
+  { id: 'KPI_TAC_05', level: 'tactical', axis: 'PERF', name: 'نسبة تحقيق الأهداف الفردية (KPIs)',          unit: '%',   target: 85,  minSize: 'MEDIUM', direction: 'higher' },
   { id: 'KPI_TAC_06', level: 'tactical', axis: 'TRNG', name: 'ساعات التدريب لكل موظف / الشهر',             unit: 'ساعة', target: 4,   direction: 'higher' },
-  { id: 'KPI_TAC_07', level: 'tactical', axis: 'TRNG', name: 'نسبة إكمال الخطط التدريبية',                 unit: '%',   target: 90,  direction: 'higher' },
+  { id: 'KPI_TAC_07', level: 'tactical', axis: 'TRNG', name: 'نسبة إكمال الخطط التدريبية',                 unit: '%',   target: 90,  minSize: 'MEDIUM', direction: 'higher' },
   { id: 'KPI_TAC_08', level: 'tactical', axis: 'COST', name: 'نسبة الالتزام بموعد الرواتب',                unit: '%',   target: 100, direction: 'higher' },
-  { id: 'KPI_TAC_09', level: 'tactical', axis: 'COST', name: 'نسبة الرواتب المنافسة vs السوق',             unit: '%',   target: 90,  direction: 'higher' },
+  { id: 'KPI_TAC_09', level: 'tactical', axis: 'COST', name: 'نسبة الرواتب المنافسة vs السوق',             unit: '%',   target: 90,  minSize: 'SMALL', direction: 'higher' },
   { id: 'KPI_TAC_10', level: 'tactical', axis: 'ATTD', name: 'معدل الغياب غير المبرر شهرياً',              unit: '%',   target: 2,   direction: 'lower'  },
   { id: 'KPI_TAC_11', level: 'tactical', axis: 'ATTD', name: 'معدل التأخر الصباحي (شهري)',                 unit: '%',   target: 3,   direction: 'lower'  },
   // ─── تشغيلي (11) ────────────────────────────────────────────────
@@ -89,8 +99,9 @@ export interface LevelSummary {
   achievedPct: number
 }
 
-export function levelSummary(level: QuantLevel, actuals: QuantActuals): LevelSummary {
-  const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
+// ت٣ — «المُقدَّم = المُقيَّم»: النسبة تُحسب على البنك المُقدَّم للحجم لا الـ٣١ كاملة.
+export function levelSummary(level: QuantLevel, actuals: QuantActuals, size?: string | null): LevelSummary {
+  const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level && isVisibleForSize(i, size))
   let entered = 0, ok = 0, off = 0
   for (const ind of inds) {
     const e = evalIndicator(ind, actuals[ind.id])

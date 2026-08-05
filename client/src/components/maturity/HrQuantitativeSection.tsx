@@ -13,6 +13,7 @@ import {
   HR_LEVEL_META,
   HR_QUANT_INDICATORS,
   HR_QUANT_LEVELS,
+  isVisibleForSize,
   levelSummary,
   SAUDIZATION_KPI_ID,
   type QuantActuals,
@@ -85,9 +86,12 @@ function num(v: string): number | undefined {
 export function HrQuantitativeSection({
   companyId,
   prefill,
+  size,
 }: {
   companyId: string
   prefill?: { headcount?: number; avgMonthlySalary?: number }
+  /** ت٣ — حجم المنشأة (company.size) لترشيح عرض البنك. غيابه = البنك الكامل. */
+  size?: string | null
 }) {
   const [actuals, setActuals] = useState<QuantActuals>({})
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -270,7 +274,7 @@ export function HrQuantitativeSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {HR_QUANT_LEVELS.map((level) => (
-          <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} countHints={countHints} />
+          <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} countHints={countHints} size={size} />
         ))}
 
         {/* ─── وحدة التوطين — تُغذّي KPI_STR_04 أعلاه ─── */}
@@ -344,10 +348,11 @@ export function HrQuantitativeSection({
   )
 }
 
-function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSetCount, countHints }: { level: QuantLevel; effective: QuantActuals; manual: QuantActuals; suggestions: Record<string, number>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void; countHints: Record<string, number> }) {
+function LevelGroup({ level, effective, manual, suggestions, onSet, counts, onSetCount, countHints, size }: { level: QuantLevel; effective: QuantActuals; manual: QuantActuals; suggestions: Record<string, number>; onSet: (id: string, v: string) => void; counts: Record<string, number>; onSetCount: (key: string, v: string) => void; countHints: Record<string, number>; size?: string | null }) {
   const meta = HR_LEVEL_META[level]
-  const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level)
-  const s = levelSummary(level, effective)
+  // ت٣ — البنك المُقدَّم للحجم (ترشيح عرض؛ الأساس والتوطين خارجه بطبيعتهما).
+  const inds = HR_QUANT_INDICATORS.filter((i) => i.level === level && isVisibleForSize(i, size))
+  const s = levelSummary(level, effective, size)
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

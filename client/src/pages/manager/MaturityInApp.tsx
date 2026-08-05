@@ -168,6 +168,7 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
         <HrQuantitativeSection
           companyId={company.id}
           prefill={{ headcount: company.opex?.team, avgMonthlySalary: company.opex?.avgSalary }}
+          size={company.size}
         />
       )}
 

@@ -4,9 +4,40 @@ import {
   evalIndicator,
   FINANCIAL_INDICATOR_IDS,
   HR_QUANT_INDICATORS,
+  isVisibleForSize,
   levelSummary,
   type QuantIndicator,
 } from './hrQuantIndicators'
+
+// ت٣ — ترشيح البنك بالحجم (ورقة 07، «المُقدَّم = المُقيَّم»).
+const visibleCount = (size: string) =>
+  HR_QUANT_INDICATORS.filter((i) => isVisibleForSize(i, size)).length
+
+describe('ت٣ — ترشيح المؤشرات بحجم المنشأة', () => {
+  it('MICRO يرى 22 مؤشراً (يخفي 9)', () => {
+    expect(visibleCount('MICRO')).toBe(22)
+  })
+  it('صغير يرى 27 (يخفي 4 من طبقة MEDIUM)', () => {
+    expect(visibleCount('SMALL')).toBe(27)
+  })
+  it('متوسط وكبير يريان الـ31 كاملة', () => {
+    expect(visibleCount('MEDIUM')).toBe(31)
+    expect(visibleCount('LARGE')).toBe(31)
+  })
+  it('بلا حجم معروف → البنك الكامل (لا إخفاء)', () => {
+    expect(HR_QUANT_INDICATORS.filter((i) => isVisibleForSize(i, null)).length).toBe(31)
+  })
+  it('عدّادات الامتثال الأربعة (STR_05) ظاهرة لكل الأحجام — المقام يبقى 4', () => {
+    for (const id of ['KPI_OPR_04', 'KPI_OPR_05', 'KPI_OPR_06', 'KPI_OPR_11']) {
+      const ind = HR_QUANT_INDICATORS.find((i) => i.id === id)!
+      expect(isVisibleForSize(ind, 'MICRO')).toBe(true)
+    }
+  })
+  it('«المُقدَّم = المُقيَّم»: levelSummary.total يتبع الحجم', () => {
+    expect(levelSummary('strategic', {}, 'MEDIUM').total).toBe(9)
+    expect(levelSummary('strategic', {}, 'MICRO').total).toBe(6) // يخفي STR_07/08/09
+  })
+})
 
 describe('بنك المؤشرات الكمّية — 31 مؤشراً / 3 مستويات', () => {
   it('العدد الإجماليّ = 31', () => {
