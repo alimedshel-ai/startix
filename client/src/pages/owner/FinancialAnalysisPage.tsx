@@ -316,6 +316,15 @@ function DeptCostBreakdownCard({
                 value={team}
                 onChange={(e) => setTeam(Math.max(0, Number(e.target.value) || 0))}
               />
+              {/* حارس ترابط (غير مانع): العدد المُدخَل يخالف عدد موظفي الشركة المسجّل. */}
+              {opex?.team != null && team !== opex.team && (
+                <p className="text-[11px] text-amber-700">
+                  ⚠️ المسجّل للشركة {opex.team} موظفاً —{' '}
+                  <button type="button" className="font-medium underline underline-offset-2" onClick={() => setTeam(opex.team!)}>
+                    استخدمه
+                  </button>
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="dc_salary" className="text-xs">متوسط الراتب الشهري (SAR)</Label>
