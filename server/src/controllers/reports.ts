@@ -154,8 +154,17 @@ async function buildAnnualPlanReport(companyId: string) {
       orderBy: { dueDate: 'asc' },
     }),
   ]);
+  // رأس الطبقات (لقطةٌ مجمّدة في data): يُعدّ الموسوم فقط — المبادرات بلا layer
+  // (الوصفيّة) تُجمَع في untagged، لا تُحشَر في طبقةٍ كاذبة. «الصمت أصدق».
+  const layerSummary = {
+    mandatory: initiatives.filter((i) => i.layer === 'mandatory').length,
+    structural: initiatives.filter((i) => i.layer === 'structural').length,
+    improvement: initiatives.filter((i) => i.layer === 'improvement').length,
+    untagged: initiatives.filter((i) => !i.layer).length,
+  };
   return {
     year,
+    layerSummary,
     objectives: objectives.map((o) => ({
       title: o.title,
       type: o.type,
@@ -166,6 +175,7 @@ async function buildAnnualPlanReport(companyId: string) {
       title: i.title,
       priority: i.priority,
       status: i.status,
+      layer: i.layer,
       projectCount: (i.projects ?? []).length,
     })),
     projects: projects.map((p) => ({

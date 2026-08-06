@@ -24,6 +24,10 @@ export function ReportDocument({ report }: { report: ReportDocData }) {
           {TYPE_LABEL[report.type] ?? report.type} · {new Date(report.createdAt).toLocaleString('ar-SA')}
         </div>
         <h1 className="text-3xl font-bold">{report.title}</h1>
+        {/* تأطيرٌ صادق (قيد ٣): تقييمٌ ذاتيّ بتاريخ التقرير — لا شهادة امتثال. */}
+        <p className="mt-2 text-xs text-gray-500">
+          تقييمٌ ذاتيّ أجرته الإدارة بتاريخ {new Date(report.createdAt).toLocaleDateString('ar-SA')} — ليس شهادة امتثالٍ قانونيّة.
+        </p>
       </header>
 
       <Body type={report.type} data={d} />
@@ -250,13 +254,38 @@ function Depts({ d }: { d: AnyRec }) {
   )
 }
 
+function LayerHead({ s }: { s: { mandatory?: number; structural?: number; improvement?: number; untagged?: number } }) {
+  // يعرض الموسوم فقط (>0). الوصفيّ غير الموسوم يُذكر عدداً كـ«مبادرات أخرى» —
+  // لا يُحشَر في طبقةٍ كاذبة (الصمت أصدق من التصنيف الكاذب).
+  const chips: { label: string; n: number; cls: string }[] = [
+    { label: 'إلزاميّة', n: s.mandatory ?? 0, cls: 'bg-rose-100 text-rose-900 border-rose-300' },
+    { label: 'بنيويّة', n: s.structural ?? 0, cls: 'bg-amber-100 text-amber-900 border-amber-300' },
+    { label: 'تحسينيّة', n: s.improvement ?? 0, cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+  ].filter((c) => c.n > 0)
+  if (chips.length === 0 && !(s.untagged && s.untagged > 0)) return null
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      {chips.map((c) => (
+        <span key={c.label} className={`rounded-full border px-3 py-1 text-sm font-semibold ${c.cls}`}>
+          {c.n} {c.label}
+        </span>
+      ))}
+      {s.untagged && s.untagged > 0
+        ? <span className="text-sm text-gray-500">و{s.untagged} مبادرة أخرى</span>
+        : null}
+    </div>
+  )
+}
+
 function Annual({ d }: { d: AnyRec }) {
   const objectives = (d.objectives as { title: string; status: string; okrsCount: number }[] | undefined) ?? []
   const initiatives = (d.initiatives as { title: string; priority: string; status: string }[] | undefined) ?? []
   const projects = (d.projects as { title: string; status: string }[] | undefined) ?? []
+  const layerSummary = d.layerSummary as { mandatory?: number; structural?: number; improvement?: number; untagged?: number } | undefined
   return (
     <>
       <H2>الخطة السنوية {String(d.year ?? '')}</H2>
+      {layerSummary && <LayerHead s={layerSummary} />}
       <ul>
         <KV label="مهام السنة" value={String(d.taskCount ?? 0)} />
         <KV label="متأخرات" value={String(d.overdueTasks ?? 0)} />
