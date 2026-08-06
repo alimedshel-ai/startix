@@ -25,7 +25,7 @@ import {
   type CategoryInput,
   type SaudizationSolution,
 } from '@/lib/saudization'
-import { deriveQuantActual, QUANT_CROSSOVER } from '@/lib/hrQuantDerive'
+import { COMPLIANCE_COUNTERS, deriveQuantActual, QUANT_CROSSOVER } from '@/lib/hrQuantDerive'
 import { SAUDIZATION_LEGAL_NOTE } from '@/lib/saudizationCatalog'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -259,6 +259,16 @@ export function HrQuantitativeSection({
   const salaryFlagged = fin.avgMonthlySalary != null &&
     (fin.avgMonthlySalary > 50000 || (fin.avgMonthlySalary > 0 && fin.avgMonthlySalary < 1000))
 
+  // ⚠ الفوريّة النظاميّة (م٣): العدّادات الأربعة (إقامات · رخص · تأمين · عقود) هدفها ٠؛
+  // أيُّ قيمةٍ موجبة = تعرّضٌ للغرامة. يظهر هنا لحظة الإدخال — قبل «ولّد الخطّة»، لا داخل
+  // ترتيب القائمة. نفس المجموعة التي يوسمها ملفّ الربط «إلزاميّاً» (مصدرُ حقيقةٍ واحد).
+  const regulatoryRisks = useMemo(
+    () => COMPLIANCE_COUNTERS
+      .map((id) => ({ id, v: mergedActuals[id], name: HR_QUANT_INDICATORS.find((i) => i.id === id)?.name ?? id }))
+      .filter((r) => typeof r.v === 'number' && r.v > 0),
+    [mergedActuals],
+  )
+
   return (
     <Card className="border-2 border-sky-300 bg-sky-50/30" dir="rtl">
       <CardHeader>
@@ -273,6 +283,13 @@ export function HrQuantitativeSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
+        {regulatoryRisks.length > 0 && (
+          <div className="rounded-lg border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <b>⚠ {regulatoryRisks.length} {regulatoryRisks.length === 1 ? 'خطر نظاميّ' : 'مخاطر نظاميّة'}</b> — تعرّضٌ للغرامة يُعالَج أوّلاً:
+            <span className="text-rose-800"> {regulatoryRisks.map((r) => `${r.name} (${r.v})`).join(' · ')}.</span>
+            <span className="mt-0.5 block text-xs text-rose-700">تظهر كمبادراتٍ <b>إلزاميّة</b> في مركز المبادرات عند «ولّد الخطّة».</span>
+          </div>
+        )}
         {HR_QUANT_LEVELS.map((level) => (
           <LevelGroup key={level} level={level} effective={mergedActuals} manual={actuals} suggestions={suggestions} onSet={setActual} counts={counts} onSetCount={setCount} countHints={countHints} size={size} />
         ))}

@@ -20,6 +20,8 @@ import { cleanInitiativeTitle, titleKey } from '@/lib/cleanTitle'
 import { GENERATED_STATUS, PROMOTED_STATUS, isSuggested, canPromote } from '@/lib/initiativeState'
 import { hrImpactResult, hrLeverGoal, formatHrGoal } from '@/lib/hrInitiativeImpact'
 import type { QuantActuals } from '@/lib/hrQuantIndicators'
+import { dedupeQuantSeeds, quantToInitiatives } from '@/lib/hrQuantInitiatives'
+import { classifySaudization, computeSaudizationCost, type CategoryInput, type SaudizationSolution } from '@/lib/saudization'
 import { weaknessesFromDeepAnswers } from '@/pages/manager/DeptDeepPage'
 import { useCompany } from '@/hooks/useCompany'
 import { useAuthStore } from '@/store/authStore'
@@ -111,6 +113,13 @@ export function InitiativesPage() {
   const client = params.get('client')
   const q = client ? `&client=${client}` : ''
   return <Navigate to={`/priority?tab=initiatives${q}`} replace />
+}
+
+// حلّ §د الأوفر → عربيّة (لدمجه كتفصيلٍ ماليّ في بذرة التوطين).
+const SAUD_SOLUTION_AR: Record<SaudizationSolution, string> = {
+  raiseSalaries: 'رفع رواتب غير المحتسبين للحدّ',
+  changeProfessions: 'تغيير مهن غير السعوديّين',
+  hire: 'توظيف سعوديّين',
 }
 
 export function InitiativesView({ companyId }: { companyId: string }) {
@@ -267,7 +276,7 @@ function Editor({ companyId }: { companyId: string }) {
     try {
       // الدمج بمفتاح مُطبَّع (تنظيف + تطبيع عربي) — يمنع التكرار شبه المتطابق.
       const existing = new Set(items.map((x) => titleKey(x.title)))
-      const toCreate: { title: string; description: string; priority: string; source: string }[] = []
+      const toCreate: { title: string; description: string; priority: string; source: string; layer?: 'mandatory' | 'structural' | 'improvement' }[] = []
 
       // ⭐ Choices — أعلى أولوية (القرار الاستراتيجي المُثبَّت)
       if (sources.choices.has && sources.choices.title) {
@@ -424,8 +433,35 @@ function Editor({ companyId }: { companyId: string }) {
         }
       } catch { /* skip */ }
 
+      // 📊 الكمّي (HR) — المؤشّرات النظاميّة + فجوة التوطين + §د → بذور موسومة بالطبقة.
+      // التوصيلة الوحيدة الجديدة: الكمّي كان يُحفَظ ولا يدخل هذا القمع (بخلاف الوصفيّ).
+      // الإزالة على مستويين: بالمعرّف (sourceId) والعابرة للمصدر (توطينٌ كمّيّ فوق
+      // «توظيف سعوديين» قائمة من TOWS) عبر dedupeQuantSeeds، ثمّ titleKey كالبقيّة.
+      try {
+        const hrqArt = await getArtifact<{ actuals?: QuantActuals; saudization?: CategoryInput[]; saudizationAvgLow?: number }>(companyId, 'HR_QUANT')
+        const acts = hrqArt?.data?.actuals ?? {}
+        const saudInputs = hrqArt?.data?.saudization ?? []
+        const saudSummary = saudInputs.length ? classifySaudization(saudInputs) : null
+        const saudCost = saudInputs.length ? computeSaudizationCost(saudInputs, hrqArt?.data?.saudizationAvgLow ?? 0) : null
+        const seeds = quantToInitiatives({
+          actuals: acts,
+          size: company?.size ?? null,
+          saudization: saudSummary?.results
+            .filter((r) => r.gap > 0)
+            .map((r) => ({ ruleId: r.ruleId, category: r.category, gap: r.gap, sequenceRequired: r.sequenceRequired })) ?? null,
+          saudCost: saudCost ? { bestSolutionAr: SAUD_SOLUTION_AR[saudCost.bestSolution], bestCost: saudCost.bestCost } : null,
+        })
+        // العابرة للمصدر ضدّ عناوين المبادرات القائمة (الهمسة القائمة + مقترح كمّيّ = واحد).
+        for (const s of dedupeQuantSeeds(seeds, items.map((x) => x.title))) {
+          const key = titleKey(s.title)
+          if (existing.has(key)) continue
+          toCreate.push({ title: s.title, description: s.description, priority: s.priority, source: 'الكمّي (HR)', layer: s.layer })
+          existing.add(key)
+        }
+      } catch { /* skip */ }
+
       if (toCreate.length === 0) {
-        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: التشخيص السريع/SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
+        toast.error('لا مبادرات جديدة للتوليد — الكلّ مضاف سلفاً أو لا توجد بيانات في: التشخيص السريع/SWOT/TOWS/الاتجاهات/المخاطر/أيزنهاور/الكمّي. أضف بيانات هناك أو أنشئ مبادرة يدوياً أدناه.')
         return
       }
       // إنشاء المبادرات بالتوازي — مع اقتراح المستوى والهدف (لا تُترَك بلا أيّهما).
@@ -437,6 +473,8 @@ function Editor({ companyId }: { companyId: string }) {
         status: GENERATED_STATUS,
         level: suggestLevel(x.source, defaultLevel),
         objectiveId: suggestObjectiveId(x.title, x.description, objectives),
+        // الطبقة (الكمّي وحده يوسمها اليوم) — رأس التقرير المصدَّر. غيابها = بلا وسم.
+        layer: x.layer ?? null,
       }).catch(() => null)))
       const okCreated = created.filter((c): c is Initiative => c != null)
       setItems((p) => [...p, ...okCreated])
