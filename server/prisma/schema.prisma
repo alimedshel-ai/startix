@@ -359,6 +359,10 @@ model Initiative {
   // اكتمال الإنقاذ ٣ = وجود مبادرة source='rescue' لهذا العميل.
   source         String?    @default("manual")
   linkedActionId String?
+  // طبقة الفجوة (رأس التقرير المصدَّر + خارطة الأرباع لاحقاً): بُعدٌ مستقلّ عن
+  // priority (الإلحاح) — نوعُ الفجوة لا شدّتها. اختياريٌّ بلا افتراض: المبادرات
+  // القائمة لا تُمسّ. القيم: 'mandatory' | 'structural' | 'improvement'.
+  layer          String?
 
   company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: SetNull)

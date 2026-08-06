@@ -253,6 +253,8 @@ const initiativeCreate = z.object({
   // بالإجراء التصحيحيّ (خطوة ٢)؛ 'manual' الافتراض. يُستعلم لحساب اكتمال الإنقاذ.
   source: z.enum(['rescue', 'manual']).nullish(),
   linkedActionId: z.string().max(200).nullish(),
+  // طبقة الفجوة (رأس التقرير المصدَّر) — بُعدٌ مستقلّ عن priority. اختياريّ.
+  layer: z.enum(['mandatory', 'structural', 'improvement']).nullish(),
 });
 const initiativeUpdate = initiativeCreate.partial().omit({ companyId: true });
 

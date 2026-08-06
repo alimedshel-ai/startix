@@ -349,6 +349,8 @@ export interface Initiative {
   /** المستوى والتكلفة المقدّرة (SAR). cost قد يعود كنصّ (Prisma Decimal) — coerce بـNumber(). */
   level?: PlanLevel | null
   cost?: number | string | null
+  /** طبقة الفجوة (رأس التقرير المصدَّر) — 'mandatory'|'structural'|'improvement'. اختياريّ. */
+  layer?: 'mandatory' | 'structural' | 'improvement' | null
   /** يأتي من الـAPI عند include — الهدف المرتبط إن وُجد. */
   objective?: Objective | null
   /** حلقة التقدّم: مشاريع المبادرة ومهامها (id+status) — لحساب شريط التقدّم. */
