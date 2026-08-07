@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getRescueNext, type RescueState,
   resolveRescuePlan, pickWeakestAxis, type RescuePlanState,
+  selectCompanyHealth,
 } from './rescue'
 
 const NONE = { risk: false, eisenhower: false, raci: false, gantt: false }
@@ -114,5 +115,41 @@ describe('pickWeakestAxis', () => {
   })
   it('تعادل → أوّل محور بالترتيب (الحوكمة)', () => {
     expect(pickWeakestAxis({ governance: 20, financial: 20, team: 80, digital: 80 })).toBe('governance')
+  })
+})
+
+// ─── selectCompanyHealth (رقعة B) — الأسوأ لا الأوّل، مستقلّاً عن الترتيب ──
+describe('selectCompanyHealth — صحّة الشركة = الأسوأ عبر الإدارات', () => {
+  it('لا إدارة مُدقَّقة → hasAudit=false، بلا صحّة', () => {
+    const r = selectCompanyHealth([{ auditScore: null }, { auditScore: null }])
+    expect(r).toEqual({ hasAudit: false, healthPct: null, dangerZone: null })
+  })
+
+  it('التناقض المُصلَح: أولى سليمة (٧٠) + أخرى حرجة (٣٠) → الصحّة ٣٠ (طوارئ لا نموّ)', () => {
+    const r = selectCompanyHealth([{ auditScore: 70 }, { auditScore: 30 }])
+    expect(r.healthPct).toBe(30)
+    expect(r.hasAudit).toBe(true)
+  })
+
+  it('مستقلّ عن ترتيب الـAPI: عكس الترتيب يُعطي نفس الأسوأ (٣٠)', () => {
+    const r = selectCompanyHealth([{ auditScore: 30 }, { auditScore: 70 }])
+    expect(r.healthPct).toBe(30)
+  })
+
+  it('يتجاهل الإدارات بلا تدقيق عند اختيار الأسوأ', () => {
+    const r = selectCompanyHealth([{ auditScore: null }, { auditScore: 85 }, { auditScore: 60 }])
+    expect(r.healthPct).toBe(60)
+  })
+
+  it('أيّ إدارة حمراء تُعمّم الحمرة ولو كانت درجتها أعلى (RED تُجبر الطوارئ)', () => {
+    const r = selectCompanyHealth([{ auditScore: 70, dangerZone: 'GREEN' }, { auditScore: 85, dangerZone: 'RED' }])
+    expect(r.dangerZone).toBe('RED')
+    expect(r.healthPct).toBe(70) // الأسوأ درجةً يبقى ٧٠؛ الحمرة تُعمَّم مستقلّةً
+  })
+
+  it('لا حمرة → منطقة الأسوأ درجةً', () => {
+    const r = selectCompanyHealth([{ auditScore: 55, dangerZone: 'YELLOW' }, { auditScore: 75, dangerZone: 'GREEN' }])
+    expect(r.dangerZone).toBe('YELLOW')
+    expect(r.healthPct).toBe(55)
   })
 })

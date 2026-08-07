@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { auditRouteFor } from '@/journey'
 import {
-  getRescueNext, resolveRescuePlan, pickWeakestAxis,
+  getRescueNext, resolveRescuePlan, pickWeakestAxis, selectCompanyHealth,
   type RescueDone, type RescueResult, type RescuePlanResult, type RescueProgress, type AuditAxis,
 } from '@/journey/rescue'
 import { listDepartments } from '@/lib/deptApi'
@@ -100,8 +100,6 @@ export function useRescue(companyId: string | null): RescueView {
       const criticalDept = deptList.find(
         (d) => (d.auditScore != null && d.auditScore < 40) || d.auditData?.dangerZone === 'RED',
       )
-      // الإدارة الأساسيّة (أوّل من لها تدقيق) — لصحّة classifyClient المتكيّفة.
-      const primaryDept = deptList.find((d) => d.auditScore != null)
       const types = new Set<string>(arts.status === 'fulfilled' ? arts.value.map((a) => a.type) : [])
       const done: RescueDone = {
         risk: types.has('RISK_REGISTER'),
@@ -146,13 +144,20 @@ export function useRescue(companyId: string | null): RescueView {
         actionId,
         criticalPct: criticalDept?.auditScore ?? null,
         reauditPath: criticalDept ? auditRouteFor(criticalDept.type) : null,
-        health: {
-          hasAudit: !!primaryDept,
-          healthPct: primaryDept?.auditScore ?? null,
-          dangerZone: primaryDept?.auditData?.dangerZone ?? null,
-        },
+        // صحّة الشركة = الأسوأ عبر الإدارات لا الأوّل ترتيبيّاً (رقعة B): تُطابق
+        // مُطلِق الطوارئ (criticalHealth) فلا تناقض «🚨 طوارئ + شارة نموّ».
+        health: selectCompanyHealth(
+          deptList.map((d) => ({ auditScore: d.auditScore ?? null, dangerZone: d.auditData?.dangerZone })),
+        ),
       })
-    })()
+    })().catch(() => {
+      // رقعة A — فشلٌ صريح لا تعليقٌ صامت: لو رمت دالّة نقيّة (pickWeakestAxis/
+      // resolveRescuePlan) على شكل بيانات مشوّه، الـpromise يُرفض بلا معالجة،
+      // setFetched لا يُستدعى، فتُعلَّق الشاشة على loading أبداً. نحسمها لحالةٍ
+      // فارغة صريحة لهذا العميل (forId=companyId) فتُحلّ loading.
+      if (!alive) return
+      setFetched({ ...EMPTY_FETCHED, forId: companyId })
+    })
     return () => { alive = false }
   }, [companyId, reloadKey])
 

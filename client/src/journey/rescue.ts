@@ -170,3 +170,32 @@ export function pickWeakestAxis(scores: Record<AuditAxis, number>): AuditAxis {
   const axes: AuditAxis[] = ['governance', 'financial', 'team', 'digital']
   return axes.reduce((min, a) => (scores[a] < scores[min] ? a : min), axes[0])
 }
+
+// ─── صحّة الشركة من إداراتها — الأسوأ لا الأوّل (منع تناقض التصنيف) ───────
+// كان الأساس «أوّل إدارة مُدقَّقة» (بترتيب الـAPI) يغذّي classifyClient، بينما
+// مُطلِق الطوارئ يمسح **كل** الإدارات عن الأسوأ. فينشأ تناقضٌ حيّ: بطاقة 🚨
+// طوارئ (من أسوأ إدارة) مع شارة «نموّ» (من أولى إدارةٍ سليمة) لنفس العميل.
+// نطبّق هنا مبدأ §٥ في classify («min لا يُخفي طارئ») **عبر الإدارات**:
+//   • الصحّة = أدنى درجة تدقيق (الأسوأ)، مستقلّةً عن ترتيب الإرجاع.
+//   • أيّ إدارة حمراء تُعمّم الحمرة (RED تُجبر الطوارئ في classifyClient).
+// فيتطابق مصدرا الحكم: criticalHealth (الأسوأ) و classify(health) لا يتناقضان.
+export interface DeptHealthInput {
+  auditScore: number | null
+  dangerZone?: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null
+}
+export interface CompanyHealth {
+  hasAudit: boolean
+  healthPct: number | null
+  dangerZone: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null
+}
+export function selectCompanyHealth(depts: DeptHealthInput[]): CompanyHealth {
+  const audited = depts.filter((d) => d.auditScore != null)
+  if (audited.length === 0) return { hasAudit: false, healthPct: null, dangerZone: null }
+  const worst = audited.reduce((w, d) => ((d.auditScore as number) < (w.auditScore as number) ? d : w))
+  const anyRed = depts.some((d) => d.dangerZone === 'RED')
+  return {
+    hasAudit: true,
+    healthPct: worst.auditScore,
+    dangerZone: anyRed ? 'RED' : (worst.dangerZone ?? null),
+  }
+}
