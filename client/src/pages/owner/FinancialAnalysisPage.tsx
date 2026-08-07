@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { EmptyState } from '@/components/EmptyState'
@@ -15,6 +15,7 @@ import { useGuidedManager } from '@/hooks/useGuidedManager'
 import { JourneyNextStep } from '@/journey/shared/JourneyNextStep'
 import { apiErrorMessage } from '@/lib/api'
 import { DEPT_LABEL, type Company, type DeptCode } from '@/lib/deptApi'
+import { getArtifact } from '@/lib/strategicApi'
 import {
   createDupont,
   createMonteCarloRun,
@@ -114,6 +115,8 @@ function FinancialAnalysisContent() {
   const [loading, setLoading] = useState(true)
   const [dupont, setDupont] = useState<DupontAnalysis | null>(null)
   const [mc, setMc] = useState<MonteCarloRun | null>(null)
+  // ترابط: عدد الموظفين والراتب من مصدر التحليل الفعليّ (HR_QUANT) لا من الملفّ فقط.
+  const [quantFin, setQuantFin] = useState<{ headcount?: number; avgMonthlySalary?: number }>({})
 
   useEffect(() => {
     let cancel = false
@@ -126,13 +129,15 @@ function FinancialAnalysisContent() {
     setCompany(co)
     ;(async () => {
       try {
-        const [d, m] = await Promise.allSettled([
+        const [d, m, hq] = await Promise.allSettled([
           getLatestDupont(co.id),
           getLatestMonteCarloRun(co.id),
+          getArtifact<{ financial?: { headcount?: number; avgMonthlySalary?: number } }>(co.id, 'HR_QUANT'),
         ])
         if (cancel) return
         if (d.status === 'fulfilled') setDupont(d.value)
         if (m.status === 'fulfilled') setMc(m.value)
+        if (hq.status === 'fulfilled') setQuantFin(hq.value?.data?.financial ?? {})
       } catch (err) {
         if (!cancel) toast.error(apiErrorMessage(err, 'تعذّر تحميل التحليلات المالية'))
       } finally {
@@ -217,6 +222,8 @@ function FinancialAnalysisContent() {
         <DeptCostBreakdownCard
           specialty={specialty}
           opex={company.opex}
+          sourceHeadcount={quantFin.headcount}
+          sourceAvgSalary={quantFin.avgMonthlySalary}
           onUseInDupont={(deptBudget) => {
             // ملء Dupont بميزانية الإدارة عوض إيراد الشركة الكامل.
             const patch = deptBudget
@@ -239,15 +246,29 @@ function FinancialAnalysisContent() {
 
 // ─── 🏗️ هيكل تكاليف الإدارة السنوي (تفصيلي، سعودي) ─────────────
 function DeptCostBreakdownCard({
-  specialty, opex, onUseInDupont,
+  specialty, opex, onUseInDupont, sourceHeadcount, sourceAvgSalary,
 }: {
   specialty: DeptCode
   opex?: Company['opex']
   onUseInDupont: (deptBudget: number) => void
+  /** ترابط: عدد الموظفين ومتوسط الراتب من التحليل الكمّي (HR_QUANT) — يُقترحان تلقائياً، والمستخدم يتجاوزهما للسيناريوهات. */
+  sourceHeadcount?: number
+  sourceAvgSalary?: number
 }) {
   const lic = DEPT_LICENSE_COSTS[specialty]
-  const [team, setTeam] = useState<number>(opex?.team ?? 5)
-  const [avgSalary, setAvgSalary] = useState<number>(opex?.avgSalary ?? 12_000)
+  // الأولويّة: التحليل الكمّي > الملفّ > الافتراضيّ. الحقل يبقى قابلاً للتعديل.
+  const [team, setTeam] = useState<number>(sourceHeadcount ?? opex?.team ?? 5)
+  const [avgSalary, setAvgSalary] = useState<number>(sourceAvgSalary ?? opex?.avgSalary ?? 12_000)
+  const teamTouched = useRef(false)
+  const salaryTouched = useRef(false)
+  // مصدر التحليل يصل غالباً بعد أوّل رسم (تحميل async) — نُزامن الحقل ما لم يعدّله المستخدم.
+  useEffect(() => { if (sourceHeadcount != null && !teamTouched.current) setTeam(sourceHeadcount) }, [sourceHeadcount])
+  useEffect(() => { if (sourceAvgSalary != null && !salaryTouched.current) setAvgSalary(sourceAvgSalary) }, [sourceAvgSalary])
+  // القيمة المرتبطة ومصدرها (التحليل الكمّي أولاً، ثمّ ملفّ الشركة) — لحارس الترابط.
+  const linkedTeam = sourceHeadcount ?? opex?.team
+  const linkedSalary = sourceAvgSalary ?? opex?.avgSalary
+  const teamSrc = sourceHeadcount != null ? 'التحليل الكمّي' : 'ملفّ الشركة'
+  const salarySrc = sourceAvgSalary != null ? 'التحليل الكمّي' : 'ملفّ الشركة'
   const [saudiPct, setSaudiPct] = useState<number>(50) // نسبة السعوديين
   const [healthInsurance, setHealthInsurance] = useState<number>(HEALTH_INSURANCE_DEFAULT_ANNUAL)
   const [licenseCost, setLicenseCost] = useState<number>(lic.annualSAR)
@@ -314,13 +335,13 @@ function DeptCostBreakdownCard({
               <Input
                 id="dc_team" type="number" min={0}
                 value={team}
-                onChange={(e) => setTeam(Math.max(0, Number(e.target.value) || 0))}
+                onChange={(e) => { teamTouched.current = true; setTeam(Math.max(0, Number(e.target.value) || 0)) }}
               />
-              {/* حارس ترابط (غير مانع): العدد المُدخَل يخالف عدد موظفي الشركة المسجّل. */}
-              {opex?.team != null && team !== opex.team && (
+              {/* ترابط (غير مانع): العدد يُقترَح من التحليل الكمّي؛ التنبيه عند مخالفته. */}
+              {linkedTeam != null && team !== linkedTeam && (
                 <p className="text-[11px] text-amber-700">
-                  ⚠️ المسجّل للشركة {opex.team} موظفاً —{' '}
-                  <button type="button" className="font-medium underline underline-offset-2" onClick={() => setTeam(opex.team!)}>
+                  ⚠️ {teamSrc}: {linkedTeam} موظفاً —{' '}
+                  <button type="button" className="font-medium underline underline-offset-2" onClick={() => { teamTouched.current = false; setTeam(linkedTeam) }}>
                     استخدمه
                   </button>
                 </p>
@@ -331,8 +352,16 @@ function DeptCostBreakdownCard({
               <Input
                 id="dc_salary" type="number" min={0}
                 value={avgSalary}
-                onChange={(e) => setAvgSalary(Math.max(0, Number(e.target.value) || 0))}
+                onChange={(e) => { salaryTouched.current = true; setAvgSalary(Math.max(0, Number(e.target.value) || 0)) }}
               />
+              {linkedSalary != null && avgSalary !== linkedSalary && (
+                <p className="text-[11px] text-amber-700">
+                  ⚠️ {salarySrc}: {linkedSalary.toLocaleString('ar-SA')} —{' '}
+                  <button type="button" className="font-medium underline underline-offset-2" onClick={() => { salaryTouched.current = false; setAvgSalary(linkedSalary) }}>
+                    استخدمه
+                  </button>
+                </p>
+              )}
             </div>
           </div>
 
