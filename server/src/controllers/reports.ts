@@ -55,6 +55,7 @@ async function buildStrategicReport(companyId: string) {
       tows: swot.tows,
     } : null,
     chosenDirection: choice?.data ?? null,
+    layerSummary: await layerSummaryOf(companyId), // رأس الطبقات (كل الأنواع القابلة للمشاركة)
     objectives: objectives.map((o) => ({
       title: o.title,
       type: o.type,
@@ -132,6 +133,22 @@ async function buildDepartmentReport(companyId: string, departmentId?: string) {
   };
 }
 
+// ─── رأس الطبقات — مساعدٌ مشترك (كل الأنواع القابلة للمشاركة) ────────────────
+// عدّاد نقيّ: الموسوم فقط؛ الوصفيّ بلا layer يُجمَع untagged، لا يُحشَر في طبقةٍ
+// كاذبة («الصمت أصدق»). layerSummaryOf يجلب الطبقات وحدها (خفيف) لمن لا يجلب المبادرات.
+function countLayers(inits: { layer: string | null }[]) {
+  return {
+    mandatory: inits.filter((i) => i.layer === 'mandatory').length,
+    structural: inits.filter((i) => i.layer === 'structural').length,
+    improvement: inits.filter((i) => i.layer === 'improvement').length,
+    untagged: inits.filter((i) => !i.layer).length,
+  };
+}
+async function layerSummaryOf(companyId: string) {
+  const inits = await prisma.initiative.findMany({ where: { companyId }, select: { layer: true } });
+  return countLayers(inits);
+}
+
 async function buildAnnualPlanReport(companyId: string) {
   const year = new Date().getFullYear();
   const yearStart = new Date(year, 0, 1);
@@ -154,14 +171,8 @@ async function buildAnnualPlanReport(companyId: string) {
       orderBy: { dueDate: 'asc' },
     }),
   ]);
-  // رأس الطبقات (لقطةٌ مجمّدة في data): يُعدّ الموسوم فقط — المبادرات بلا layer
-  // (الوصفيّة) تُجمَع في untagged، لا تُحشَر في طبقةٍ كاذبة. «الصمت أصدق».
-  const layerSummary = {
-    mandatory: initiatives.filter((i) => i.layer === 'mandatory').length,
-    structural: initiatives.filter((i) => i.layer === 'structural').length,
-    improvement: initiatives.filter((i) => i.layer === 'improvement').length,
-    untagged: initiatives.filter((i) => !i.layer).length,
-  };
+  // رأس الطبقات (لقطةٌ مجمّدة في data) — بنفس المساعد المشترك.
+  const layerSummary = countLayers(initiatives);
   return {
     year,
     layerSummary,
@@ -210,6 +221,7 @@ async function buildExecutiveSummary(companyId: string) {
     healthScore: Math.round(avgHealth),
     maturityScore: diagnostic?.maturityScore ?? null,
     strategicPath: diagnostic?.strategicPath ?? null,
+    layerSummary: await layerSummaryOf(companyId), // رأس الطبقات (كل الأنواع القابلة للمشاركة)
     topWeaknesses: weaknesses,
     kpiSummary: { total: kpis.length, onTrack },
     deptSummary: { total: depts.length, audited: audited.length },

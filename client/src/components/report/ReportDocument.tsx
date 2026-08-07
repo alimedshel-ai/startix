@@ -70,8 +70,10 @@ function Exec({ d }: { d: AnyRec }) {
   const k = d.kpiSummary as { total: number; onTrack: number } | undefined
   const dept = d.deptSummary as { total: number; audited: number } | undefined
   const weaknesses = (d.topWeaknesses as { label: string; pct: number }[] | undefined) ?? []
+  const layerSummary = d.layerSummary as { mandatory?: number; structural?: number; improvement?: number; untagged?: number } | undefined
   return (
     <>
+      {layerSummary && <LayerHead s={layerSummary} />}
       <H2>عن الشركة</H2>
       <ul>
         <KV label="الاسم" value={company?.name ?? '—'} />
@@ -107,8 +109,10 @@ function Strat({ d }: { d: AnyRec }) {
   const swot = d.swot as { strengths?: string[]; weaknesses?: string[]; opportunities?: string[]; threats?: string[] } | null
   const objectives = (d.objectives as { title: string; status: string; okrs: { keyResult: string }[] }[] | undefined) ?? []
   const kpis = (d.kpis as { name: string; currentValue: number; targetValue: number; unit: string }[] | undefined) ?? []
+  const layerSummary = d.layerSummary as { mandatory?: number; structural?: number; improvement?: number; untagged?: number } | undefined
   return (
     <>
+      {layerSummary && <LayerHead s={layerSummary} />}
       {diag && (
         <>
           <H2>نتيجة التشخيص</H2>
