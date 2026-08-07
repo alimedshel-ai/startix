@@ -27,10 +27,10 @@
 
 | المعرف | السؤال | الوحدة | الفترة | الحالة |
 |---|---|---|---|---|
-| FND_EMP | كم عدد الموظفين الإجمالي؟ | عدد | الحالي | ✅ موجود (§د) |
+| FND_HEADCOUNT | كم عدد الموظفين الإجمالي؟ | عدد | الحالي | ✅ موجود (§د) |
 | FND_SAL | ما متوسط الراتب الشهري؟ | ريال | شهري | ✅ موجود (حارس ق٢) |
-| FND_REV | ما إيراد آخر 12 شهراً؟ | ريال | سنوي | ✅ موجود يدويّاً (ق١ لاحقاً) |
-| **FND_WDAYS** | **كم يوم عمل في الشهر؟** | **يوم** | **شهري** | **🆕 جديد — مقام TAC_10 (الغياب)؛ قابل للتعديل لا ثابت مخفيّ** |
+| FND_ANNUAL_REVENUE | ما إيراد آخر 12 شهراً؟ | ريال | سنوي | ✅ موجود يدويّاً (ق١ لاحقاً) |
+| **FND_WORK_DAYS** | **كم يوم عمل في الشهر؟** | **يوم** | **شهري** | **🆕 جديد — مقام TAC_10 (الغياب)؛ قابل للتعديل لا ثابت مخفيّ** |
 | FND_ORD | كم طلباً/عملية/فاتورة تنفّذون في الشهر؟ | عدد | شهري | 🆕 جديد |
 | FND_CUS | كم عميلاً نشطاً لديكم الآن؟ | عدد | الحالي | 🆕 جديد |
 | FND_COST | ما إجمالي التكاليف التشغيلية الشهرية؟ | ريال | شهري | 🆕 جديد |
@@ -66,18 +66,18 @@
 
 | سؤال العدد (مُدخَل) | المؤشر القائم (مُخرَج) | المقام | يُلغى |
 |---|---|---|---|
-| HRQ_LEAV | KPI_STR_02 التسرّب | FND_EMP | ~~DRV_TURN~~ |
-| HRQ_SAUD | KPI_STR_04 السعودة | FND_EMP | ~~DRV_SAUD~~ |
-| HRQ_ATT | KPI_OPR_01 الحضور | FND_EMP | ~~DRV_ATT~~ |
-| HRQ_ABS | KPI_TAC_10 الغياب | FND_EMP × FND_WDAYS | KPI_OPR_02 أسبوعيّة |
-| HRQ_VAC | KPI_TAC_02 الشغور | FND_EMP + شواغر | — |
-| HRQ_EVAL | KPI_TAC_04 المقيّمون | FND_EMP | — |
-| HRQ_TRAIN | KPI_TAC_06 ساعات/موظف | FND_EMP | — |
+| HRQ_LEAV | KPI_STR_02 التسرّب | FND_HEADCOUNT | ~~DRV_TURN~~ |
+| HRQ_SAUD | KPI_STR_04 السعودة | FND_HEADCOUNT | ~~DRV_SAUD~~ |
+| HRQ_ATT | KPI_OPR_01 الحضور | FND_HEADCOUNT | ~~DRV_ATT~~ |
+| HRQ_ABS | KPI_TAC_10 الغياب | FND_HEADCOUNT × FND_WORK_DAYS | KPI_OPR_02 أسبوعيّة |
+| HRQ_VAC | KPI_TAC_02 الشغور | FND_HEADCOUNT + شواغر | — |
+| HRQ_EVAL | KPI_TAC_04 المقيّمون | FND_HEADCOUNT | — |
+| HRQ_TRAIN | KPI_TAC_06 ساعات/موظف | FND_HEADCOUNT | — |
 | HRQ_PLAN | KPI_TAC_07 إكمال الخطط | المخطّط | — |
 | HRQ_HIRE | KPI_TAC_01 أيام التعيين | (مباشر) | — |
 | HRQ_KPI | KPI_TAC_05 تحقيق KPIs | المعتمدة | — |
-| ~~DRV_RPE~~ | KPI_STR_06 الإيراد/موظف | FND_REV ÷ FND_EMP | مشتق أ |
-| ~~DRV_HRR~~ | KPI_STR_01 تكلفة HR/إيراد | (FND_EMP×FND_SAL×12) ÷ FND_REV | مشتق أ |
+| ~~DRV_RPE~~ | KPI_STR_06 الإيراد/موظف | FND_ANNUAL_REVENUE ÷ FND_HEADCOUNT | مشتق أ |
+| ~~DRV_HRR~~ | KPI_STR_01 تكلفة HR/إيراد | (FND_HEADCOUNT×FND_SAL×12) ÷ FND_ANNUAL_REVENUE | مشتق أ |
 
 **عبور الامتثال §٦ → KPI_OPR_* القائمة:** CMP_CONTRACT→OPR_11 · CMP_INS→OPR_06 · CMP_LIC_30→OPR_04/05 (عامّ) · مجمِّع §٦→STR_05.
 
@@ -92,42 +92,42 @@
 ### 🧭 مختصر — تشغيلي (11)
 | # | id | المؤشّر | م | سؤال العدد / الصيغة | المقام |
 |---|---|---|---|---|---|
-|1| OPR_01 | الحضور اليومي | ب | HRQ_ATT | FND_EMP |
+|1| OPR_01 | الحضور اليومي | ب | HRQ_ATT | FND_HEADCOUNT |
 |2| OPR_02 | غيابات أسبوعيّة | ج | كم غياباً هذا الأسبوع؟ | لقطة |
 |3| OPR_03 | تأخر اليوم | ج | كم تأخّر اليوم؟ | لقطة |
 |4| OPR_04 | إقامات تنتهي 30ي | ب | كم إقامة تنتهي خلال 30ي؟ | عدّ مباشر |
 |5| OPR_05 | رخص عمل غير سارية | ب | كم رخصة غير سارية؟ | عدّ مباشر |
-|6| OPR_06 | بلا تأمين صحي | ب | CMP_INS | FND_EMP − CMP_INS |
+|6| OPR_06 | بلا تأمين صحي | ب | CMP_INS | FND_HEADCOUNT − CMP_INS |
 |7| OPR_07 | شكاوى مفتوحة | ج | كم شكوى مفتوحة؟ | لقطة |
 |8| OPR_08 | استقالات مفاجئة (7ي) | ج | كم استقالة مفاجئة؟ | لقطة |
 |9| OPR_09 | سلف مستحقة | ج | كم سلفة غير مسدّدة؟ | لقطة |
 |10| OPR_10 | آخر نسخة احتياطية | **د** | *(تتبّع فقط — لا سؤال)* | — |
-|11| OPR_11 | عقود غير مسجّلة بالتأمينات | ب | CMP_CONTRACT | FND_EMP − CMP_CONTRACT |
+|11| OPR_11 | عقود غير مسجّلة بالتأمينات | ب | CMP_CONTRACT | FND_HEADCOUNT − CMP_CONTRACT |
 
 ### ⚔️ موسّع — تكتيكي (+11)
 | # | id | المؤشّر | م | سؤال العدد / الصيغة | المقام |
 |---|---|---|---|---|---|
 |12| TAC_01 | أيام التعيين | ج | HRQ_HIRE (رقم مباشر) | — |
-|13| TAC_02 | الشغور | ب | HRQ_VAC | FND_EMP + شواغر |
+|13| TAC_02 | الشغور | ب | HRQ_VAC | FND_HEADCOUNT + شواغر |
 |14| TAC_03 | التزام ميزانية التوظيف | ج | يدويّ % | — |
-|15| TAC_04 | نسبة المقيّمين | ب | HRQ_EVAL | FND_EMP |
+|15| TAC_04 | نسبة المقيّمين | ب | HRQ_EVAL | FND_HEADCOUNT |
 |16| TAC_05 | تحقيق KPIs | ب | HRQ_KPI | المعتمدة |
-|17| TAC_06 | ساعات تدريب/موظف | ب | HRQ_TRAIN | FND_EMP |
+|17| TAC_06 | ساعات تدريب/موظف | ب | HRQ_TRAIN | FND_HEADCOUNT |
 |18| TAC_07 | إكمال الخطط | ب | HRQ_PLAN | المخطّط |
 |19| TAC_08 | التزام موعد الرواتب | ج | يدويّ % | — |
 |20| TAC_09 | الرواتب المنافسة | ج | يدويّ % | — |
-|21| TAC_10 | الغياب الشهري | ب | HRQ_ABS | **FND_EMP × FND_WDAYS** |
+|21| TAC_10 | الغياب الشهري | ب | HRQ_ABS | **FND_HEADCOUNT × FND_WORK_DAYS** |
 |22| TAC_11 | التأخر الصباحي | ج | يدويّ % | — |
 
 ### 🎯 شامل — استراتيجي (+9)
 | # | id | المؤشّر | م | سؤال العدد / الصيغة | المقام |
 |---|---|---|---|---|---|
-|23| STR_01 | تكلفة HR / الإيرادات | **أ** | (FND_EMP×FND_SAL×12)÷FND_REV — لا سؤال | §د |
-|24| STR_02 | التسرّب السنوي | ب | HRQ_LEAV | FND_EMP |
+|23| STR_01 | تكلفة HR / الإيرادات | **أ** | (FND_HEADCOUNT×FND_SAL×12)÷FND_ANNUAL_REVENUE — لا سؤال | §د |
+|24| STR_02 | التسرّب السنوي | ب | HRQ_LEAV | FND_HEADCOUNT |
 |25| STR_03 | متوسط سنوات الخبرة | ج | يدويّ (سنة) | — |
-|26| STR_04 | السعودة | ب | HRQ_SAUD · **هدف=نطاقات نِطاقات بالحجم + تجاوز يدويّ** | FND_EMP |
+|26| STR_04 | السعودة | ب | HRQ_SAUD · **هدف=نطاقات نِطاقات بالحجم + تجاوز يدويّ** | FND_HEADCOUNT |
 |27| STR_05 | الامتثال القانوني | ب | مجمِّع §٦ | مجمّع |
-|28| STR_06 | الإيراد لكل موظف | **أ** | FND_REV÷FND_EMP — لا سؤال | §د |
+|28| STR_06 | الإيراد لكل موظف | **أ** | FND_ANNUAL_REVENUE÷FND_HEADCOUNT — لا سؤال | §د |
 |29| STR_07 | ROI التدريب | ج | يدويّ % | — |
 |30| STR_08 | رضا الموظفين (eNPS) | ج | درجة مسح (مدخل §د) | — |
 |31| STR_09 | المخاطر المفتوحة | ج | يدويّ % | — |
@@ -155,14 +155,15 @@
 > **CMP_LIC_OK محسوم:** سؤال §٦ امتثال (ج)، مقام مشتق — **ليس صفّاً 32 من الـ31 المرمّزة** (تلك OPR_05 = رخص *عمل الأفراد*؛ CMP_LIC_OK = *تراخيص المنشأة*).
 
 ## §9 — المشتقّات (لا تُسأل، تولد من الأساس)
-DRV_CPO=FND_COST÷FND_ORD · DRV_RPO=FND_REV÷12÷FND_ORD · DRV_CTR=(FND_COST×12)÷FND_REV · DRV_ONTIME=(OPS_DONE−OPS_LATE)÷OPS_DONE · DRV_CONVERT=SAL_WON÷SAL_QUOTE · DRV_RENEW=QUA_RENEW÷FND_CUS · DRV_CMPL=QUA_CMPL÷FND_ORD · DRV_CASHR=FND_CASH÷FND_COST · DRV_DOC=CMP_CONTRACT÷FND_EMP · DRV_TECH=FND_ORD÷FND_TECH÷FND_WDAYS.
+DRV_CPO=FND_COST÷FND_ORD · DRV_RPO=FND_ANNUAL_REVENUE÷12÷FND_ORD · DRV_CTR=(FND_COST×12)÷FND_ANNUAL_REVENUE · DRV_ONTIME=(OPS_DONE−OPS_LATE)÷OPS_DONE · DRV_CONVERT=SAL_WON÷SAL_QUOTE · DRV_RENEW=QUA_RENEW÷FND_CUS · DRV_CMPL=QUA_CMPL÷FND_ORD · DRV_CASHR=FND_CASH÷FND_COST · DRV_DOC=CMP_CONTRACT÷FND_HEADCOUNT · DRV_TECH=FND_ORD÷FND_TECH÷FND_WORK_DAYS.
 > **مُلغاة (تُستبدَل بالقائم):** DRV_RPE→KPI_STR_06 · DRV_HRR→KPI_STR_01 · DRV_TURN→STR_02 · DRV_SAUD→STR_04 · DRV_ATT→OPR_01.
 
 ---
 
 ## قرارات المالك المثبّتة
 - **STR_04:** المستهدفة = نطاقات نِطاقات حسب حجم المنشأة (ثابت معرّف في الكود) + تجاوز يدويّ موثّق.
-- **FND_WDAYS:** حقل §١ قابل للتعديل، لا ثابت مخفيّ.
+- **FND_WORK_DAYS:** حقل §١ قابل للتعديل، لا ثابت مخفيّ.
+- **تسمية حقول التأسيس (2026-08-08):** موحّدة مع الكود المُنفَّذ والمُختبَر مصدرًا وحيدًا — `FND_HEADCOUNT`/`FND_ANNUAL_REVENUE`/`FND_WORK_DAYS` (الطويلة تعلو القصيرة القديمة `FND_EMP`/`FND_REV`/`FND_WDAYS`). السند: `client/src/lib/hrQuantDerive.ts` + اختباره؛ مبدأ «المُنفَّذ المُختبَر هو المصدر، لا المكتوب».
 - **OPR_10:** يبقى نواة MICRO، مجموعة (د) تتبّع بلا سؤال.
 - **النسخة الأولى:** تتبّع وعرض فقط — خارج درجة الصحة وبوّابات الإكمال.
 
