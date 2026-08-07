@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مخطط البيانات الكمية v5 — مُصحَّح بتحقق الكود</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Tajawal',sans-serif; }
+  body { background:#f4f6fa; color:#1e293b; padding:28px 20px; }
+  .wrap { max-width:1180px; margin:0 auto; }
+
+  header { text-align:center; margin-bottom:22px; }
+  header h1 { font-size:26px; font-weight:800; color:#0f172a; }
+  header p { font-size:14px; color:#64748b; margin-top:6px; }
+
+  .verify-banner { background:#0f172a; color:#fff; border-radius:14px; padding:16px 20px; margin:0 0 22px; }
+  .verify-banner h2 { font-size:17px; font-weight:800; margin-bottom:6px; }
+  .verify-banner p { font-size:13px; color:#cbd5e1; line-height:1.7; }
+  .verify-banner b { color:#fde047; }
+
+  .legend { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:18px; }
+  .legend span { font-size:13px; font-weight:700; padding:6px 14px; border-radius:20px; border:1.5px solid; background:#fff; }
+  .lg-built { color:#15803d; border-color:#86efac; }
+  .lg-fix { color:#b91c1c; border-color:#fca5a5; }
+  .lg-check { color:#a16207; border-color:#fde047; }
+  .lg-gate { color:#475569; border-color:#cbd5e1; }
+  .lg-diverge { color:#7c3aed; border-color:#c4b5fd; }
+  .lg-absent { color:#334155; border-color:#334155; background:#f1f5f9; }
+
+  .reconcile { width:100%; border-collapse:collapse; margin-bottom:26px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.06); }
+  .reconcile th, .reconcile td { padding:9px 12px; font-size:12.5px; text-align:right; border-bottom:1px solid #e2e8f0; }
+  .reconcile th { background:#e2e8f0; font-weight:800; color:#0f172a; }
+  .reconcile td.v4 { color:#64748b; }
+  .reconcile td.real { font-weight:700; }
+  .r-ok { color:#15803d; }
+  .r-diverge { color:#7c3aed; }
+  .r-absent { color:#b91c1c; }
+  .r-partial { color:#a16207; }
+  .reconcile tr:last-child td { border-bottom:none; }
+
+  .row { display:flex; gap:16px; justify-content:center; align-items:stretch; flex-wrap:wrap; }
+  .box { background:#fff; border-radius:14px; padding:14px 16px; border:2px solid #cbd5e1; box-shadow:0 2px 8px rgba(15,23,42,.06); position:relative; }
+  .box h3 { font-size:16px; font-weight:800; margin-bottom:6px; }
+  .box p, .box li { font-size:13px; color:#475569; line-height:1.7; }
+  .box ul { list-style:none; }
+
+  .tag { position:absolute; top:-12px; inset-inline-start:14px; font-size:11.5px; font-weight:800; padding:3px 12px; border-radius:14px; color:#fff; }
+  .tag-built { background:#16a34a; }
+  .tag-fix { background:#dc2626; }
+  .tag-check { background:#ca8a04; }
+  .tag-gate { background:#475569; }
+  .tag-diverge { background:#7c3aed; }
+  .tag-absent { background:#334155; }
+
+  .b-built { border-color:#4ade80; background:#f0fdf4; }
+  .b-fix { border-color:#f87171; background:#fef2f2; }
+  .b-check { border-color:#facc15; background:#fefce8; }
+  .b-diverge { border-color:#c4b5fd; background:#f5f3ff; }
+  .b-absent { border-color:#94a3b8; background:#f1f5f9; }
+
+  .arrow { text-align:center; font-size:22px; color:#64748b; margin:10px 0; font-weight:800; }
+  .arrow small { display:block; font-size:12px; font-weight:700; color:#94a3b8; }
+
+  .foundation { width:340px; text-align:center; }
+  .foundation .nums { display:flex; gap:8px; margin-top:8px; }
+  .foundation .nums div { flex:1; background:#fff; border:1.5px solid #86efac; border-radius:10px; padding:8px 4px; font-size:12.5px; font-weight:700; color:#166534; }
+
+  .stage-title { text-align:center; font-size:15px; font-weight:800; color:#0f172a; margin:18px 0 10px; background:#e2e8f0; border-radius:10px; padding:8px; }
+
+  .groups { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; align-items:flex-start; }
+  .group { width:330px; }
+  .group h3 { display:flex; justify-content:space-between; align-items:center; }
+  .group .cnt { font-size:12px; background:#0f172a; color:#fff; border-radius:12px; padding:2px 10px; }
+
+  .ind { background:#fff; border:1px solid #e2e8f0; border-radius:9px; padding:6px 10px; margin-top:6px; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; }
+  .ind b { font-weight:700; color:#334155; }
+  .ind .src { font-size:11px; font-weight:800; color:#0369a1; white-space:nowrap; }
+  .ind.ok { border:1.5px solid #4ade80; background:#f0fdf4; }
+  .ind.ok .src { color:#15803d; }
+  .ind.diverge { border:2px solid #a78bfa; background:#f5f3ff; }
+  .ind.diverge .src { color:#7c3aed; }
+  .ind.absent { border:2px solid #94a3b8; background:#f1f5f9; }
+  .ind.absent .src { color:#b91c1c; }
+
+  .note { font-size:12px; font-weight:800; border-radius:8px; padding:5px 9px; margin-top:6px; }
+  .note-diverge { color:#5b21b6; background:#ede9fe; }
+  .note-absent { color:#b91c1c; background:#fee2e2; }
+  .note-ok { color:#166534; background:#dcfce7; }
+
+  .saud-row { display:flex; gap:16px; justify-content:center; align-items:stretch; flex-wrap:wrap; margin-top:6px; }
+  .tawteen { width:420px; }
+  .saud-link { width:420px; }
+  .arrow-h { display:flex; align-items:center; justify-content:center; font-size:26px; color:#7c3aed; font-weight:800; width:60px; text-align:center; }
+  .arrow-h small { display:block; font-size:11.5px; color:#7c3aed; }
+
+  .out-row { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .out-box { width:280px; text-align:center; }
+
+  .patches { margin-top:30px; }
+  .patches h2 { font-size:19px; font-weight:800; text-align:center; margin-bottom:14px; color:#0f172a; }
+  .patch-grid { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .patch { width:560px; }
+  .patch h3 { font-size:15px; }
+  .crit { margin-top:8px; background:#f1f5f9; border-radius:8px; padding:7px 10px; font-size:12.5px; }
+  .crit b { color:#0f172a; }
+  .evi { margin-top:6px; font-size:11.5px; color:#475569; font-family:monospace; direction:ltr; text-align:left; background:#0f172a11; border-radius:6px; padding:5px 8px; }
+
+  .src-band { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:16px 0 4px; }
+  .src-chip { background:#f1f5f9; border:2px dashed #94a3b8; border-radius:12px; padding:10px 18px; font-size:13px; font-weight:800; text-align:center; min-width:230px; position:relative; color:#475569; }
+  .src-chip small { display:block; font-weight:500; color:#64748b; margin-top:3px; font-size:12px; }
+  .src-chip .x { position:absolute; top:-11px; inset-inline-start:12px; background:#334155; color:#fff; font-size:11px; font-weight:800; padding:2px 11px; border-radius:12px; }
+
+  footer { text-align:center; margin-top:28px; font-size:12px; color:#94a3b8; }
+  .owner-sign { margin-top:10px; font-size:13px; font-weight:800; color:#0f172a; background:#fff; border:1.5px dashed #94a3b8; border-radius:10px; padding:8px 18px; display:inline-block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>مخطط البيانات الكمية — v5 مُصحَّح بتحقق الكود</h1>
+  <p>صفحة التحليل الكمّي (٣١ مؤشراً) · <b>البادجات أُعيد وسمها من الكود الفعلي</b> لا من الادّعاء · 2026-08-05</p>
+</header>
+
+<div class="verify-banner">
+  <h2>⚙️ لماذا v5؟ — تصحيح مبنيّ على قراءة الكود (٤ وكلاء استكشاف)</h2>
+  <p>v4 كان يصف الحالة قبل التحقق. عند قراءة الكود تبيّن أنّ عدّة بنودٍ <b>مبنيّة أكثر ممّا وُسِمت</b> (ت١ مربوط فعلاً، الإيراد/الامتثال مشتقّان، ت٣ مُثبَت)، وأنّ ثلاثة بنودٍ <b>لم تُنفَّذ رغم فرضها منفَّذاً/سهلاً</b>: وسم المصدر غائبٌ كليّاً، ROI التدريب لا يزال يدويّاً، ونمط «الاقتراح-لا-قفل» غير قائم (القفل ثنائيّ). الملفّات المرجعيّة: <b>hrQuantDerive.ts · hrQuantIndicators.ts · HrQuantitativeSection.tsx · deptQuestions.ts · auditEngine.ts · docs/HR_QUANT_CROSSOVER.md v3.3</b>.</p>
+</div>
+
+<div class="legend">
+  <span class="lg-built">✅ مبنيّ ومطابق</span>
+  <span class="lg-diverge">🟣 مبنيّ لكن يخالف قاعدة v4</span>
+  <span class="lg-check">🟡 جزئي/تحقق مطلوب</span>
+  <span class="lg-absent">⬛ غير موجود في الكود</span>
+  <span class="lg-gate">⬜ بوابة بشرية</span>
+</div>
+
+<!-- جدول المصالحة -->
+<table class="reconcile">
+  <tr><th>البند</th><th>وسم v4</th><th>الحقيقة في الكود</th><th>الدليل</th></tr>
+  <tr><td>كتلة الأساس (٤ مدخلات)</td><td class="v4">✅</td><td class="real r-ok">✅ مطابق — تُسأل مرة</td><td>HrQuantitativeSection.tsx:263</td></tr>
+  <tr><td>المؤشرات ٣١ (٩+١١+١١)</td><td class="v4">✅</td><td class="real r-ok">✅ مطابق</td><td>hrQuantIndicators.ts:28</td></tr>
+  <tr><td>محرّك «عدّ→نسبة»</td><td class="v4">✅</td><td class="real r-ok">✅ مبنيّ ومختبَر</td><td>hrQuantDerive.ts:62 · .test.ts</td></tr>
+  <tr><td><b>ت١ — ربط السعودة</b></td><td class="v4">🔴 «يدوي ٤٠، يحتاج ربطاً»</td><td class="real r-diverge">🟣 مربوطٌ فعلاً — لكن <b>يقفل</b> لا يقترح</td><td>hrQuantDerive.ts:29 (catalog)</td></tr>
+  <tr><td>ت٢ — تعبئة تكلفة الموارد</td><td class="v4">🟡</td><td class="real r-partial">🟡 حقل عدّ مقفول؛ بذر «عدد×راتب×١٢» غير مؤكَّد كوديّاً</td><td>hrQuantDerive.ts:26 (count)</td></tr>
+  <tr><td>ت٥ — الإيراد لكل موظف</td><td class="v4">🟡</td><td class="real r-ok">✅ تمّ — مشتقّ بالكامل</td><td>hrQuantDerive.ts:31 (derived)</td></tr>
+  <tr><td>ت٥ — نسبة الامتثال</td><td class="v4">🟡</td><td class="real r-ok">✅ تمّ — من ٤ عدّات تشغيلي</td><td>hrQuantDerive.ts:57-85</td></tr>
+  <tr><td><b>ت٥ — ROI التدريب</b></td><td class="v4">🟡 «سؤالا عدّ»</td><td class="real r-absent">⬛ لم يُنفَّذ — لا يزال يدويّاً</td><td>hrQuantDerive.ts:32 (manual)</td></tr>
+  <tr><td>ت٣ — ترشيح البنك بالحجم</td><td class="v4">🟡 «تحقق أولاً»</td><td class="real r-ok">✅ مبنيّ وصحيح ومُثبَت بالاختبار</td><td>deptQuestions.ts:380 · sizeTest.ts</td></tr>
+  <tr><td><b>وسم المصدر (حكومي/داخلي/خارجي)</b></td><td class="v4">إضافة v4</td><td class="real r-absent">⬛ غائب كليّاً — لا حقل source على المؤشر</td><td>QuantIndicator interface:10</td></tr>
+  <tr><td>وسم eNPS/الرواتب «خارجي»</td><td class="v4">✎ يُعلَّم</td><td class="real r-absent">⬛ يدويّ لكن بلا وسم</td><td>hrQuantDerive.ts:33,44 (manual)</td></tr>
+  <tr><td>نوع «ب٣ — تعبئة مقترحة»</td><td class="v4">🟡</td><td class="real r-absent">⬛ غير قائم — القفل ثنائيّ لا وسط</td><td>HrQuantitativeSection.tsx:197</td></tr>
+  <tr><td>نوع «د — مخصص من المالك»</td><td class="v4">قناة توسّع</td><td class="real r-absent">⬛ غير موجود</td><td>—</td></tr>
+  <tr><td>ت٤ — الإثبات الحسابي</td><td class="v4">⬜ بوابة</td><td class="real r-partial">🟡 اختبارات اشتقاق موجودة؛ لقطة ٢٥٪ بوابة بشرية</td><td>hrQuantDerive.test.ts</td></tr>
+  <tr><td>المخرجات (فجوات/§د مالي/خطة)</td><td class="v4">✅</td><td class="real r-ok">✅ مطابق</td><td>hrFinancialImpact.ts:77</td></tr>
+</table>
+
+<!-- المدخلات -->
+<div class="row">
+  <div class="box foundation b-built">
+    <span class="tag tag-built">✅ مبنيّ — يُسأل مرة</span>
+    <h3>كتلة الأساس (المدخلات)</h3>
+    <div class="nums"><div>عدد الموظفين</div><div>متوسط الراتب</div><div>الإيراد السنوي</div></div>
+    <p style="margin-top:8px">+ أيام العمل/شهر (افتراضي ٢٢) · تغذّي كل المشتقات</p>
+  </div>
+</div>
+
+<div class="arrow">↓<small>اشتقاق تلقائي</small></div>
+
+<!-- المؤشرات -->
+<div class="stage-title">المؤشرات الـ ٣١ — عدّ يدخل ← نسبة تطلع (🔗 = مشتق ومقفل)</div>
+<div class="groups">
+  <div class="box group b-built">
+    <span class="tag tag-built">✅ مبنيّ</span>
+    <h3>🎯 استراتيجي (سنوي) <span class="cnt">٩</span></h3>
+    <div class="ind diverge"><b>نسبة السعودة الفعلية/المستهدفة</b><span class="src">🔗 مشتق + <u>مقفول</u></span></div>
+    <div class="note note-diverge">🟣 ت١: مربوط من التوطين ويُقفل الحقل — v4 يطلب «يقترح ولا يقفل». تباينٌ يحتاج قرار المالك.</div>
+    <div class="ind"><b>تكلفة الموارد / الإيرادات</b><span class="src">🟡 ت٢: عدّ مقفول — بذر غير مؤكَّد</span></div>
+    <div class="ind"><b>معدل التسرب السنوي</b><span class="src">🔗 مغادرون ÷ العدد</span></div>
+    <div class="ind"><b>متوسط سنوات الخبرة</b><span class="src">🔗 مجموع ÷ العدد</span></div>
+    <div class="ind ok"><b>الإيراد لكل موظف</b><span class="src">✅ مشتق بالكامل</span></div>
+    <div class="ind ok"><b>نسبة الامتثال القانوني</b><span class="src">✅ من عدّات التشغيلي</span></div>
+    <div class="ind absent"><b>ROI التدريب</b><span class="src">⬛ يدويّ — ليس عدّين</span></div>
+    <div class="ind absent"><b>رضا الموظفين eNPS</b><span class="src">⬛ يدويّ بلا وسم «خارجي»</span></div>
+    <div class="ind"><b>المخاطر المفتوحة / الإجمالي</b><span class="src">🔗 عدّان</span></div>
+  </div>
+
+  <div class="box group b-built">
+    <span class="tag tag-built">✅ مبنيّ</span>
+    <h3>⚔️ تكتيكي (شهري) <span class="cnt">١١</span></h3>
+    <div class="ind"><b>أيام التعيين · الشغور · ميزانية التوظيف</b><span class="src">🔗</span></div>
+    <div class="ind"><b>التقييم الربعي · تحقيق KPIs</b><span class="src">🔗</span></div>
+    <div class="ind"><b>ساعات وإكمال التدريب</b><span class="src">🔗</span></div>
+    <div class="ind"><b>الالتزام بموعد الرواتب</b><span class="src">🔗</span></div>
+    <div class="ind absent"><b>الرواتب vs السوق</b><span class="src">⬛ يدويّ بلا وسم «خارجي»</span></div>
+    <div class="ind"><b>الغياب · التأخر الصباحي</b><span class="src">🔗</span></div>
+  </div>
+
+  <div class="box group b-built">
+    <span class="tag tag-built">✅ مبنيّ</span>
+    <h3>🧭 تشغيلي (يومي/أسبوعي) <span class="cnt">١١</span></h3>
+    <div class="ind"><b>الحضور اليومي</b><span class="src">🔗</span></div>
+    <div class="ind"><b>غياب وتأخر (هدف ٠)</b><span class="src">عدّ مباشر</span></div>
+    <div class="ind"><b>إقامات · رخص · تأمين · تأمينات</b><span class="src">عدّ امتثال → §الامتثال</span></div>
+    <div class="ind"><b>شكاوى · استقالات · سلف</b><span class="src">عدّ مباشر</span></div>
+    <div class="ind"><b>آخر نسخة احتياطية</b><span class="src">عدّ مباشر</span></div>
+  </div>
+</div>
+
+<!-- وسم المصدر: غائب -->
+<div class="src-band">
+  <div class="src-chip"><span class="x">⬛ غير منفَّذ</span>🏛️ حكومي قابل للسحب<small>لا حقل sourceType على المؤشرات — التصنيف مفهومٌ في v4 لا كودٌ قائم</small></div>
+  <div class="src-chip"><span class="x">⬛ غير منفَّذ</span>🏠 داخلي بحت<small>لا وسم يميّز المصدر الداخلي</small></div>
+  <div class="src-chip"><span class="x">⬛ غير منفَّذ</span>🔀 حدودي<small>الوسم الوحيد للمصدر يقتصر على كتالوج التوطين</small></div>
+</div>
+
+<!-- التوطين -->
+<div class="stage-title">🇸🇦 قسم التوطين — عدّة تدخل، نسبة تطلع تلقائياً</div>
+<div class="saud-row">
+  <div class="box tawteen b-built">
+    <span class="tag tag-built">✅ مبنيّ</span>
+    <h3>فئات التوطين (١٢ قاعدة، تُفعَّل حسب الانطباق)</h3>
+    <ul>
+      <li>• إدارية مساندة (٦٩ مهنة) — ١٠٠٪ · محاسبية (٤٤) — ٤٠٪ حد ٦٠٠٠/٤٥٠٠</li>
+      <li>• مبيعات · هندسية · صيدلة (٣) · أسنان · صحية (٣) · مشتريات</li>
+      <li>• لكل فئة: سعوديون + غير سعوديين + محتسَبون + «لا ينطبق»</li>
+    </ul>
+    <p style="margin-top:6px">مصدر + تاريخ تحقق لكل قاعدة (saudizationCatalog.ts) ⚖️</p>
+  </div>
+
+  <div class="arrow-h">⟵<small>🟣 ت١<br>مربوط فعلاً</small></div>
+
+  <div class="box saud-link b-diverge">
+    <span class="tag tag-diverge">🟣 التباين</span>
+    <h3>مؤشر السعودة الاستراتيجي (KPI_STR_04)</h3>
+    <p><b>الحقيقة في الكود:</b> يُشتقّ من <code>saudizationAchievementPct</code> عند تفعيل الفئات <b>ويُقفل الحقل</b> (disabled)؛ وبلا فئات يرجع يدويّاً.</p>
+    <p><b>ما يطلبه v4:</b> يُقترح كتوصية معلَّمة واليدوي يبقى مفتوحاً (يقبل أو يعدّل).</p>
+    <p><b>الفجوة:</b> «قفل» في الكود مقابل «اقتراح» في القاعدة — قرار مالك: نعدّل الكود ليقترح، أم نعتمد القفل ونصحّح القاعدة؟</p>
+  </div>
+</div>
+
+<!-- الترشيح -->
+<div class="arrow">↓</div>
+<div class="row">
+  <div class="box b-built" style="width:600px">
+    <span class="tag tag-built">✅ مبنيّ ومُثبَت</span>
+    <h3>ت٣ — ترشيح البنك حسب الحجم (مؤكَّد بالكود)</h3>
+    <p>‏<code>questionsForSizeAndVariant()</code> يرشّح بـ<code>minSize</code>: متناهٍ/صغير ١٢ · متوسط ١٦ · كبير ١٧. والمقام في التقييم = المقدَّم لا الكامل (<code>rawMax = count×3</code>). اختبار <code>auditEngine.sizeTest.ts</code> يمنع «خطأ المقام». <b>ملاحظة:</b> هذا بنك تدقيق الإدارات في الخادم — منفصلٌ عن صفحة الـ٣١ مؤشراً (عميل، تعرض الـ٣١ كاملة).</p>
+  </div>
+</div>
+
+<!-- المخرجات -->
+<div class="arrow">↓<small>نتائج التحليل الكمّي</small></div>
+<div class="out-row">
+  <div class="box out-box b-built"><span class="tag tag-built">✅</span><h3>الفجوات والحالة</h3><p>ضمن الهدف / فجوة — لكل مؤشر</p></div>
+  <div class="box out-box b-built"><span class="tag tag-built">✅</span><h3>💰 الأثر المالي (§د)</h3><p>hrFinancialImpact.ts — ٥ صيغ ريال</p></div>
+  <div class="box out-box b-built"><span class="tag tag-built">✅</span><h3>تغذية الخطة الموجّهة</h3><p>الفجوات تصنع المبادرات</p></div>
+</div>
+
+<!-- ما يحتاج عملاً -->
+<div class="patches">
+  <h2>ما يحتاج عملاً فعلياً (بعد التحقق) — مرتّب بالأولوية</h2>
+  <div class="patch-grid">
+    <div class="box patch b-diverge">
+      <span class="tag tag-diverge">🟣 ١ — قرار قبل كود</span>
+      <h3>حسم «قفل مقابل اقتراح» في ت١</h3>
+      <p>الكود يشتقّ ويقفل KPI_STR_04؛ v4 يطلب اقتراحاً قابلاً للتجاوز. لا يمكن اعتماد المخطط حتى يُحسم أيّهما المرجع.</p>
+      <div class="crit"><b>القرار:</b> ☐ نعدّل الكود ليصبح اقتراحاً مفتوحاً &nbsp;·&nbsp; ☐ نعتمد القفل ونصحّح قاعدة v4.</div>
+      <div class="evi">hrQuantDerive.ts:29 · HrQuantitativeSection.tsx:197-205</div>
+    </div>
+    <div class="box patch b-absent">
+      <span class="tag tag-absent">⬛ ٢ — لم يُنفَّذ</span>
+      <h3>ROI التدريب: تحويله إلى عدّين</h3>
+      <p>حاليّاً <code>inputKind:'manual'</code> (نسبة عارية). v4 يطلب سؤالَي عدّ (تكلفة + عائد) ثم اشتقاق النسبة.</p>
+      <div class="crit"><b>معيار القبول:</b> إدخال تكلفة + عائد ← تظهر النسبة مشتقّة؛ لا حقل ٪ عارٍ.</div>
+      <div class="evi">hrQuantDerive.ts:32</div>
+    </div>
+    <div class="box patch b-absent">
+      <span class="tag tag-absent">⬛ ٣ — لم يُنفَّذ</span>
+      <h3>وسم المصدر (حكومي/داخلي/خارجي)</h3>
+      <p>إضافة حقل <code>source</code> على <code>QuantIndicator</code> ووسم eNPS والرواتب-vs-السوق كـ«إدخال خارجي» بمبرر، ووسم القابل-للسحب-حكوميّاً.</p>
+      <div class="crit"><b>معيار القبول:</b> كل مؤشر يحمل وسم مصدر ظاهراً في الواجهة؛ لا يدويّ يبدو تخميناً.</div>
+      <div class="evi">hrQuantIndicators.ts:10 (interface بلا source)</div>
+    </div>
+    <div class="box patch b-check">
+      <span class="tag tag-check">🟡 ٤ — تحقق</span>
+      <h3>تأكيد بذر تكلفة الموارد (ت٢)</h3>
+      <p>الوثيقة تدّعي تعبئة <code>عدد×راتب×١٢</code>، لكن لم يُرَ كودٌ يبذر <code>HRQ_HR_COST_YEAR</code>. يلزم إثبات البذر أو تنفيذه.</p>
+      <div class="crit"><b>معيار القبول:</b> تغيير العدد يغيّر القيمة المبدئية، والتعديل اليدوي يثبت.</div>
+      <div class="evi">hrQuantDerive.ts:26 · HrQuantitativeSection.tsx:104-116</div>
+    </div>
+    <div class="box patch b-gate">
+      <span class="tag tag-gate">⬜ ٥ — بوابة بشرية</span>
+      <h3>ت٤ — لقطة الإثبات الحسابي</h3>
+      <p>اختبارات الاشتقاق موجودة (٣M÷٢٠=١٥٠٬٠٠٠، ٥/٥٠=١٠٪)، لكن لقطة «١٠×٥٠٠٠ على إيراد ٢٫٤M = ٢٥٪» بوابة بشرية لم تُغلَق بعد.</p>
+      <div class="crit"><b>معيار القبول:</b> لقطة مخرجات — «تم» وحدها لا تُقبل.</div>
+      <div class="evi">hrQuantDerive.test.ts</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="owner-sign">اعتماد المالك على v5: ☐ معتمَد كأساس عملٍ &nbsp;·&nbsp; ☐ يُحسم أولاً «قفل مقابل اقتراح»</div>
+  <p style="margin-top:8px">v5 · البادجات مُشتقّة من الكود لا من الادّعاء · مبنيّ فعلاً: الأساس + الـ٣١ + المحرّك + ترشيح الحجم + اشتقاق السعودة/الامتثال/الإيراد · الناقص: وسم المصدر · ROI-عدّين · نمط الاقتراح-لا-قفل · قاعدة «نظيف ≠ صحيح»</p>
+</footer>
+
+</div>
+</body>
+</html>
