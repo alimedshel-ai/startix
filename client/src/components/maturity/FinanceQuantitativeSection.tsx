@@ -279,6 +279,7 @@ export function FinanceQuantitativeSection({
                   </label>
                   <FinInput label="الرصيد المتبقّي" value={l.balance} onChange={(v) => setLoan(i, { balance: num(v) ?? 0 })} compact />
                   <FinInput label="القسط الشهريّ" value={l.installment} onChange={(v) => setLoan(i, { installment: num(v) ?? 0 })} compact />
+                  <FinInput label="الفائدة (٪ سنوي)" value={l.rate} onChange={(v) => setLoan(i, { rate: num(v) })} compact />
                   <Button type="button" size="sm" variant="ghost" className="text-rose-600" onClick={() => removeLoan(i)}>حذف</Button>
                 </div>
               ))}

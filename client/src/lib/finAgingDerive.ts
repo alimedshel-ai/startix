@@ -14,6 +14,22 @@ export interface Loan {
   lender: string
   balance: number
   installment: number
+  /** ح٣ — سعر الفائدة/التكلفة (٪ سنوي). يغذّي WACC/ICR في ط٤ فقط؛ لا أثر على المحرّك الحيّ (ق٩). */
+  rate?: number
+}
+
+/** WACC تقريبيّ = متوسط أسعار الفائدة مرجّحًا بالأرصدة (ط٤). null إن غابت الأسعار/الأرصدة. */
+export function weightedAvgRate(loans: Loan[] | undefined): number | null {
+  if (!loans || loans.length === 0) return null
+  let wsum = 0
+  let bsum = 0
+  for (const l of loans) {
+    if (typeof l.rate === 'number' && isFinite(l.rate) && typeof l.balance === 'number' && isFinite(l.balance) && l.balance > 0) {
+      wsum += l.rate * l.balance
+      bsum += l.balance
+    }
+  }
+  return bsum > 0 ? wsum / bsum : null
 }
 
 /** شرائح أعمار الذمم الأربع (0-30 / 31-60 / 61-90 / +90). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { deriveArAging, sumLoans, toLatinDigits } from './finAgingDerive'
+import { deriveArAging, sumLoans, toLatinDigits, weightedAvgRate } from './finAgingDerive'
 
 describe('finAgingDerive — اشتقاق إجماليات الذمم/القروض من التفاصيل (§ت٣أ٢)', () => {
   it('FINQ_AR = مجموع قيَم الشرائح الأربع', () => {
@@ -43,6 +43,16 @@ describe('finAgingDerive — اشتقاق إجماليات الذمم/القرو
     expect(r).toEqual({ debt: 800_000, inst: 20_000 })
     expect(sumLoans([])).toBeNull()
     expect(sumLoans(undefined)).toBeNull()
+  })
+
+  it('ح٣: weightedAvgRate = متوسط الفائدة مرجّحًا بالأرصدة؛ بلا أسعار ⇒ null', () => {
+    const r = weightedAvgRate([
+      { lender: 'أ', balance: 800_000, installment: 0, rate: 5 },
+      { lender: 'ب', balance: 200_000, installment: 0, rate: 10 },
+    ])
+    expect(r).toBeCloseTo(6, 5) // (5×800k + 10×200k) ÷ 1م = 6
+    expect(weightedAvgRate([{ lender: 'ج', balance: 100_000, installment: 0 }])).toBeNull()
+    expect(weightedAvgRate([])).toBeNull()
   })
 
   it('toLatinDigits يحوّل الأرقام العربية-الهندية والفارسية', () => {
