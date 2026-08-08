@@ -51,6 +51,10 @@ const BASE_ARTIFACT_TYPES = [
   // Data shape: { actuals: Record<id,number>, financial?: { headcount,
   // avgMonthlySalary, annualRevenue } }. يكتبه HrQuantitativeSection.
   'HR_QUANT',
+  // التحليل الكمّي المالي (FIN_QUANT_CROSSOVER §2) — حقول FINQ_* المالية فقط.
+  // Data shape: { schemaVersion, finq: Record<string, number> }. أساس التأسيس المشترك
+  // (عدد/راتب/إيراد) يبقى في HR_QUANT.financial — لا يُنسَخ هنا. يكتبه FinanceQuantitativeSection.
+  'FIN_QUANT',
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────
