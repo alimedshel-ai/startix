@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { apiErrorMessage } from '@/lib/api'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
+import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useAuthStore } from '@/store/authStore'
 import type { SpecialtyDeptType } from '@/types/user'
 import { NextStepCard } from '@/components/strategic/NextStepCard'
@@ -432,7 +433,41 @@ export function DeptDeepPage() {
       {/* بطاقة «① التحليل — عدسات اختياريّة»: توضّح أن المسار غير مُجبَر،
           وتعطي «التالي المقترح (سلسلة القيمة)» + «تخطَّ للتوليف SWOT». */}
       <NextStepCard clientQuery={clientQuery} companyId={companyId} />
+
+      {/* ت٣ — الجسر إلى التحليل المالي المتقدّم (المدير المالي فقط) — واعٍ بالمحتوى:
+          يظهر فقط حين FIN_QUANT **غير فارغ فعلاً** (ق٥)، فلا افتراضات صامتة بلا بيانات. */}
+      <FinanceAnalysisBridge companyId={companyId} clientQuery={clientQuery} />
     </div>
+  )
+}
+
+// ─── ت٣ — جسر التحليل المالي: dept-deep → /financial-analysis ─────────────────
+// شرط الظهور مزدوج: تخصّص المدير مالي + وجود FIN_QUANT بمحتوى فعليّ (nonEmpty).
+// مدير بلا بيانات مالية = لا رابط (لا يُفتَح باب لافتراضات صامتة).
+function FinanceAnalysisBridge({ companyId, clientQuery }: { companyId?: string; clientQuery: string }) {
+  const specialty = useAuthStore((s) => s.user?.specialtyDeptType ?? null)
+  const { nonEmptyArtifactTypes } = useJourneyCompletions(companyId ?? null)
+  if (specialty !== 'FINANCE' || !companyId) return null
+  // واعٍ بالمحتوى: nonEmptyArtifactTypes يميّز «مملوء» عن «محفوظ فارغ» (deepHasContent).
+  if (!nonEmptyArtifactTypes.has('FIN_QUANT')) return null
+  return (
+    <Card className="border-2 border-emerald-300 bg-emerald-50/40">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-emerald-900">💰 بياناتك المالية جاهزة — انتقل للتحليل المتقدّم</div>
+          <p className="mt-0.5 text-xs text-emerald-800/80">
+            Dupont ومحاكاة Monte Carlo ستُملأ من أرقامك المُدخَلة (FIN_QUANT) بمصدرها المسمّى — لا تقديرات صامتة.
+          </p>
+        </div>
+        <Link
+          to={`/financial-analysis${clientQuery}`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+        >
+          <span>📈 التحليل المالي المتقدّم</span>
+          <span>←</span>
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 
