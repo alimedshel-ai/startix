@@ -59,6 +59,8 @@ export type ArtifactType =
   | 'HR_QUANT'
   // التحليل الكمّي المالي — حقول FINQ_* (docs/FIN_QUANT_CROSSOVER.md).
   | 'FIN_QUANT'
+  // بنك الحوكمة التنظيميّة للإدارة المالية — ٢٥ سؤالًا (docs/COLLECTION_LAYERS_BANK.md §ورقة ٨).
+  | 'GOV_QUANT'
   // تحدّيات العميل المُضافة يدويّاً في مسار الإنقاذ (حتى 3) — { items, skipped? }.
   | 'RESCUE_CHALLENGES'
   | DeptScopedArtifactType

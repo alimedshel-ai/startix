@@ -55,6 +55,9 @@ const BASE_ARTIFACT_TYPES = [
   // Data shape: { schemaVersion, finq: Record<string, number> }. أساس التأسيس المشترك
   // (عدد/راتب/إيراد) يبقى في HR_QUANT.financial — لا يُنسَخ هنا. يكتبه FinanceQuantitativeSection.
   'FIN_QUANT',
+  // ح٦ — بنك الحوكمة التنظيميّة للإدارة المالية (٢٥ سؤالًا، ورقة ٨). بنك مستقل.
+  // Data shape: { schemaVersion, answers: Record<string, 'yes'|'partial'|'no'> }.
+  'GOV_QUANT',
 ] as const;
 
 // ─── PESTEL/Gap على مستوى الإدارة (المدير المستقل الخبير) ───────

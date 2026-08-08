@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { MaturityAssessment, MaturityReport } from '@/components/maturity/MaturityAssessment'
+import { FinanceGovernanceSection } from '@/components/maturity/FinanceGovernanceSection'
 import { FinanceQuantitativeSection } from '@/components/maturity/FinanceQuantitativeSection'
 import { HrQuantitativeSection } from '@/components/maturity/HrQuantitativeSection'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
@@ -178,6 +179,10 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
           companyId={company.id}
           prefill={{ headcount: company.opex?.team, avgMonthlySalary: company.opex?.avgSalary }}
         />
+      )}
+
+      {config.specialty === 'FINANCE' && (
+        <FinanceGovernanceSection companyId={company.id} size={company.size} />
       )}
 
       {weakSections.length > 0 && (
