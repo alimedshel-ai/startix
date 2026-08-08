@@ -115,8 +115,10 @@ function FinancialAnalysisContent() {
   const [loading, setLoading] = useState(true)
   const [dupont, setDupont] = useState<DupontAnalysis | null>(null)
   const [mc, setMc] = useState<MonteCarloRun | null>(null)
-  // ترابط: عدد الموظفين والراتب من مصدر التحليل الفعليّ (HR_QUANT) لا من الملفّ فقط.
-  const [quantFin, setQuantFin] = useState<{ headcount?: number; avgMonthlySalary?: number }>({})
+  // ترابط: عدد الموظفين والراتب والإيراد من مصدر التحليل الفعليّ (HR_QUANT) لا من الملفّ فقط.
+  const [quantFin, setQuantFin] = useState<{ headcount?: number; avgMonthlySalary?: number; annualRevenue?: number }>({})
+  // ت٣ب: أرقام FIN_QUANT الفعليّة (FINQ_*) — أعلى أولويّة لملء Dupont بمصدرٍ مسمّى.
+  const [finq, setFinq] = useState<Record<string, number>>({})
 
   useEffect(() => {
     let cancel = false
@@ -129,15 +131,17 @@ function FinancialAnalysisContent() {
     setCompany(co)
     ;(async () => {
       try {
-        const [d, m, hq] = await Promise.allSettled([
+        const [d, m, hq, fq] = await Promise.allSettled([
           getLatestDupont(co.id),
           getLatestMonteCarloRun(co.id),
-          getArtifact<{ financial?: { headcount?: number; avgMonthlySalary?: number } }>(co.id, 'HR_QUANT'),
+          getArtifact<{ financial?: { headcount?: number; avgMonthlySalary?: number; annualRevenue?: number } }>(co.id, 'HR_QUANT'),
+          getArtifact<{ finq?: Record<string, number> }>(co.id, 'FIN_QUANT'),
         ])
         if (cancel) return
         if (d.status === 'fulfilled') setDupont(d.value)
         if (m.status === 'fulfilled') setMc(m.value)
         if (hq.status === 'fulfilled') setQuantFin(hq.value?.data?.financial ?? {})
+        if (fq.status === 'fulfilled') setFinq(fq.value?.data?.finq ?? {})
       } catch (err) {
         if (!cancel) toast.error(apiErrorMessage(err, 'تعذّر تحميل التحليلات المالية'))
       } finally {
@@ -146,6 +150,18 @@ function FinancialAnalysisContent() {
     })()
     return () => { cancel = true }
   }, [scope.loading, scope.company])
+
+  // ت٣ب — ملء Dupont بأولويّة: FIN_QUANT (أرقام فعليّة) ثم HR_QUANT (الإيراد المشترك).
+  // (ملفّ الشركة والافتراضي يتولّاهما DupontCard كطبقةٍ أدنى.) كل حقلٍ يحمل مصدره.
+  const dupontPrefill = useMemo(() => {
+    const draft: Partial<DupontDraft> = {}
+    const sources: Partial<Record<keyof DupontDraft, string>> = {}
+    if (finq.FINQ_NET_PROFIT != null) { draft.netIncome = finq.FINQ_NET_PROFIT; sources.netIncome = 'التحليل الكمّي المالي' }
+    if (quantFin.annualRevenue != null) { draft.revenue = quantFin.annualRevenue; sources.revenue = 'التحليل الكمّي (HR)' }
+    if (finq.FINQ_TOTAL_ASSETS != null) { draft.totalAssets = finq.FINQ_TOTAL_ASSETS; sources.totalAssets = 'التحليل الكمّي المالي' }
+    if (finq.FINQ_EQUITY != null) { draft.equity = finq.FINQ_EQUITY; sources.equity = 'التحليل الكمّي المالي' }
+    return { draft, sources }
+  }, [finq, quantFin.annualRevenue])
 
   if (loading) {
     return (
@@ -234,7 +250,7 @@ function FinancialAnalysisContent() {
         />
       )}
 
-      <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} preset={preset} opex={company.opex} />
+      <DupontCard companyId={company.id} initial={dupont} onSaved={setDupont} preset={preset} opex={company.opex} sourced={dupontPrefill} />
       <MonteCarloCard companyId={company.id} initial={mc} onSaved={setMc} preset={preset} opex={company.opex} />
 
       {/* «وش يجي بعدها؟» — التحليل المالي أداة مساندة خارج المراحل، فنوضّح
@@ -477,30 +493,44 @@ const DUPONT_DEFAULTS: DupontDraft = {
   equity: 400_000,
 }
 
+const DUPONT_FIELD_LABEL: Record<keyof DupontDraft, string> = {
+  netIncome: 'صافي الربح', revenue: 'الإيراد', totalAssets: 'إجمالي الأصول', equity: 'حقوق الملكية',
+}
+
 export function DupontCard({
   companyId,
   initial,
   onSaved,
   preset,
   opex,
+  sourced,
 }: {
   companyId: string
   initial: DupontAnalysis | null
   onSaved: (d: DupontAnalysis) => void
   preset: DeptFinPreset | null
   opex?: Company['opex']
+  /** ت٣ب — قيمٌ فعليّة بأولويّة (FIN_QUANT/HR) تعلو تقدير التخصّص، وكلٌّ بمصدره المسمّى. */
+  sourced?: { draft: Partial<DupontDraft>; sources: Partial<Record<keyof DupontDraft, string>> }
 }) {
   // ملاحظة: النموذج يخزّن العوامل الثلاثة الناتجة فقط — لا الأرقام الخام.
-  // نبدأ من الافتراضات ثم نُحدَّث بعد الحفظ الأول.
-  // إن كان OPEX + preset متوفرين: نُشتقّ افتراضات تخصّصية.
+  // أولويّة الملء (ت٣ب): FIN_QUANT/HR (sourced) ← تقدير التخصّص (preset+opex) ← الافتراضي.
   const initialDraft = useMemo<DupontDraft>(() => {
-    if (!preset || !opex?.target) return DUPONT_DEFAULTS
-    const revenue = opex.target
-    const netIncome = Math.round(revenue * preset.netMarginTarget)
-    const totalAssets = Math.round(revenue * preset.assetsRatio)
-    const equity = Math.round(totalAssets * preset.equityRatio)
-    return { netIncome, revenue, totalAssets, equity }
-  }, [preset, opex])
+    const base: DupontDraft = (!preset || !opex?.target)
+      ? DUPONT_DEFAULTS
+      : (() => {
+          const revenue = opex.target
+          const totalAssets = Math.round(revenue * preset.assetsRatio)
+          return {
+            netIncome: Math.round(revenue * preset.netMarginTarget),
+            revenue,
+            totalAssets,
+            equity: Math.round(totalAssets * preset.equityRatio),
+          }
+        })()
+    // القيم الفعليّة المُسمّاة المصدر تعلو التقدير حقلاً بحقل.
+    return { ...base, ...sourced?.draft }
+  }, [preset, opex, sourced])
   const [draft, setDraft] = useState<DupontDraft>(initialDraft)
   const [saving, setSaving] = useState(false)
 
@@ -536,6 +566,15 @@ export function DupontCard({
       </CardHeader>
       <CardContent className="grid gap-6 md:grid-cols-2">
         <div className="space-y-3">
+          {sourced && Object.keys(sourced.sources).length > 0 && (
+            <p className="rounded bg-emerald-50 px-2 py-1 text-[11px] leading-relaxed text-emerald-800">
+              🔗 مملوء من مصدرٍ مسمّى:{' '}
+              {(Object.entries(sourced.sources) as [keyof DupontDraft, string][])
+                .map(([f, s]) => `${DUPONT_FIELD_LABEL[f]} (${s})`)
+                .join(' · ')}
+              {' '}— قابلٌ للتعديل.
+            </p>
+          )}
           <div className="space-y-1">
             <Label htmlFor="d_ni">صافي الربح (سنوي)</Label>
             <Input id="d_ni" type="number" {...bind('netIncome')} />
