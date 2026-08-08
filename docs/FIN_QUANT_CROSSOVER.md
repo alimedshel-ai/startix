@@ -73,7 +73,7 @@
 | `FINQ_AR` | `receivables` | مطلق (فيتو >2× الهدف) | ج |
 | `FINQ_DEBT` ÷ `FINQ_EQUITY` | `debtToEquity` | نسبة (هدف ≤1.0) | ب |
 | `FINQ_CURR_ASSET` − `FINQ_CURR_LIAB` | `workingCapital` | مطلق (هدف >0) | **أ** (من مقامين) |
-| **= `KPI_STR_01`** (يستهلك المُنفَّذ، لا يحسب مستقلًّا) = (`FND_HEADCOUNT`×`FND_SAL`×12) ÷ `FND_ANNUAL_REVENUE` | `payrollToRevenue` | نسبة (هدف ≤0.30) | **أ** — مصدر واحد §أ-٢ |
+| **= `KPI_STR_01` ÷ 100** (يستهلك المُنفَّذ، لا يحسب مستقلًّا) = `HRQ_HR_COST_YEAR` ÷ `FND_ANNUAL_REVENUE` | `payrollToRevenue` | نسبة (هدف ≤0.30) | **أ** — مصدر واحد §أ-٢ |
 | (`FND_MAT`×12) ÷ `FND_ANNUAL_REVENUE` | `materialsToRevenue` | نسبة (هدف ≤0.35) | **أ** |
 | **= `KPI_STR_06`** (يستهلك المُنفَّذ، لا يحسب مستقلًّا) = `FND_ANNUAL_REVENUE` ÷ `FND_HEADCOUNT` | `revenuePerDirectEmployee` | ريال | **أ** — مصدر واحد §أ-١ |
 | `FINQ_NET_PROFIT` ÷ `FND_ANNUAL_REVENUE` | `netMargin` | نسبة 0..1 (هدف ≥0.20) | ب |
@@ -121,8 +121,8 @@
 
 ### §أ-٢ — تكلفة العمالة/إيراد: **مفهومان مختلفان → توثيق فرق لا إلغاء** (محسوم)
 ليسا نفس الرقم:
-- `KPI_STR_01` (HR) = (`FND_HEADCOUNT`×`FND_SAL`×12) ÷ `FND_ANNUAL_REVENUE` — **تقدير سريع من الراتب الأساسي الخام** (`derived`, بلا سؤال).
-- `payrollToRevenue` (مالية) = **الرواتب المحمّلة الفعليّة** (أساسي + تأمينات/GOSI + بدلات) ÷ الإيراد — أكبر من التقدير، هدفه ماليّ صلب ≤0.30.
+- `KPI_STR_01` (HR) = `HRQ_HR_COST_YEAR` ÷ `FND_ANNUAL_REVENUE` × 100 — و`HRQ_HR_COST_YEAR` = **تكلفة HR السنوية المحمّلة** (مُدخَل HR، [hrQuantDerive.ts:26](../client/src/lib/hrQuantDerive.ts#L26)) — **ليس** تقديرًا خامًا من `FND_SAL` كما ظُنّ أوّلًا.
+- `payrollToRevenue` (مالية) = نفس المفهوم بوحدة نسبة (`KPI_STR_01 ÷ 100`). وبما أن `KPI_STR_01` أصلًا محمّل، فالقراءة منه **تكفي**، و`FINQ_PAYROLL_ACTUAL` أقرب للتكرار → أُجِّل (يُحيا فقط لو أراد المالك تفصيل بنود التحميل مستقبلًا).
 
 > **قرار المالك (2026-08-08 — تجاوزٌ لاقتراح الجلسة):** طبقة HR هي المصدر الواحد. **`KPI_STR_01` هو المصدر الوحيد لـ`payrollToRevenue`** — يُقرأ ولا يُعاد حسابه، ولا يُبنى `FINQ_PAYROLL_ACTUAL` في النسخة الأولى. الجلسة اقترحت رواتب محمّلة فعليّة (دقّة أعلى)؛ المالك اختار التقدير الخام (أقلّ مخاطرة الآن) — والفرق مسجَّل كبند مستقبليّ مفتوح (انظر «بنود مستقبلية»). فـ`FINQ_PAYROLL_ACTUAL` **مؤجَّل، خارج v1**.
 
@@ -137,7 +137,7 @@
 
 | المعرف | الصيغة | ملاحظة |
 |---|---|---|
-| `PAYR` (payrollToRevenue) | **= `KPI_STR_01`** (مقروء من HR) = (`FND_HEADCOUNT`×`FND_SAL`×12) ÷ `FND_ANNUAL_REVENUE` | مصدر واحد §أ-٢ — لا يُعاد حسابه في المالية |
+| `PAYR` (payrollToRevenue) | **= `KPI_STR_01` ÷ 100** (مقروء من HR) = `HRQ_HR_COST_YEAR` ÷ `FND_ANNUAL_REVENUE` (`KPI_STR_01` بوحدة ٪) | مصدر واحد §أ-٢ — لا يُعاد حسابه في المالية |
 | `DSO` (E4) | `FINQ_AR` ÷ `FND_ANNUAL_REVENUE` × 365 | مشتق |
 | `DRV_CASHR` | `FND_CASH` ÷ `FND_COST` | أشهر تغطية النقد (قائم §9 بنك HR) |
 | `DRV_CTR` | (`FND_COST`×12) ÷ `FND_ANNUAL_REVENUE` | نسبة التكلفة/الإيراد (قائم) |
