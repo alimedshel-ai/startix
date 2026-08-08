@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { MaturityAssessment, MaturityReport } from '@/components/maturity/MaturityAssessment'
 import { FinanceGovernanceSection } from '@/components/maturity/FinanceGovernanceSection'
+import { FinancePanels } from '@/components/maturity/FinancePanels'
 import { FinanceQuantitativeSection } from '@/components/maturity/FinanceQuantitativeSection'
+import { layerFinanceConfig } from '@/lib/finMaturityLayering'
 import { HrQuantitativeSection } from '@/components/maturity/HrQuantitativeSection'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
@@ -72,6 +74,11 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
     return () => { cancel = true }
   }, [company, scope.loading, config.specialty])
 
+  // ح٥: تهيئة مُقسَّمة لـFINANCE (إخفاء التكرارات + المُجاب آليًّا + أسئلة الحجم للصغيرة)
+  // تُستعمَل للعرض والحفظ معًا كي تتطابق الدرجة المعروضة مع المحفوظة. غيرها = التهيئة كما هي.
+  const isSmall = company?.size === 'MICRO' || company?.size === 'SMALL'
+  const effectiveConfig = config.specialty === 'FINANCE' ? layerFinanceConfig(config, { isSmall }) : config
+
   useEffect(() => {
     if (!company || loading) return
     if (skipFirst.current) { skipFirst.current = false; return }
@@ -79,7 +86,7 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
     timer.current = setTimeout(async () => {
       setAutosave('saving')
       try {
-        const payload: MaturityArtifact = { specialty: config.specialty, answers, overallPct: computeOverall(config, answers).maturityPct }
+        const payload: MaturityArtifact = { specialty: config.specialty, answers, overallPct: computeOverall(effectiveConfig, answers).maturityPct }
         await upsertArtifact<MaturityArtifact>(company.id, 'MATURITY', payload)
         setAutosave('saved')
       } catch { setAutosave('error') }
@@ -163,8 +170,9 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
         </Card>
       )}
 
-      <MaturityAssessment config={config} answers={answers} onSelect={onSelect} />
-      <MaturityReport config={config} answers={answers} />
+      {config.specialty === 'FINANCE' && <FinancePanels companyId={company.id} />}
+      <MaturityAssessment config={effectiveConfig} answers={answers} onSelect={onSelect} />
+      <MaturityReport config={effectiveConfig} answers={answers} />
 
       {config.specialty === 'HR' && (
         <HrQuantitativeSection
