@@ -180,6 +180,17 @@ function Chart({ companyId }: { companyId: string }) {
     return rangeOf(items)
   }, [projects, tasks])
 
+  // الجانت يجب أن يتدرّج زمنيًّا على المسار: ترتيب الصفوف بتاريخ البدء (بلا تاريخ → الأخير)
+  // كي «تمشي» الأشرطة يسارًا→يمينًا بترتيب التنفيذ، لا بترتيب قائمة الـAPI (إنشاء/id).
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => {
+      const at = a.startDate ? new Date(a.startDate).getTime() : Infinity
+      const bt = b.startDate ? new Date(b.startDate).getTime() : Infinity
+      return at - bt
+    }),
+    [projects],
+  )
+
   if (loading) return <Card><CardHeader><CardTitle>جاري التحميل…</CardTitle></CardHeader></Card>
 
   if (!range) {
@@ -381,7 +392,7 @@ function Chart({ companyId }: { companyId: string }) {
               </div>
 
               <div className="relative">
-                {projects.map((p) => (
+                {sortedProjects.map((p) => (
                   <ProjectRow
                     key={p.id}
                     project={p}
@@ -471,7 +482,7 @@ function Chart({ companyId }: { companyId: string }) {
                 ))}
               </div>
               <div className="relative">
-                {projects.map((p) => (
+                {sortedProjects.map((p) => (
                   <ProjectRow
                     key={p.id}
                     project={p}
