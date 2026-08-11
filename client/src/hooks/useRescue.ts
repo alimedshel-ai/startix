@@ -6,6 +6,7 @@ import {
   type RescueDone, type RescueResult, type RescuePlanResult, type RescueProgress, type AuditAxis,
 } from '@/journey/rescue'
 import { listDepartments } from '@/lib/deptApi'
+import { financialHealthPctFromQuant } from '@/lib/finQuantDerive'
 import { listAllArtifacts, listProjects, listInitiatives, listCorrections, type RescueChallengesData } from '@/lib/strategicApi'
 
 /** بند تحدٍّ مُضاف من العميل (للعرض في خطوة الإجراء). */
@@ -29,7 +30,7 @@ const NO_DONE: RescueDone = { risk: false, eisenhower: false, raci: false, gantt
 const NO_PROGRESS: RescueProgress = { axisPicked: false, challengesVisited: false, actionRecorded: false, initiativeCreated: false }
 const INACTIVE: RescueResult = getRescueNext({ criticalHealth: false, done: NO_DONE })
 const INACTIVE_PLAN: RescuePlanResult = resolveRescuePlan({ criticalHealth: false, healthPct: null, progress: NO_PROGRESS })
-const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null } as const
+const NO_HEALTH = { hasAudit: false, healthPct: null, dangerZone: null, financialHealthPct: null } as const
 
 export interface RescueView {
   loading: boolean
@@ -50,8 +51,9 @@ export interface RescueView {
   criticalPct: number | null
   /** مسار إعادة تدقيق الإدارة الحرجة — «الخروج» يتأكّد بإعادة القياس لا بفعل الخطوات. */
   reauditPath: string | null
-  /** صحّة الإدارة الأساسيّة — يغذّي classifyClient (المستوى المتكيّف). */
-  health: { hasAudit: boolean; healthPct: number | null; dangerZone: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null }
+  /** صحّة الإدارة الأساسيّة — يغذّي classifyClient (المستوى المتكيّف).
+   *  financialHealthPct (قرار ٤): أرضيّة ماليّة من FIN_QUANT — أسوأ-يسود في classify. */
+  health: { hasAudit: boolean; healthPct: number | null; dangerZone: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | null; financialHealthPct: number | null }
   /** الرقعة C — إعادة تحميل بعد إنشاء inline (إجراء/مبادرة) لتحديث التقدّم. */
   reload: () => void
 }
@@ -133,6 +135,13 @@ export function useRescue(companyId: string | null): RescueView {
       const challenges: RescueChallenge[] = challengeArt?.items ?? []
       const progress: RescueProgress = { axisPicked: weakestAxis != null, challengesVisited, actionRecorded, initiativeCreated }
 
+      // قرار ٤: أرضيّة ماليّة من FIN_QUANT (المجلوب أصلاً في arts) — بحارس اكتمال.
+      // null إن غاب FIN_QUANT أو نقصت حقول السيولة/التحصيل ⇒ لا أثر (سقوط للتدقيق).
+      const finqData = arts.status === 'fulfilled'
+        ? (arts.value.find((a) => a.type === 'FIN_QUANT')?.data as { finq?: Record<string, number> } | undefined)
+        : undefined
+      const financialHealthPct = finqData?.finq ? financialHealthPctFromQuant(finqData.finq) : null
+
       setFetched({
         forId: companyId,
         rescue: getRescueNext({ criticalHealth, done }),
@@ -146,9 +155,12 @@ export function useRescue(companyId: string | null): RescueView {
         reauditPath: criticalDept ? auditRouteFor(criticalDept.type) : null,
         // صحّة الشركة = الأسوأ عبر الإدارات لا الأوّل ترتيبيّاً (رقعة B): تُطابق
         // مُطلِق الطوارئ (criticalHealth) فلا تناقض «🚨 طوارئ + شارة نموّ».
-        health: selectCompanyHealth(
-          deptList.map((d) => ({ auditScore: d.auditScore ?? null, dangerZone: d.auditData?.dangerZone })),
-        ),
+        health: {
+          ...selectCompanyHealth(
+            deptList.map((d) => ({ auditScore: d.auditScore ?? null, dangerZone: d.auditData?.dangerZone })),
+          ),
+          financialHealthPct,
+        },
       })
     })().catch(() => {
       // رقعة A — فشلٌ صريح لا تعليقٌ صامت: لو رمت دالّة نقيّة (pickWeakestAxis/

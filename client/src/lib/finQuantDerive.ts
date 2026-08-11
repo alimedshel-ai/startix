@@ -9,9 +9,11 @@
 //   • payrollToRevenue ← KPI_STR_01 ÷ 100 (KPI_STR_01 بوحدة ٪، والحقل نسبة ٠..١).
 // هذا الملفّ **لا يستورد أي صيغة موازية لهما** (حارس finSingleSourceGuard في ت٢).
 //
-// **v1: تتبّع وعرض فقط** — لا شيء من هنا يدخل healthPct الحيّ ولا classifyClient.
+// **قرار ٤ (2026-08-11):** فُتحت البوّابة بحارس اكتمال — `financialHealthPctFromQuant`
+// يُغذّي classifyClient كأرضيّةٍ (أسوأ-يسود) عند اكتمال حقول السيولة+التحصيل فقط.
+// deriveFinancialKpis نفسها تبقى نقيّة (اشتقاق بحت)؛ الوصل الحيّ في useRescue.ts.
 
-import type { FinancialKpis } from './financialHealth'
+import { computeFinancialHealth, type FinancialKpis } from './financialHealth'
 import { deriveQuantActual } from './hrQuantDerive'
 
 /** مدخلات البنك المالي: حقول FINQ_ و FND_ (+ ما يلزم من HRQ_ لقراءة KPI_STR_01 و KPI_STR_06). */
@@ -63,6 +65,30 @@ export function deriveFinancialKpis(inp: FinQuantInputs): Partial<FinancialKpis>
   set('roe', ratio(inp.FINQ_NET_PROFIT, inp.FINQ_EQUITY))
 
   return k
+}
+
+/**
+ * حارس اكتمال (قرار ٤): هل حقول المؤشّرَين المُلزمَين حاضرة؟
+ *   • السيولة الفوريّة ← FND_CASH + FINQ_CURR_LIAB
+ *   • نسبة التحصيل   ← FINQ_AR + FINQ_AR_COLLECTED
+ * دونها لا نُلزِم التصنيف بصحّةٍ ماليّة ناقصة (تفادي فرض طوارئ من إدخال جزئيّ).
+ */
+export function quantHealthReady(inp: FinQuantInputs): boolean {
+  return isNum(inp.FND_CASH) && isNum(inp.FINQ_CURR_LIAB)
+    && isNum(inp.FINQ_AR) && isNum(inp.FINQ_AR_COLLECTED)
+}
+
+/**
+ * قرار ٤ (بحارس اكتمال): درجة الصحّة الماليّة من FIN_QUANT لتغذية classifyClient
+ * كأرضيّة (أسوأ-يسود). `null` إن لم يمرّ الحارس ⇒ التصنيف يسقط على صحّة التدقيق.
+ * الحقول الغائبة تبقى undefined فيرفضها `finite()` ويعيد computeFinancialHealth
+ * توزيع وزنها (§٧) — لا اختلاق. لا يلمس المحرّك (ق٧): يستدعيه فقط.
+ */
+export function financialHealthPctFromQuant(inp: FinQuantInputs): number | null {
+  if (!quantHealthReady(inp)) return null
+  const kpis = deriveFinancialKpis(inp)
+  if (Object.keys(kpis).length === 0) return null
+  return computeFinancialHealth(kpis as FinancialKpis).healthPct
 }
 
 /** يحوّل نسبة مئويّة (٠..١٠٠) من طبقة HR إلى نسبة (٠..١)، مع الحفاظ على null. */
