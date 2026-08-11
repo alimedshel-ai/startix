@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { CostCenterSection } from '@/components/maturity/CostCenterSection'
 import { deriveArAging, sumLoans, toLatinDigits, type Loan } from '@/lib/finAgingDerive'
 import { computeFinancialHealth, type FinancialKpis } from '@/lib/financialHealth'
+import { deriveAggregatesIntoFinq, type CostItem } from '@/lib/finCostCenter'
 import { deriveFinancialKpis } from '@/lib/finQuantDerive'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -24,6 +26,8 @@ interface FinQuantArtifact {
   finq: Record<string, number>
   /** ت٣أ٢ — القروض حقلٌ منفصل (متغيّر العدد؛ لا يُفلطح مفاتيحَ شبح). */
   loans?: Loan[]
+  /** المخرج ٤ — بنود مركز التكاليف (قرار ٢: تسود على المجمّع عند وجودها). */
+  costItems?: CostItem[]
 }
 
 interface SharedFinancial {
@@ -101,6 +105,7 @@ export function FinanceQuantitativeSection({
 }) {
   const [finq, setFinq] = useState<Record<string, number>>({})
   const [loans, setLoans] = useState<Loan[]>([])
+  const [costItems, setCostItems] = useState<CostItem[]>([])
   const [shared, setShared] = useState<SharedFinancial>({})
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -121,6 +126,7 @@ export function FinanceQuantitativeSection({
         if (cancel) return
         setFinq(finArt?.data?.finq ?? {})       // توافق خلفيّ: v1 يأتي بلا شرائح/loans
         setLoans(finArt?.data?.loans ?? [])
+        setCostItems(finArt?.data?.costItems ?? [])
         hrRest.current = hrArt?.data ?? {}
         const f = hrArt?.data?.financial ?? {}
         setShared({
@@ -143,8 +149,9 @@ export function FinanceQuantitativeSection({
     const e = { ...finq }
     if (arAging) { e.FINQ_AR = arAging.value; e.FINQ_AR_OVERDUE_V = arAging.overdueV; e.FINQ_AR_OVERDUE_N = arAging.overdueN }
     if (loanSums) { e.FINQ_DEBT = loanSums.debt; e.FINQ_INST = loanSums.inst }
-    return e
-  }, [finq, arAging, loanSums])
+    // قرار ٢: بنود مركز التكاليف تسود على الحقول المجمّعة القديمة عند وجودها.
+    return deriveAggregatesIntoFinq(costItems, e).finq
+  }, [finq, arAging, loanSums, costItems])
 
   // حفظ مؤجّل: FIN_QUANT (finq الفعّال + loans + schemaVersion 2)؛ HR_QUANT.financial عند تعديل المشترك.
   useEffect(() => {
@@ -157,6 +164,7 @@ export function FinanceQuantitativeSection({
           schemaVersion: FIN_QUANT_SCHEMA_VERSION,
           finq: effectiveFinq,
           loans,
+          costItems,
         })
         if (sharedTouched.current) {
           await upsertArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT', {
@@ -168,7 +176,7 @@ export function FinanceQuantitativeSection({
       } catch (err) { setAutosave('error'); void apiErrorMessage(err, '') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [effectiveFinq, loans, shared, companyId])
+  }, [effectiveFinq, loans, costItems, shared, companyId])
 
   function setField(key: string, v: string) {
     setFinq((prev) => {
@@ -291,6 +299,9 @@ export function FinanceQuantitativeSection({
             </div>
           )}
         </div>
+
+        {/* المخرج ٤ — مركز التكاليف (قرار ٢: البنود تسود على المجمّع) */}
+        <CostCenterSection items={costItems} onChange={setCostItems} />
 
         {FLAT_GROUPS.map((g) => (
           <div key={g.title} className="rounded-lg border bg-card p-3">
