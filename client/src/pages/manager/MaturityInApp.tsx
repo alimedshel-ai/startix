@@ -10,7 +10,8 @@ import { MaturityAssessment, MaturityReport } from '@/components/maturity/Maturi
 import { FinanceGovernanceSection } from '@/components/maturity/FinanceGovernanceSection'
 import { FinancePanels } from '@/components/maturity/FinancePanels'
 import { FinanceQuantitativeSection } from '@/components/maturity/FinanceQuantitativeSection'
-import { layerFinanceConfig } from '@/lib/finMaturityLayering'
+import { financeAutoAnswers, financeTier, layerFinanceConfig } from '@/lib/finMaturityLayering'
+import { type Loan } from '@/lib/finAgingDerive'
 import { HrQuantitativeSection } from '@/components/maturity/HrQuantitativeSection'
 import { useClientScopedCompany } from '@/hooks/useClientScopedCompany'
 import { useGuidedNext } from '@/hooks/useGuidedNext'
@@ -33,6 +34,8 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
   const scope = useClientScopedCompany()
   const company = scope.company
   const [answers, setAnswers] = useState<MaturityAnswers>({})
+  const [finq, setFinq] = useState<Record<string, number>>({})
+  const [loans, setLoans] = useState<Loan[]>([])
   const [staleSchema, setStaleSchema] = useState(false)
   const [loading, setLoading] = useState(true)
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -74,10 +77,34 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
     return () => { cancel = true }
   }, [company, scope.loading, config.specialty])
 
-  // ح٥: تهيئة مُقسَّمة لـFINANCE (إخفاء التكرارات + المُجاب آليًّا + أسئلة الحجم للصغيرة)
-  // تُستعمَل للعرض والحفظ معًا كي تتطابق الدرجة المعروضة مع المحفوظة. غيرها = التهيئة كما هي.
-  const isSmall = company?.size === 'MICRO' || company?.size === 'SMALL'
-  const effectiveConfig = config.specialty === 'FINANCE' ? layerFinanceConfig(config, { isSmall }) : config
+  // (v3) تحميل FIN_QUANT لتخصّص FINANCE فقط — يغذّي جاهزيّة الآليّ المشروط (answeredIds).
+  useEffect(() => {
+    if (config.specialty !== 'FINANCE' || !company) return
+    let cancel = false
+    ;(async () => {
+      try {
+        const fin = await getArtifact<{ finq?: Record<string, number>; loans?: Loan[] }>(company.id, 'FIN_QUANT')
+        if (cancel) return
+        setFinq(fin?.data?.finq ?? {})
+        setLoans(fin?.data?.loans ?? [])
+      } catch { /* بلا FIN_QUANT — الآليّ المشروط يبقى سؤالًا يدويًّا */ }
+    })()
+    return () => { cancel = true }
+  }, [company, config.specialty])
+
+  // تهيئة FINANCE مُقسَّمة (v3): إخفاء التكرارات/المدموج/المُرحَّل + المُجاب آليًّا (ح٥ +
+  // مشروط عند الجاهزيّة) + وسم الحجم بثلاث طبقات. تُستعمَل للعرض والحفظ معًا كي تتطابق
+  // الدرجة المعروضة مع المحفوظة. غير FINANCE = التهيئة كما هي.
+  const tier = financeTier(company?.size)
+  // (v3) الآليّ المشروط (التعادل · نقدية ١٣ أسبوع) يُخفى فقط حين تجهز أداته — نقرأه من
+  // نفس FIN_QUANT كي تُطابق مجموعةُ «المُخفى المُجاب» ما تعرضه لوحة FinancePanels.
+  const answeredIds = useMemo(
+    () => new Set(financeAutoAnswers(finq, loans).map((a) => a.id)),
+    [finq, loans],
+  )
+  const effectiveConfig = config.specialty === 'FINANCE'
+    ? layerFinanceConfig(config, { tier, answeredIds })
+    : config
 
   useEffect(() => {
     if (!company || loading) return
