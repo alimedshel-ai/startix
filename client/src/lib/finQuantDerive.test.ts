@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { computeFinancialHealth, type FinancialKpis } from './financialHealth'
-import { deriveFinancialKpis } from './finQuantDerive'
+import { breakEven, deriveFinancialKpis } from './finQuantDerive'
 import { deriveQuantActual } from './hrQuantDerive'
 
 // قاعدة NaN لكل الحقول — computeFinancialHealth يعامل NaN «غائبًا» (finite) فيُعيد
@@ -69,5 +69,33 @@ describe('finQuantDerive — بناء FinancialKpis من البنك المالي
     const r = computeFinancialHealth({ ...NAN_BASE, ...derived })
     expect(r.healthPct).toBe(30)
     expect(r.vetoes).toContain('INSTANT_LIQUIDITY')
+  })
+})
+
+describe('breakEven — نقطة التعادل الشهريّة النقيّة (القطعة ٢)', () => {
+  it('مثال حاكم: (٥٠٠٠٠، ٢٠٠، ٦٠٠) ⇒ هامش ٤٠٠ · وحدات ١٢٥ · مبيعات ٧٥٠٠٠', () => {
+    const r = breakEven(50_000, 200, 600)
+    expect(r).toEqual({ noBreakEven: false, contributionMargin: 400, units: 125, revenue: 75_000 })
+  })
+  it('كسر الوحدات يُقرَّب للأعلى: ٥٠٠٠١ ثابتة ÷ ٤٠٠ ⇒ ١٢٦ وحدة', () => {
+    const r = breakEven(50_001, 200, 600)
+    expect(r).toMatchObject({ noBreakEven: false, units: 126 })
+    expect((r as { revenue: number }).revenue).toBe(126 * 600)
+  })
+  it('هامش صفر (٦٠٠، ٦٠٠) ⇒ «لا تعادل» بلا قسمة', () => {
+    expect(breakEven(50_000, 600, 600)).toEqual({ noBreakEven: true, contributionMargin: 0 })
+  })
+  it('هامش سالب (السعر < المتغيّرة) ⇒ «لا تعادل»', () => {
+    expect(breakEven(50_000, 700, 600)).toEqual({ noBreakEven: true, contributionMargin: -100 })
+  })
+  it('أيّ مدخل صفر ⇒ null (ثابتة/متغيّرة/سعر)', () => {
+    expect(breakEven(0, 200, 600)).toBeNull()
+    expect(breakEven(50_000, 0, 600)).toBeNull()
+    expect(breakEven(50_000, 200, 0)).toBeNull()
+  })
+  it('أيّ مدخل undefined ⇒ null', () => {
+    expect(breakEven(undefined, 200, 600)).toBeNull()
+    expect(breakEven(50_000, undefined, 600)).toBeNull()
+    expect(breakEven(50_000, 200, undefined)).toBeNull()
   })
 })

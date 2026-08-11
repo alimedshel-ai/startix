@@ -95,3 +95,28 @@ export function financialHealthPctFromQuant(inp: FinQuantInputs): number | null 
 function pct01(v: number | null): number | null {
   return v == null ? null : v / 100
 }
+
+/** نتيجة نقطة التعادل (القطعة ٢): إمّا حالة «لا تعادل» صريحة أو الأرقام المحسوبة. */
+export type BreakEven =
+  | { noBreakEven: true; contributionMargin: number }
+  | { noBreakEven: false; contributionMargin: number; units: number; revenue: number }
+
+/**
+ * نقطة التعادل الشهريّة النقيّة (القطعة ٢): تُغلق مدخلات FINQ_PRICE_UNIT/VAR_COST_UNIT
+ * اليتيمة بتحويلها لمنتج. سقوطٌ لطيف بلا اختلاق ولا قسمة على صفر/سالب:
+ *   • أيّ مدخل مفقود/undefined أو صفر (أيًّا من الثلاثة) ⇒ null.
+ *   • هامش المساهمة (السعر − المتغيّرة) ≤ 0 ⇒ { noBreakEven } (السعر لا يغطّي المتغيّرة).
+ *   • وإلّا ⇒ الهامش + وحدات التعادل (تُقرَّب للأعلى) + مبيعات التعادل بالريال.
+ */
+export function breakEven(
+  fixedMonthly: number | undefined,
+  varCostUnit: number | undefined,
+  priceUnit: number | undefined,
+): BreakEven | null {
+  if (!isNum(fixedMonthly) || !isNum(varCostUnit) || !isNum(priceUnit)) return null
+  if (fixedMonthly === 0 || varCostUnit === 0 || priceUnit === 0) return null
+  const contributionMargin = priceUnit - varCostUnit
+  if (contributionMargin <= 0) return { noBreakEven: true, contributionMargin }
+  const units = Math.ceil(fixedMonthly / contributionMargin)
+  return { noBreakEven: false, contributionMargin, units, revenue: units * priceUnit }
+}

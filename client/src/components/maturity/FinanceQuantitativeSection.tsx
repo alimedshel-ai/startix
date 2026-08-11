@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { apiErrorMessage } from '@/lib/api'
+import { Cashflow13wSection } from '@/components/maturity/Cashflow13wSection'
 import { CostCenterSection } from '@/components/maturity/CostCenterSection'
 import { deriveArAging, sumLoans, toLatinDigits, type Loan } from '@/lib/finAgingDerive'
 import { computeFinancialHealth, type FinancialKpis } from '@/lib/financialHealth'
-import { deriveAggregatesIntoFinq, type CostItem } from '@/lib/finCostCenter'
-import { deriveFinancialKpis } from '@/lib/finQuantDerive'
+import { deriveAggregatesIntoFinq, monthlyOpex as costItemsMonthlyOpex, type CostItem } from '@/lib/finCostCenter'
+import { breakEven, deriveFinancialKpis, type BreakEven } from '@/lib/finQuantDerive'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
 // نسخة مخطّط FIN_QUANT — ت٣أ٢ رقّاها ١←٢ (تغيير هيكليّ: شرائح أعمار + loans[]).
@@ -73,7 +74,7 @@ const FLAT_GROUPS: { title: string; items: { key: string; label: string }[] }[] 
   ] },
   { title: '📌 تتبّع (بلا حكم — §د)', items: [
     { key: 'FINQ_MKT', label: 'الإنفاق التسويقي الشهري' },
-    { key: 'FINQ_GOV', label: 'التزامات حكوميّة (زكاة/ضريبة) مستحقّة' },
+    { key: 'FINQ_GOV', label: 'التزامات حكوميّة مستحقّة (زكاة وضريبة + تأمينات + رسوم وإقامات وبلدية)' },
     { key: 'FINQ_STOCK_V', label: 'قيمة المخزون الآن' },
     { key: 'FINQ_OWNER_DRAW', label: 'مسحوبات المالك (الفترة)' },
   ] },
@@ -83,8 +84,8 @@ const KPI_LABEL: Record<keyof FinancialKpis, string> = {
   instantLiquidity: 'السيولة الفوريّة', quickRatio: 'السيولة السريعة',
   collectionRate: 'نسبة التحصيل', receivables: 'الذمم المدينة', receivablesTarget: 'هدف الذمم',
   debtToEquity: 'الدين/حقوق الملكية', workingCapital: 'رأس المال العامل',
-  payrollToRevenue: 'تكلفة العمالة/إيراد (من HR)', materialsToRevenue: 'المواد/إيراد',
-  revenuePerDirectEmployee: 'الإيراد/موظّف (من HR)', netMargin: 'الهامش الصافي',
+  payrollToRevenue: 'تكلفة العمالة/إيراد (من الأساس المشترك)', materialsToRevenue: 'المواد/إيراد',
+  revenuePerDirectEmployee: 'الإيراد/موظّف (من الأساس المشترك)', netMargin: 'الهامش الصافي',
   grossMargin: 'الهامش الإجماليّ', roe: 'العائد على حقوق الملكية',
 }
 
@@ -153,6 +154,20 @@ export function FinanceQuantitativeSection({
     return deriveAggregatesIntoFinq(costItems, e).finq
   }, [finq, arAging, loanSums, costItems])
 
+  // مدخلات نقدية ١٣ أسبوع (المخرج ٣): تُقرأ من الإجماليات الفعّالة + مركز التكاليف.
+  const cashflowInput = useMemo(() => {
+    const f = effectiveFinq
+    const opex = costItems.length > 0
+      ? costItemsMonthlyOpex(costItems)
+      : (f.FINQ_FIXED_COSTS ?? 0) + (f.FND_MAT ?? 0) + (f.FINQ_MKT ?? 0)
+    return {
+      openingCash: f.FND_CASH ?? 0,
+      buckets: { b1: f.FINQ_AR_B1_V ?? 0, b2: f.FINQ_AR_B2_V ?? 0, b3: f.FINQ_AR_B3_V ?? 0, b4: f.FINQ_AR_B4_V ?? 0 },
+      monthlyOpex: opex,
+      monthlyInstallments: f.FINQ_INST ?? 0,
+    }
+  }, [effectiveFinq, costItems])
+
   // حفظ مؤجّل: FIN_QUANT (finq الفعّال + loans + schemaVersion 2)؛ HR_QUANT.financial عند تعديل المشترك.
   useEffect(() => {
     if (skipFirst.current) { skipFirst.current = false; return }
@@ -213,6 +228,13 @@ export function FinanceQuantitativeSection({
   }, [kpis])
 
   const equityWarn = finq.FINQ_EQUITY != null && finq.FINQ_EQUITY <= 0
+
+  // القطعة ٢ — نقطة التعادل الحيّة: تقرأ الثلاث من الإجماليّات الفعّالة (الثابتة تأتي
+  // مشتقّة من بنود مركز التكاليف حين توجد — قرار ٢). النقيّ breakEven يتولّى السقوط.
+  const be = useMemo(
+    () => breakEven(effectiveFinq.FINQ_FIXED_COSTS, effectiveFinq.FINQ_VAR_COST_UNIT, effectiveFinq.FINQ_PRICE_UNIT),
+    [effectiveFinq],
+  )
 
   return (
     <Card className="border-2 border-emerald-300 bg-emerald-50/30" dir="rtl">
@@ -303,6 +325,9 @@ export function FinanceQuantitativeSection({
         {/* المخرج ٤ — مركز التكاليف (قرار ٢: البنود تسود على المجمّع) */}
         <CostCenterSection items={costItems} onChange={setCostItems} />
 
+        {/* المخرج ٣ — توقّع النقدية ١٣ أسبوعًا (يتغذّى من مركز التكاليف والشرائح) */}
+        <Cashflow13wSection {...cashflowInput} />
+
         {FLAT_GROUPS.map((g) => (
           <div key={g.title} className="rounded-lg border bg-card p-3">
             <div className="mb-2 text-sm font-bold">{g.title}</div>
@@ -314,6 +339,7 @@ export function FinanceQuantitativeSection({
             {g.title.includes('الملاءة') && equityWarn && (
               <p className="mt-2 text-xs font-medium text-rose-700">⚠️ حقوق الملكية ≤ ٠ — الدين/حقوق والعائد لن يُحتسبا (لا يمنع الإدخال).</p>
             )}
+            {g.title.includes('التعادل') && <BreakEvenReadout be={be} />}
           </div>
         ))}
 
@@ -343,7 +369,7 @@ export function FinanceQuantitativeSection({
                     </div>
                   ))}
               </div>
-              <p className="mt-1 text-[11px] text-emerald-800/60">مؤشّرا «من HR» يُقرآن من التحليل الكمّي لـ HR (مصدر واحد §أ) — لا يُعاد حسابهما هنا.</p>
+              <p className="mt-1 text-[11px] text-emerald-800/60">مؤشّرا الكفاءة مصدرهما «من أساس الأرقام المشترك (يُدخَل مرّة واحدة) — لا يُعاد إدخاله ولا حسابه هنا» (مصدر واحد §أ).</p>
             </div>
           )}
         </div>
@@ -358,6 +384,37 @@ function fmtKpi(key: keyof FinancialKpis, v: number): string {
   if (asPct.includes(key)) return `${Math.round(v * 100)}٪`
   if (asSar.includes(key)) return sar(v)
   return String(Math.round(v * 100) / 100)
+}
+
+// القطعة ٢ — عرض نقطة التعادل الحيّ (لا أرقام صفريّة وهميّة عند نقص المدخلات).
+const sarSymbol = (n: number) => `${Math.round(n).toLocaleString('en-US')} ﷼`
+function BreakEvenReadout({ be }: { be: BreakEven | null }) {
+  if (be == null) {
+    return <p className="mt-2 text-xs text-muted-foreground">⚖️ أدخل القيم الثلاث (الثابتة · المتغيّرة للوحدة · السعر) لتظهر النقطة.</p>
+  }
+  if (be.noBreakEven) {
+    return (
+      <p className="mt-2 rounded bg-rose-100/70 px-2 py-1 text-xs font-medium text-rose-800">
+        ⚠️ السعر لا يغطّي التكلفة المتغيّرة (هامش المساهمة = {sarSymbol(be.contributionMargin)}) — لا نقطة تعادل.
+      </p>
+    )
+  }
+  return (
+    <div className="mt-2 grid grid-cols-1 gap-1 rounded-lg border border-emerald-300 bg-emerald-50/50 p-2 text-xs sm:grid-cols-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">هامش المساهمة/وحدة</span>
+        <span className="font-bold tabular-nums text-emerald-900">{sarSymbol(be.contributionMargin)}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">وحدات التعادل/شهر</span>
+        <span className="font-bold tabular-nums text-emerald-900">{be.units.toLocaleString('en-US')}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">مبيعات التعادل</span>
+        <span className="font-bold tabular-nums text-emerald-900">{sarSymbol(be.revenue)}</span>
+      </div>
+    </div>
+  )
 }
 
 function FinInput({ label, value, onChange, compact }: { label: string; value?: number; onChange: (v: string) => void; compact?: boolean }) {
