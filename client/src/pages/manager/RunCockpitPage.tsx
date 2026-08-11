@@ -8,6 +8,7 @@ import { useGuidedNext } from '@/hooks/useGuidedNext'
 import { useJourney, type JourneyStepView } from '@/hooks/useJourney'
 import { useRescue, type RescueChallenge } from '@/hooks/useRescue'
 import { classifyClient } from '@/journey/classify'
+import { IntakeStatusCard } from '@/components/IntakeStatusCard'
 import {
   RESCUE_SEQUENCE, RESCUE_PLAN, type RescueDone, type RescueStep,
   type RescuePlanResult, type RescueProgress, type AuditAxis,
@@ -124,6 +125,8 @@ export function RunCockpitPage() {
 
       {/* ─── لوحة التركيز: الخطوة الواحدة التالية ─── */}
       <main className="flex-1 space-y-4">
+        {/* ③ بروتوكول الاستلام — الحالة + المخرج المتوقَّع + مسار المنتجات */}
+        <IntakeStatusCard companyId={cid} level={classifyClient(health).level} />
         {done ? (
           <div className="flex flex-col items-center rounded-2xl border-2 border-emerald-300 bg-emerald-50/60 p-12 text-center">
             <span className="mb-4 text-6xl">🏁</span>
