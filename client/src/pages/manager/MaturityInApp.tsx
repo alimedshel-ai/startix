@@ -102,9 +102,12 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
     () => new Set(financeAutoAnswers(finq, loans).map((a) => a.id)),
     [finq, loans],
   )
-  const effectiveConfig = config.specialty === 'FINANCE'
-    ? layerFinanceConfig(config, { tier, answeredIds })
-    : config
+  // مذكّر على [config, tier, answeredIds] كي يثبت هويّته حتى يجهز finq — فتُعاد الدرجة
+  // المحفوظة تصحيحًا ذاتيًّا فور تحميل FIN_QUANT (effectiveConfig في اعتماديّات الحفظ).
+  const effectiveConfig = useMemo(
+    () => (config.specialty === 'FINANCE' ? layerFinanceConfig(config, { tier, answeredIds }) : config),
+    [config, tier, answeredIds],
+  )
 
   useEffect(() => {
     if (!company || loading) return
@@ -119,7 +122,9 @@ export function MaturityInApp({ config, embedded = false }: { config: MaturityCo
       } catch { setAutosave('error') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [answers, company, loading, config])
+    // effectiveConfig ضمن الاعتماديّات: تحميل finq (⇒ answeredIds ⇒ effectiveConfig) يُطلق
+    // حفظًا تصحيحيًّا بالدرجة الصحيحة دون انتظار إجابةٍ تالية (يغلق سباق الحفظ/finq).
+  }, [answers, company, loading, config, effectiveConfig])
 
   function onSelect(questionId: string, optionIndex: number) {
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }))
