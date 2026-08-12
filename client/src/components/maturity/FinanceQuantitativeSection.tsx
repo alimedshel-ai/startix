@@ -96,8 +96,10 @@ const KPI_LABEL: Record<keyof FinancialKpis, string> = {
 const sar = (n: number) => `${Math.round(n).toLocaleString('ar-SA')} ريال`
 
 function num(v: string): number | undefined {
-  // ت٣أ٢ — تحويل الأرقام العربية-الهندية قبل التفسير (\d في JS لاتينيّ فقط).
-  const n = Number(toLatinDigits(v).replace(/[^\d.-]/g, ''))
+  // ت٣أ٢ — تحويل الأرقام العربية-الهندية قبل التفسير (\d في JS لاتينيّ فقط)،
+  // وتطبيع الفاصلة العشريّة العربيّة ٫ (U+066B) نقطةً قبل التجريد — وإلّا أسقطها
+  // regex التجريد فالتصق «١٢٫٥» رقمًا صحيحًا ١٢٥ (خلل بيانات صامت).
+  const n = Number(toLatinDigits(v).replace(/٫/g, '.').replace(/[^\d.-]/g, ''))
   return v.trim() === '' || !isFinite(n) ? undefined : n
 }
 
@@ -130,6 +132,10 @@ export function FinanceQuantitativeSection({
           getArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT'),
         ])
         if (cancel) return
+        // إعادة تسليح skipFirst قبل الـsetters: الوصول الأوّل استهلك اللفّة على حالةٍ
+        // فارغة (قبل وصول البيانات)، فبلا هذا السطر تُطلق setters البيانات المحمّلة
+        // حفظًا وهميًّا بعد ١٠٠٠ms دون أيّ تعديل مستخدم (يزيّف «آخر تعديل»).
+        skipFirst.current = true
         setFinq(finArt?.data?.finq ?? {})       // توافق خلفيّ: v1 يأتي بلا شرائح/loans
         setLoans(finArt?.data?.loans ?? [])
         setCostItems(finArt?.data?.costItems ?? [])
@@ -389,7 +395,8 @@ export function FinanceQuantitativeSection({
 }
 
 function fmtKpi(key: keyof FinancialKpis, v: number): string {
-  const asPct: (keyof FinancialKpis)[] = ['collectionRate', 'payrollToRevenue', 'materialsToRevenue', 'netMargin', 'grossMargin']
+  // roe كسرٌ (NET_PROFIT÷EQUITY، الهدف ≥ ٠٫١٥) فيُعرَض نسبةً كبقيّة الهوامش، لا «٠٫١٢».
+  const asPct: (keyof FinancialKpis)[] = ['collectionRate', 'payrollToRevenue', 'materialsToRevenue', 'netMargin', 'grossMargin', 'roe']
   const asSar: (keyof FinancialKpis)[] = ['receivables', 'workingCapital', 'revenuePerDirectEmployee']
   if (asPct.includes(key)) return `${Math.round(v * 100)}٪`
   if (asSar.includes(key)) return sar(v)
