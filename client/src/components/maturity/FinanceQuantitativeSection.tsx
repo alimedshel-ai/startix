@@ -8,7 +8,9 @@ import { Cashflow13wSection } from '@/components/maturity/Cashflow13wSection'
 import { CostCenterSection } from '@/components/maturity/CostCenterSection'
 import { deriveArAging, sumLoans, toLatinDigits, type Loan } from '@/lib/finAgingDerive'
 import { computeFinancialHealth, type FinancialKpis } from '@/lib/financialHealth'
+import { UnitEconomicsSection } from '@/components/maturity/UnitEconomicsSection'
 import { deriveAggregatesIntoFinq, monthlyOpex as costItemsMonthlyOpex, type CostItem } from '@/lib/finCostCenter'
+import { type Product } from '@/lib/finUnitEconomics'
 import { breakEven, deriveFinancialKpis, type BreakEven } from '@/lib/finQuantDerive'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -29,6 +31,8 @@ interface FinQuantArtifact {
   loans?: Loan[]
   /** المخرج ٤ — بنود مركز التكاليف (قرار ٢: تسود على المجمّع عند وجودها). */
   costItems?: CostItem[]
+  /** المخرج ٥ — اقتصاديات الوحدة (هامش كلّ منتج/خدمة؛ توافق خلفيّ: يأتي غائبًا في v1). */
+  products?: Product[]
 }
 
 interface SharedFinancial {
@@ -107,6 +111,7 @@ export function FinanceQuantitativeSection({
   const [finq, setFinq] = useState<Record<string, number>>({})
   const [loans, setLoans] = useState<Loan[]>([])
   const [costItems, setCostItems] = useState<CostItem[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [shared, setShared] = useState<SharedFinancial>({})
   const [autosave, setAutosave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -128,6 +133,7 @@ export function FinanceQuantitativeSection({
         setFinq(finArt?.data?.finq ?? {})       // توافق خلفيّ: v1 يأتي بلا شرائح/loans
         setLoans(finArt?.data?.loans ?? [])
         setCostItems(finArt?.data?.costItems ?? [])
+        setProducts(finArt?.data?.products ?? [])
         hrRest.current = hrArt?.data ?? {}
         const f = hrArt?.data?.financial ?? {}
         setShared({
@@ -180,6 +186,7 @@ export function FinanceQuantitativeSection({
           finq: effectiveFinq,
           loans,
           costItems,
+          products,
         })
         if (sharedTouched.current) {
           await upsertArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT', {
@@ -191,7 +198,7 @@ export function FinanceQuantitativeSection({
       } catch (err) { setAutosave('error'); void apiErrorMessage(err, '') }
     }, 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [effectiveFinq, loans, costItems, shared, companyId])
+  }, [effectiveFinq, loans, costItems, products, shared, companyId])
 
   function setField(key: string, v: string) {
     setFinq((prev) => {
@@ -327,6 +334,9 @@ export function FinanceQuantitativeSection({
 
         {/* المخرج ٣ — توقّع النقدية ١٣ أسبوعًا (يتغذّى من مركز التكاليف والشرائح) */}
         <Cashflow13wSection {...cashflowInput} />
+
+        {/* المخرج ٥ — اقتصاديات الوحدة (يبني على التعادل: الثابتة من الإجماليّة الفعّالة) */}
+        <UnitEconomicsSection products={products} onChange={setProducts} fixedMonthly={effectiveFinq.FINQ_FIXED_COSTS ?? 0} />
 
         {FLAT_GROUPS.map((g) => (
           <div key={g.title} className="rounded-lg border bg-card p-3">
