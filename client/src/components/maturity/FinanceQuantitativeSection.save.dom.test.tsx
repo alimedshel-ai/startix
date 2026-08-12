@@ -70,9 +70,12 @@ describe('نقطة التعادل — بطاقة ⚖️ تعرض أرقامًا 
     render(<FinanceQuantitativeSection companyId="co-be" />)
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
+    // التنسيق مُوحَّد على sar (ar-SA + «ريال») بعد كومِت توحيد العملة 5994529؛ نحسب
+    // المتوقَّع بنفس toLocaleString('ar-SA') تفاديًا لهشاشة ICU. الوحدات تبقى en-US.
+    const sar = (n: number) => `${n.toLocaleString('ar-SA')} ريال`
     expect(screen.getByText('هامش المساهمة/وحدة')).toBeTruthy()
-    expect(screen.getByText('400 ﷼')).toBeTruthy()   // هامش المساهمة = 600 − 200
+    expect(screen.getByText(sar(400))).toBeTruthy()   // هامش المساهمة = 600 − 200
     expect(screen.getByText('125')).toBeTruthy()      // وحدات التعادل = ⌈50000 ÷ 400⌉
-    expect(screen.getByText('75,000 ﷼')).toBeTruthy() // مبيعات التعادل = 125 × 600
+    expect(screen.getByText(sar(75_000))).toBeTruthy() // مبيعات التعادل = 125 × 600
   })
 })
