@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -42,11 +42,19 @@ const RISK_META: Record<'low' | 'medium' | 'high', { labelAr: string; icon: stri
   high:   { labelAr: 'خطورة عالية', icon: '🔴', badgeCls: 'border-rose-300 bg-rose-50 text-rose-800' },
 }
 
+// أعمدة شاشة التنفيذ (kanban) — تجميع بالحالة+الأولوية بدل قائمة مسطّحة تُرهِق
+// حين تكثر الخطوات. الحالة المنتهية (done/cancelled) عمودٌ واحد؛ غير المنتهية
+// تنقسم بالأولوية: حرج/مرتفع = «عاجل الآن»، وغيرها = «قادم». التقسيم شامل
+// (يجمع كل الخطوات، لا يُسقِط شيئاً — المجموع = عدد الخطوات).
+const isTerminal = (s: string) => s === 'done' || s === 'cancelled'
+const EXEC_COLUMNS: { key: string; title: string; tint: string; match: (it: { project: { status: string }; priority: string }) => boolean }[] = [
+  { key: 'urgent',   title: '🔴 عاجل الآن', tint: 'border-rose-200 bg-rose-50/40',      match: (it) => !isTerminal(it.project.status) && (it.priority === 'critical' || it.priority === 'high') },
+  { key: 'upcoming', title: '🟡 قادم',       tint: 'border-amber-200 bg-amber-50/30',    match: (it) => !isTerminal(it.project.status) && it.priority !== 'critical' && it.priority !== 'high' },
+  { key: 'done',     title: '✅ مكتمل',       tint: 'border-emerald-200 bg-emerald-50/40', match: (it) => isTerminal(it.project.status) },
+]
+
 function sTint(s: string): string {
   return STATUS.find((x) => x[0] === s)?.[2] ?? 'border-slate-200 bg-card'
-}
-function sLabel(s: string): string {
-  return STATUS.find((x) => x[0] === s)?.[1] ?? s
 }
 
 function fmtDate(iso?: string | null): string {
@@ -119,6 +127,7 @@ function Editor({ companyId }: { companyId: string }) {
   const [creating, setCreating] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sources, setSources] = useState<Sources | null>(null)
+  const navigate = useNavigate()
   const today = new Date().toISOString().slice(0, 10)
   const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 90).toISOString().slice(0, 10)
   const [form, setForm] = useState({ title: '', description: '', startDate: today, endDate: future })
@@ -220,6 +229,21 @@ function Editor({ companyId }: { companyId: string }) {
         const bRank = PRIORITY_META[b.priority]?.rank ?? 0
         return bRank - aRank
       })
+
+      // لا مبادرات مؤهّلة (مخطّطة/جارية): ميّز السبب بدل رسالة «لها خطوات سلفاً»
+      // المضلّلة. المولّد يبني الخطوات من المبادرات المعتمَدة فقط، لا المقترحة.
+      if (eligible.length === 0) {
+        toast.message(
+          initiatives.length === 0
+            ? 'لا مبادرات محفوظة بعد — أنشئ مبادرات في صفحة «المبادرات» أوّلاً.'
+            : `لديك ${initiatives.length} مبادرة «مقترحة» لم تُعتمَد بعد — رقِّها إلى «مخطّطة» في صفحة المبادرات (تحتاج: ربط هدف + مستوى + تكلفة) ثمّ ولّد الخطوات هنا.`,
+          {
+            duration: 10000,
+            action: { label: 'افتح المبادرات ←', onClick: () => navigate('/initiatives') },
+          },
+        )
+        return
+      }
 
       let added = 0
       const summary = { critical: 0, high: 0, medium: 0, low: 0 }
@@ -446,67 +470,58 @@ function Editor({ companyId }: { companyId: string }) {
           <div className="mb-2 flex items-center justify-between px-2 text-sm">
             <span className="font-semibold">📁 خطوات التنفيذ — {items.length} خطوة (مرتّبة بالأولوية)</span>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sorted.map(({ project: p, priority, category, risk, duration }, idx) => {
-              const catMeta = CATEGORY_META[category]
-              const prMeta = PRIORITY_META[priority] ?? PRIORITY_META.medium
-              const rkMeta = RISK_META[risk]
+          <div className="grid gap-3 md:grid-cols-3">
+            {EXEC_COLUMNS.map((col) => {
+              const colItems = sorted.filter(col.match)
               return (
-                <Card key={p.id} className={sTint(p.status)}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start gap-2">
-                      <span className="mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold tabular-nums text-primary-foreground" title="ترقيم الخطوة">
-                        #{idx + 1}
-                      </span>
-                      <span className="mt-0.5 text-xl" title={catMeta.labelAr}>{catMeta.icon}</span>
-                      <CardTitle className="flex-1 text-base leading-tight">{p.title}</CardTitle>
-                      <span className="rounded-md border bg-card px-2 py-0.5 text-[10px]">{sLabel(p.status)}</span>
-                    </div>
-                    {p.description && <CardDescription className="mt-1 leading-relaxed line-clamp-2">{p.description}</CardDescription>}
-                    <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px]">
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${catMeta.bgClass} ${catMeta.colorClass}`}>
-                        <span>{catMeta.icon}</span>
-                        <span>{catMeta.labelAr}</span>
-                      </span>
-                      <span className={`rounded-full border px-1.5 py-0.5 ${prMeta.badgeCls}`}>
-                        أولوية {prMeta.labelAr}
-                      </span>
-                      <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 ${rkMeta.badgeCls}`} title={`مدّة ${duration} يوم`}>
-                        <span>{rkMeta.icon}</span>
-                        <span>{rkMeta.labelAr}</span>
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-md border bg-card px-2 py-1">
-                        <div className="text-muted-foreground">البدء</div>
-                        <div className="tabular-nums font-medium">{fmtDate(p.startDate)}</div>
-                      </div>
-                      <div className="rounded-md border bg-card px-2 py-1">
-                        <div className="text-muted-foreground">الانتهاء</div>
-                        <div className="tabular-nums font-medium">{fmtDate(p.endDate)}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="rounded-md border bg-background px-2 py-1 text-xs"
-                        value={p.status}
-                        onChange={(e) => update(p, { status: e.target.value })}
-                      >
-                        {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                      </select>
-                      <span className="text-xs text-muted-foreground tabular-nums">{p.tasks?.length ?? 0} مهمة</span>
-                      <Button variant="ghost" size="sm" className="mr-auto" onClick={() => remove(p)}>حذف</Button>
-                    </div>
-                    <Link
-                      to={`/manager/projects/${p.id}?client=${p.companyId}`}
-                      className="flex items-center justify-center gap-1 rounded-md border-2 border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
-                    >
-                      🔍 تفاصيل هذه الخطوة ←
-                    </Link>
-                  </CardContent>
-                </Card>
+                <div key={col.key} className={`rounded-lg border ${col.tint} p-2`}>
+                  <div className="mb-2 flex items-center justify-between px-1 text-xs font-bold">
+                    <span>{col.title}</span>
+                    <span className="rounded-full bg-card px-2 py-0.5 tabular-nums text-muted-foreground">{colItems.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {colItems.length === 0 && (
+                      <p className="px-1 py-6 text-center text-[11px] text-muted-foreground">— لا خطوات —</p>
+                    )}
+                    {colItems.map(({ project: p, priority, category, risk }) => {
+                      const catMeta = CATEGORY_META[category]
+                      const prMeta = PRIORITY_META[priority] ?? PRIORITY_META.medium
+                      const rkMeta = RISK_META[risk]
+                      return (
+                        <Card key={p.id} className={sTint(p.status)}>
+                          <div className="space-y-1.5 p-2">
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-base leading-none" title={catMeta.labelAr}>{catMeta.icon}</span>
+                              <span className="flex-1 text-xs font-medium leading-tight line-clamp-2">{p.title}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1 text-[9px] text-muted-foreground">
+                              <span className={`rounded-full border px-1.5 py-0.5 ${prMeta.badgeCls}`}>{prMeta.labelAr}</span>
+                              <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 ${rkMeta.badgeCls}`} title={rkMeta.labelAr}>{rkMeta.icon}</span>
+                              <span className="tabular-nums">{p.tasks?.length ?? 0} مهمة</span>
+                              <span className="tabular-nums">· ⌛ {fmtDate(p.endDate)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <select
+                                className="min-w-0 flex-1 rounded border bg-background px-1 py-0.5 text-[10px]"
+                                value={p.status}
+                                onChange={(e) => update(p, { status: e.target.value })}
+                                title="غيّر الحالة (ينقل البطاقة بين الأعمدة)"
+                              >
+                                {STATUS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                              </select>
+                              <Link
+                                to={`/manager/projects/${p.id}?client=${p.companyId}`}
+                                className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+                                title="تفاصيل هذه الخطوة"
+                              >🔍</Link>
+                              <button onClick={() => remove(p)} className="px-1 text-[10px] text-muted-foreground transition hover:text-rose-600" title="حذف الخطوة">✕</button>
+                            </div>
+                          </div>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </div>

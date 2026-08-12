@@ -260,6 +260,14 @@ function Editor({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+        <span className="text-base leading-none">💡</span>
+        <span className="font-semibold">الأهداف تُربَط بمبادراتك لاعتمادها.</span>
+        <span className="text-muted-foreground">بعد إنشاء هدفٍ هنا، ارجع لاختياره في كلّ مبادرة ثمّ اعتمِدها.</span>
+        <Link to={`/initiatives${clientQS}`} className="ms-auto rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground hover:opacity-90">
+          ← ارجع للمبادرات
+        </Link>
+      </div>
       {goalSource && (
         <div className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${GOAL_SOURCE_HINT[goalSource].cls}`}>
           <span className="text-base leading-none">{GOAL_SOURCE_HINT[goalSource].icon}</span>

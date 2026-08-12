@@ -139,6 +139,8 @@ interface Sources {
 }
 
 function Editor({ companyId }: { companyId: string }) {
+  const [params] = useSearchParams()
+  const clientQS = params.get('client') ? `?client=${params.get('client')}` : ''
   const user = useAuthStore((s) => s.user)
   const specialty = user?.specialtyDeptType ?? null
   const strategyPath = user?.strategyPath ?? null
@@ -533,7 +535,22 @@ function Editor({ companyId }: { companyId: string }) {
   // حارس الميزانيّة: Σ تكاليف المبادرات مقابل Company.opex.budget (تحذير لا حظر).
   const bs = useMemo(() => budgetStatus(items.map((i) => i.cost), budget), [items, budget])
   const suggestedNextStep = useMemo(() => {
-    if (items.length === 0) return null
+    // كل مبادراتك «مقترحة» غير معتمَدة: الخطوة الحقيقيّة هي الاعتماد لا التنفيذ.
+    if (active.length === 0) {
+      if (suggestions.length > 0) {
+        const noGoals = objectives.length === 0
+        return {
+          icon: '🧪',
+          labelAr: noGoals ? 'أنشئ هدفًا ثمّ اعتمِد مقترحاتك' : 'أكمل واعتمِد مقترحاتك أوّلاً',
+          hint: noGoals
+            ? `لديك ${suggestions.length} مبادرة «مقترحة» وصفر أهداف — أنشئ هدفًا أوّلاً، ثمّ حدّد لكلّ مبادرة هدفًا + مستوى + تكلفة واعتمِدها.`
+            : `لديك ${suggestions.length} مبادرة «مقترحة» — حدّد لكلٍّ هدفًا + مستوى + تكلفة ثمّ اضغط «✅ اعتمِد» في المقترحات أعلاه. لا تتحوّل إلى خطوات تنفيذ قبل الاعتماد.`,
+          to: (noGoals ? `/objectives${clientQS}` : null) as string | null,
+          cta: (noGoals ? 'أنشئ هدفًا أوّلاً ←' : null) as string | null,
+        }
+      }
+      return null
+    }
     if (inProgress === 0 && done === 0) {
       return {
         icon: '📁',
@@ -562,7 +579,7 @@ function Editor({ companyId }: { companyId: string }) {
       }
     }
     return null
-  }, [items.length, inProgress, done])
+  }, [active.length, suggestions.length, objectives.length, inProgress, done, clientQS])
 
   return (
     <>
@@ -767,10 +784,16 @@ function Editor({ companyId }: { companyId: string }) {
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 empty:hidden"><HrImpactBadge i={i} /><InitiativeProgress i={i} /></div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <select className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={i.objectiveId ?? ''} onChange={(e) => update(i, { objectiveId: e.target.value || null })}>
-                      <option value="">— 🎯 الهدف —</option>
-                      {objectives.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
-                    </select>
+                    {objectives.length === 0 ? (
+                      <Link to={`/objectives${clientQS}`} className="min-w-0 flex-1 rounded-md border border-dashed border-primary/50 bg-primary/5 px-2 py-1 text-xs text-primary hover:bg-primary/10" title="لا أهداف بعد — أنشئ هدفًا استراتيجيًّا ثمّ ارجع لتربطه">
+                        ➕ لا أهداف بعد — أنشئ هدفًا أوّلاً ←
+                      </Link>
+                    ) : (
+                      <select className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={i.objectiveId ?? ''} onChange={(e) => update(i, { objectiveId: e.target.value || null })}>
+                        <option value="">— 🎯 الهدف —</option>
+                        {objectives.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+                      </select>
+                    )}
                     <select className="rounded-md border bg-background px-2 py-1 text-xs" value={i.level ?? ''} onChange={(e) => update(i, { level: (e.target.value || null) as PlanLevel | null })}>
                       <option value="">— المستوى —</option>
                       {LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
@@ -932,9 +955,11 @@ function Editor({ companyId }: { companyId: string }) {
                 <div className="text-xs text-emerald-800/80">{suggestedNextStep.hint}</div>
               </div>
             </div>
-            <Link to={suggestedNextStep.to} className={buttonVariants({ variant: 'default' })}>
-              {suggestedNextStep.cta}
-            </Link>
+            {suggestedNextStep.to && (
+              <Link to={suggestedNextStep.to} className={buttonVariants({ variant: 'default' })}>
+                {suggestedNextStep.cta}
+              </Link>
+            )}
           </CardContent>
         </Card>
       )}
