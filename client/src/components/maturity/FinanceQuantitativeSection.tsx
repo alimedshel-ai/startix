@@ -11,6 +11,7 @@ import { computeFinancialHealth, type FinancialKpis } from '@/lib/financialHealt
 import { UnitEconomicsSection } from '@/components/maturity/UnitEconomicsSection'
 import { deriveAggregatesIntoFinq, monthlyOpex as costItemsMonthlyOpex, type CostItem } from '@/lib/finCostCenter'
 import { type Product } from '@/lib/finUnitEconomics'
+import { accountingGuards } from '@/lib/finAccountingGuards'
 import { breakEven, deriveFinancialKpis, type BreakEven } from '@/lib/finQuantDerive'
 import { getArtifact, upsertArtifact } from '@/lib/strategicApi'
 
@@ -242,6 +243,21 @@ export function FinanceQuantitativeSection({
 
   const equityWarn = finq.FINQ_EQUITY != null && finq.FINQ_EQUITY <= 0
 
+  // حرّاس التناقض المحاسبيّ الثلاثة (نمط حارس الراتب 53b0de2 — إلزاميّ غير مانع):
+  // يقرأون الإجماليّات الفعّالة + الإيراد من الأساس المشترك. النقيّ يتولّى الأحكام.
+  const acctWarnings = useMemo(
+    () => accountingGuards({
+      equity: effectiveFinq.FINQ_EQUITY,
+      totalAssets: effectiveFinq.FINQ_TOTAL_ASSETS,
+      receivables: effectiveFinq.FINQ_AR,
+      currentAssets: effectiveFinq.FINQ_CURR_ASSET,
+      materialsMonthly: effectiveFinq.FND_MAT,
+      annualRevenue: shared.annualRevenue,
+      grossProfit: effectiveFinq.FINQ_GROSS_PROFIT,
+    }),
+    [effectiveFinq, shared.annualRevenue],
+  )
+
   // القطعة ٢ — نقطة التعادل الحيّة: تقرأ الثلاث من الإجماليّات الفعّالة (الثابتة تأتي
   // مشتقّة من بنود مركز التكاليف حين توجد — قرار ٢). النقيّ breakEven يتولّى السقوط.
   const be = useMemo(
@@ -263,6 +279,16 @@ export function FinanceQuantitativeSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
+        {/* حرّاس التناقض المحاسبيّ الثلاثة — تحذير إلزاميّ غير مانع (لا يمنع الإدخال) */}
+        {acctWarnings.length > 0 && (
+          <div className="rounded-lg border border-rose-300 bg-rose-50 p-3">
+            <div className="mb-1 text-sm font-bold text-rose-900">⚠️ تنبيهات اتّساق محاسبيّ — لا تمنع الإدخال</div>
+            <ul className="list-disc space-y-1 pe-5 text-xs font-medium text-rose-800">
+              {acctWarnings.map((w) => <li key={w.key}>{w.message}</li>)}
+            </ul>
+          </div>
+        )}
+
         {/* الأساس المشترك — يُقرأ ويُكتب في HR_QUANT.financial (لا يُنسَخ). */}
         <div className="rounded-lg border border-sky-300 bg-sky-50/50 p-3">
           <div className="mb-2 text-sm font-bold text-sky-900">🔗 الأساس المشترك (مصدره التحليل الكمّي لـ HR — يُحدَّث في مكانه)</div>
