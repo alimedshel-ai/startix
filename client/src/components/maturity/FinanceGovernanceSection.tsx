@@ -40,7 +40,9 @@ export function FinanceGovernanceSection({ companyId, size }: { companyId: strin
     ;(async () => {
       try {
         const art = await getArtifact<GovArtifact>(companyId, 'GOV_QUANT')
-        if (!cancel) setAnswers(art?.data?.answers ?? {})
+        // إعادة تسليح skipFirst بعد وصول البيانات قبل الـsetter: وإلّا استُهلكت اللفّة على
+        // حالةٍ فارغة فيُطلق setAnswers حفظًا وهميًّا بعد التحميل (يزيّف «آخر تعديل»).
+        if (!cancel) { skipFirst.current = true; setAnswers(art?.data?.answers ?? {}) }
       } catch { /* بلا artifact سابق */ }
     })()
     return () => { cancel = true }

@@ -110,6 +110,9 @@ export function HrQuantitativeSection({
       try {
         const art = await getArtifact<HrQuantArtifact>(companyId, 'HR_QUANT')
         if (cancel) return
+        // إعادة تسليح skipFirst بعد وصول البيانات: الوصول الأوّل استهلك اللفّة على حالةٍ
+        // فارغة، فبلا هذا السطر تُطلق setters البيانات المحمّلة حفظًا وهميًّا (يزيّف «آخر تعديل»).
+        skipFirst.current = true
         setActuals(art?.data?.actuals ?? {})
         setCounts(art?.data?.counts ?? {}) // العدّادات HRQ_* — تُشتقّ منها النِّسَب
         setSaud(art?.data?.saudization ?? []) // ترحيل v0→v1: غياب الحقل = قائمة فارغة
