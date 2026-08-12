@@ -196,10 +196,13 @@ export function FinanceQuantitativeSection({
           products,
         })
         if (sharedTouched.current) {
-          await upsertArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT', {
-            ...hrRest.current,
-            financial: { ...(hrRest.current.financial ?? {}), ...shared },
-          })
+          // تحصين: أعِد قراءة HR_QUANT قبل الكتابة كي لا نكتب فوق تعديلٍ خارجيّ (شاشة HR
+          // مثلًا) بنسخةٍ محمَّلة عند فتح هذه الشاشة. نُبقي financial منّا ونحفظ باقي الحقول الحيّة.
+          const latest = await getArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT')
+          const base = latest?.data ?? hrRest.current
+          const merged: HrQuantArtifactShape = { ...base, financial: { ...(base.financial ?? {}), ...shared } }
+          await upsertArtifact<HrQuantArtifactShape>(companyId, 'HR_QUANT', merged)
+          hrRest.current = merged   // أبقِ المرجع طازجًا لحفظٍ لاحق في نفس الجلسة
         }
         setAutosave('saved')
       } catch (err) { setAutosave('error'); void apiErrorMessage(err, '') }
@@ -430,7 +433,7 @@ function fmtKpi(key: keyof FinancialKpis, v: number): string {
 }
 
 // القطعة ٢ — عرض نقطة التعادل الحيّ (لا أرقام صفريّة وهميّة عند نقص المدخلات).
-const sarSymbol = (n: number) => `${Math.round(n).toLocaleString('en-US')} ﷼`
+// العملة موحّدة على sar (أرقام عربيّة + «ريال») — لا مُنسِّق ثانٍ.
 function BreakEvenReadout({ be }: { be: BreakEven | null }) {
   if (be == null) {
     return <p className="mt-2 text-xs text-muted-foreground">⚖️ أدخل القيم الثلاث (الثابتة · المتغيّرة للوحدة · السعر) لتظهر النقطة.</p>
@@ -438,7 +441,7 @@ function BreakEvenReadout({ be }: { be: BreakEven | null }) {
   if (be.noBreakEven) {
     return (
       <p className="mt-2 rounded bg-rose-100/70 px-2 py-1 text-xs font-medium text-rose-800">
-        ⚠️ السعر لا يغطّي التكلفة المتغيّرة (هامش المساهمة = {sarSymbol(be.contributionMargin)}) — لا نقطة تعادل.
+        ⚠️ السعر لا يغطّي التكلفة المتغيّرة (هامش المساهمة = {sar(be.contributionMargin)}) — لا نقطة تعادل.
       </p>
     )
   }
@@ -446,7 +449,7 @@ function BreakEvenReadout({ be }: { be: BreakEven | null }) {
     <div className="mt-2 grid grid-cols-1 gap-1 rounded-lg border border-emerald-300 bg-emerald-50/50 p-2 text-xs sm:grid-cols-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground">هامش المساهمة/وحدة</span>
-        <span className="font-bold tabular-nums text-emerald-900">{sarSymbol(be.contributionMargin)}</span>
+        <span className="font-bold tabular-nums text-emerald-900">{sar(be.contributionMargin)}</span>
       </div>
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground">وحدات التعادل/شهر</span>
@@ -454,7 +457,7 @@ function BreakEvenReadout({ be }: { be: BreakEven | null }) {
       </div>
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground">مبيعات التعادل</span>
-        <span className="font-bold tabular-nums text-emerald-900">{sarSymbol(be.revenue)}</span>
+        <span className="font-bold tabular-nums text-emerald-900">{sar(be.revenue)}</span>
       </div>
     </div>
   )
