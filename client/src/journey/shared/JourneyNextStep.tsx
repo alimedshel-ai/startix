@@ -1,52 +1,36 @@
 import { Link } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useJourney } from '@/hooks/useJourney'
-import { JOURNEY_STAGES } from '@/lib/journeyStages'
+import { useGuidedNext } from '@/hooks/useGuidedNext'
 
 // ─── بطاقة «الخطوة التالية في مسارك» للأدوات المساندة (خارج المراحل) ──
-// أدوات مثل التحليل المالي ليست مرحلةً في المسار، فبطاقة NextStepCard
-// المعتمدة على المرحلة لا تظهر عليها — فيتوه المستخدم «وش يجي بعدها؟».
-// هذه البطاقة تقرأ من useJourney() وتعرض المرحلة التالية غير المكتملة في
-// مسار خطة المستخدم (أو التنفيذ/المتابعة إن اكتمل المسار) — إجراء واحد واضح.
-
-const STAGE_ICON: Record<string, string> = Object.fromEntries(
-  JOURNEY_STAGES.map((s) => [s.id, s.icon]),
-)
+// مصدر واحد: تقرأ من useGuidedNext (نفس ما تقرأه القمرة · السايد بار · NextStepCard)
+// بدل useJourney — فلا «خطوة تالية» بمنطقٍ مختلف عن بقيّة المنصّة. الوجهة next.to
+// كاملةٌ (تتضمّن ?client) فلا نُلحِق clientQuery. لا رابط ⇒ لا بطاقة (كـNextStepCard).
 
 interface Props {
   companyId: string | null
-  /** لتمرير سياق العميل في الرابط (?client=<id>). */
+  /** موروثٌ للتوافق مع مواضع الاستدعاء — الوجهة تأتي كاملةً من useGuidedNext.to. */
   clientQuery?: string
 }
 
-export function JourneyNextStep({ companyId, clientQuery = '' }: Props) {
-  const { loading, nextStage } = useJourney(companyId)
-  if (loading) return null
-
-  // المسار مكتمل → لا مرحلة تالية: وجّه للتنفيذ/المتابعة كخطوة مستمرّة.
-  const done = !nextStage
-  const href = nextStage?.href ?? '/execute'
-  const icon = nextStage ? STAGE_ICON[nextStage.stageId] ?? '🚀' : '🚀'
-  const title = nextStage?.titleAr ?? '⑥ التنفيذ والمتابعة'
-  const emphasis = nextStage?.emphasisAr
-    ?? 'أكملت مراحل مسارك — تابِع التنفيذ وراقب المؤشّرات باستمرار.'
+export function JourneyNextStep({ companyId }: Props) {
+  const { loading, next } = useGuidedNext(companyId)
+  if (loading || !next || !next.to) return null
 
   return (
     <Card className="border-primary/30 bg-gradient-to-l from-primary/10 to-primary/5">
       <CardHeader className="pb-2">
-        <CardDescription className="text-xs">
-          {done ? 'أكملت مسارك — الخطوة المستمرّة' : 'الخطوة التالية في مسارك'}
-        </CardDescription>
+        <CardDescription className="text-xs">الخطوة التالية في مسارك</CardDescription>
         <CardTitle className="flex items-center gap-2 text-base">
-          <span aria-hidden>{icon}</span>
-          <span>{title}</span>
+          <span aria-hidden>{next.icon}</span>
+          <span>{next.label}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <p className="max-w-md text-xs text-muted-foreground">{emphasis}</p>
+        <p className="max-w-md text-xs text-muted-foreground">{next.reason}</p>
         <Link
-          to={`${href}${clientQuery}`}
+          to={next.to}
           className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
         >
           افتحها الآن ←
