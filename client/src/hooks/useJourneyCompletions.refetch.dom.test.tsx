@@ -7,14 +7,17 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 // (مثل STAKEHOLDERS في صفحة أصحاب المصلحة) لا يُحدِّث الاكتمال حتى إعادة تحميل.
 // بعده: upsertArtifact يبثّ ARTIFACT_SAVED_EVENT، والهوك يعيد الجلب (debounce)،
 // فيظهر النوع الجديد حيًّا. نُبقي ARTIFACT_SAVED_EVENT الحقيقيّ ونحقن قائمة الجلب.
-const h = vi.hoisted(() => ({ artifacts: [] as { type: string; data: unknown }[] }))
+const h = vi.hoisted(() => ({
+  artifacts: [] as { type: string; data: unknown }[],
+  swot: null as { strengths?: unknown[]; weaknesses?: unknown[] } | null,
+}))
 
 vi.mock('@/lib/strategicApi', async (orig) => {
   const actual = await orig<typeof import('@/lib/strategicApi')>()
   return {
     ...actual, // يُبقي ARTIFACT_SAVED_EVENT حقيقيًّا
     listAllArtifacts: vi.fn(async () => h.artifacts),
-    getSWOT: vi.fn(async () => null),
+    getSWOT: vi.fn(async () => h.swot),
     listKPIs: vi.fn(async () => []),
     listObjectives: vi.fn(async () => []),
   }
@@ -35,12 +38,17 @@ function Probe({ companyId }: { companyId: string }) {
   return <div data-testid="out">{label}</div>
 }
 
+function SynthProbe({ companyId }: { companyId: string }) {
+  const { loading, completions } = useJourneyCompletions(companyId)
+  return <div data-testid="synth">{loading ? 'loading' : (completions.synthesis ? 'synthesis-done' : 'synthesis-pending')}</div>
+}
+
 const emitSaved = (companyId: string) =>
   window.dispatchEvent(new CustomEvent(ARTIFACT_SAVED_EVENT, { detail: { companyId, type: 'STAKEHOLDERS_FINANCE' } }))
 
 const STAKE = { type: 'STAKEHOLDERS_FINANCE', data: { rows: [{ name: 'المساهمون', influence: 5, interest: 5 }] } }
 
-afterEach(() => { cleanup(); h.artifacts = [] })
+afterEach(() => { cleanup(); h.artifacts = []; h.swot = null })
 
 describe('useJourneyCompletions — تقدّم الخطوة بعد الحفظ (ARTIFACT_SAVED_EVENT)', () => {
   it('حفظ لنفس الشركة ⇒ إعادة جلب ⇒ يظهر النوع الجديد بلا إعادة تحميل', async () => {
@@ -51,6 +59,16 @@ describe('useJourneyCompletions — تقدّم الخطوة بعد الحفظ (A
     h.artifacts = [STAKE]        // الحفظ نجح على الخادم
     emitSaved('c1')              // upsertArtifact كان يبثّ هذا
     await waitFor(() => expect(screen.getByTestId('out').textContent).toBe('has-stakeholders'), { timeout: 2500 })
+  })
+
+  it('حفظ SWOT (نقطة منفصلة عن artifacts) ⇒ تكتمل مرحلة التوليف حيًّا — البلاغ المحدَّد', async () => {
+    h.swot = null                // لا SWOT بعد
+    render(<SynthProbe companyId="c1" />)
+    await waitFor(() => expect(screen.getByTestId('synth').textContent).toBe('synthesis-pending'))
+
+    h.swot = { strengths: [{ text: 'قوة' }], weaknesses: [] }  // putTaggedSWOT حُفظ
+    emitSaved('c1')              // putTaggedSWOT يبثّ الآن ARTIFACT_SAVED_EVENT
+    await waitFor(() => expect(screen.getByTestId('synth').textContent).toBe('synthesis-done'), { timeout: 2500 })
   })
 
   it('حفظ لشركة أخرى لا يُعيد الجلب (لا تقدّم زائف عبر العملاء)', async () => {

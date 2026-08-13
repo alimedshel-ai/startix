@@ -91,12 +91,18 @@ export async function getArtifact<T = unknown>(companyId: string, type: Artifact
 // التركيب (كانت stakeholders تُحفظ ولا يتقدّم المحرّك حتى إعادة تحميل الصفحة).
 export const ARTIFACT_SAVED_EVENT = 'startix:artifact-saved'
 export interface ArtifactSavedDetail { companyId: string; type: string }
-
-export async function upsertArtifact<T>(companyId: string, type: ArtifactType, payload: T): Promise<Artifact<T>> {
-  const { data } = await api.put(`/api/strategic/artifacts/${companyId}/${type}`, { data: payload })
+// يُبَثّ بعد أيّ حفظ يؤثّر على اكتمال المراحل (artifact · SWOT · أهداف · مؤشّرات)
+// كي تُعيد useJourneyCompletions الجلب فتتقدّم «الخطوة التالية» حيًّا. SWOT/الأهداف/
+// المؤشّرات لا تُحفَظ كـartifacts (نقاط منفصلة) فتبثّ يدويًّا هنا لا عبر upsertArtifact.
+export function emitArtifactSaved(companyId: string, type: string): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<ArtifactSavedDetail>(ARTIFACT_SAVED_EVENT, { detail: { companyId, type } }))
   }
+}
+
+export async function upsertArtifact<T>(companyId: string, type: ArtifactType, payload: T): Promise<Artifact<T>> {
+  const { data } = await api.put(`/api/strategic/artifacts/${companyId}/${type}`, { data: payload })
+  emitArtifactSaved(companyId, type)
   return data
 }
 
@@ -201,10 +207,12 @@ export async function putTaggedSWOT(
     threats: toStorage(payload.threats),
   }
   const { data } = await api.put(`/api/strategic/swot/${companyId}`, body)
+  emitArtifactSaved(companyId, 'SWOT')  // ② التوليف: يُحدِّث hasSwot فتتقدّم للتوجّه
   return normalizeToTagged(data as SWOTRaw)
 }
 export async function putTOWS(companyId: string, payload: NonNullable<SWOT['tows']>): Promise<SWOT> {
   const { data } = await api.put(`/api/strategic/swot/${companyId}/tows`, payload)
+  emitArtifactSaved(companyId, 'TOWS')
   return data
 }
 export async function suggestTOWS(companyId: string): Promise<NonNullable<SWOT['tows']>> {
@@ -233,11 +241,13 @@ export async function putTaggedTOWS(companyId: string, payload: TaggedTOWS): Pro
     wt: toStorage(payload.wt),
   }
   await api.put(`/api/strategic/swot/${companyId}/tows`, body)
+  emitArtifactSaved(companyId, 'TOWS')
 }
 // يبذر SWOT من آخر تشخيص للشركة (يدمج بلا طمس، بلا تكرار).
 // السيرفر يعيد 404 إن لم يوجد تشخيص — نتركه للـ apiErrorMessage.
 export async function seedSwotFromDiagnostic(companyId: string): Promise<SWOT> {
   const { data } = await api.post(`/api/strategic/swot/${companyId}/seed-from-diagnostic`, {})
+  emitArtifactSaved(companyId, 'SWOT')
   return normalizeToText(data as SWOTRaw)
 }
 
@@ -270,10 +280,12 @@ export async function listObjectives(companyId: string): Promise<Objective[]> {
 }
 export async function createObjective(payload: Omit<Objective, 'id' | 'okrs' | 'status'> & { status?: string }): Promise<Objective> {
   const { data } = await api.post('/api/strategic/objectives', payload)
+  if (data?.companyId) emitArtifactSaved(data.companyId, 'OBJECTIVE')  // ④ القياس
   return data
 }
 export async function updateObjective(id: string, payload: Partial<Objective>): Promise<Objective> {
   const { data } = await api.patch(`/api/strategic/objectives/${id}`, payload)
+  if (data?.companyId) emitArtifactSaved(data.companyId, 'OBJECTIVE')
   return data
 }
 export async function deleteObjective(id: string): Promise<void> {
@@ -320,10 +332,12 @@ export async function listKPIs(companyId: string): Promise<KPI[]> {
 }
 export async function createKPI(payload: Omit<KPI, 'id' | 'currentValue'> & { currentValue?: number }): Promise<KPI> {
   const { data } = await api.post('/api/strategic/kpis', payload)
+  if (data?.companyId) emitArtifactSaved(data.companyId, 'KPI')  // ④ القياس
   return data
 }
 export async function updateKPI(id: string, payload: Partial<KPI>): Promise<KPI> {
   const { data } = await api.patch(`/api/strategic/kpis/${id}`, payload)
+  if (data?.companyId) emitArtifactSaved(data.companyId, 'KPI')
   return data
 }
 export async function deleteKPI(id: string): Promise<void> {
