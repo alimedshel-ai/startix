@@ -5,7 +5,7 @@ import { JOURNEY_STAGES, artifactSatisfies } from '@/lib/journeyStages'
 import { deepHasContent } from '@/lib/artifactContent'
 import { listDepartments } from '@/lib/deptApi'
 import { classifySaudization, type CategoryInput, type SaudizationStatus } from '@/lib/saudization'
-import { getSWOT, listAllArtifacts, listKPIs, listObjectives } from '@/lib/strategicApi'
+import { ARTIFACT_SAVED_EVENT, getSWOT, listAllArtifacts, listKPIs, listObjectives, type ArtifactSavedDetail } from '@/lib/strategicApi'
 
 // ─── قراءة اكتمال المراحل للعميل النشط ───────────────────────────
 // Sidebar + JourneyPage يستخدمان نفس المنطق: قائمة artifacts + SWOT +
@@ -35,6 +35,23 @@ const EMPTY: Record<StageId, boolean> = {
 
 export function useJourneyCompletions(companyId: string | null): JourneyCompletions {
   const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
+  // مفتاح إعادة الجلب: يُرفَع بعد أي حفظ artifact لنفس الشركة (debounce) فتتقدّم
+  // «الخطوة التالية» حيًّا — «بعد الحفظ، بطاقة المحرّك تنقلك». يفتح بوّابة القسم ①.
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    if (!companyId) return
+    let t: ReturnType<typeof setTimeout> | null = null
+    const onSaved = (e: Event) => {
+      const detail = (e as CustomEvent<ArtifactSavedDetail>).detail
+      if (detail?.companyId && detail.companyId !== companyId) return // شركة أخرى — تجاهل
+      // debounce: الحفظ التلقائيّ يتوالى بسرعة، فنجمع الدفعة في إعادة جلب واحدة.
+      if (t) clearTimeout(t)
+      t = setTimeout(() => setRefreshKey((k) => k + 1), 800)
+    }
+    window.addEventListener(ARTIFACT_SAVED_EVENT, onSaved)
+    return () => { window.removeEventListener(ARTIFACT_SAVED_EVENT, onSaved); if (t) clearTimeout(t) }
+  }, [companyId])
 
   useEffect(() => {
     if (!companyId) {
@@ -97,7 +114,8 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
       }
     })()
     return () => { alive = false }
-  }, [companyId])
+    // refreshKey: يُعاد الجلب بعد أي حفظ artifact (عبر ARTIFACT_SAVED_EVENT).
+  }, [companyId, refreshKey])
 
   return state
 }

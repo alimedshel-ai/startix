@@ -86,8 +86,17 @@ export async function getArtifact<T = unknown>(companyId: string, type: Artifact
   return data.artifact as Artifact<T> | null
 }
 
+// يُبَثّ بعد كل حفظ artifact ناجح — تستمع إليه طبقة الاكتمال (useJourneyCompletions)
+// فتُعيد الجلب، فتتقدّم «الخطوة التالية» حيًّا بعد الحفظ بدل البقاء على بيانات وقت
+// التركيب (كانت stakeholders تُحفظ ولا يتقدّم المحرّك حتى إعادة تحميل الصفحة).
+export const ARTIFACT_SAVED_EVENT = 'startix:artifact-saved'
+export interface ArtifactSavedDetail { companyId: string; type: string }
+
 export async function upsertArtifact<T>(companyId: string, type: ArtifactType, payload: T): Promise<Artifact<T>> {
   const { data } = await api.put(`/api/strategic/artifacts/${companyId}/${type}`, { data: payload })
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<ArtifactSavedDetail>(ARTIFACT_SAVED_EVENT, { detail: { companyId, type } }))
+  }
   return data
 }
 
