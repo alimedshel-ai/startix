@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { scoreGovernance, type Ypn } from '@/lib/finGovernanceBank'
 import { getArtifact } from '@/lib/strategicApi'
@@ -31,6 +32,7 @@ export function IntakeStatusCard({ companyId, level, size }: { companyId: string
   }, [gov, size])
 
   const p = intakeProtocol(level, govPct)
+  const clientQuery = `?client=${companyId}`
 
   return (
     <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4" dir="rtl">
@@ -43,18 +45,32 @@ export function IntakeStatusCard({ companyId, level, size }: { companyId: string
 
       <div className="mb-1 text-[11px] font-bold text-muted-foreground">مسار المنتجات المقترح:</div>
       <ol className="mb-3 flex flex-col gap-1">
-        {p.productPath.map((step, i) => (
-          <li key={step.label} className="flex items-center gap-2 text-xs">
-            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-              {['١', '٢', '٣', '٤', '٥'][i] ?? String(i + 1)}
-            </span>
-            <span className={i === 0 ? 'font-bold' : ''}>{step.label}</span>
-            <span className={`text-[10px] ${step.available ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {step.available ? '✅ متاح' : '🔜 قادم'}
-            </span>
-            {i === 0 && <span className="rounded bg-primary/10 px-1.5 text-[10px] font-semibold text-primary">ابدأ هنا</span>}
-          </li>
-        ))}
+        {p.productPath.map((step, i) => {
+          const clickable = step.available && !!step.path
+          return (
+            <li key={step.label} className="flex items-center gap-2 text-xs">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                {['١', '٢', '٣', '٤', '٥'][i] ?? String(i + 1)}
+              </span>
+              {/* المتاح المبنيّ = رابط قابل للنقر (الأوّل زرّ «ابدأ هنا»)؛ القادم يبقى نصًّا. */}
+              {clickable ? (
+                <Link to={`${step.path}${clientQuery}`} className={`hover:underline ${i === 0 ? 'font-bold text-primary' : 'text-foreground'}`}>
+                  {step.label}
+                </Link>
+              ) : (
+                <span className={i === 0 ? 'font-bold' : ''}>{step.label}</span>
+              )}
+              <span className={`text-[10px] ${step.available ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {step.available ? '✅ متاح' : '🔜 قادم'}
+              </span>
+              {i === 0 && clickable && (
+                <Link to={`${step.path}${clientQuery}`} className="ms-auto rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+                  ابدأ هنا ←
+                </Link>
+              )}
+            </li>
+          )
+        })}
       </ol>
 
       <p className="mb-1 rounded bg-background/60 px-2 py-1 text-[11px] text-muted-foreground">🏛️ {p.orgNote}</p>

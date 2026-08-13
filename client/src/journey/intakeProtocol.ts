@@ -6,8 +6,9 @@
 
 import type { ClientLevel } from './classify'
 
-/** خطوة منتج في المسار — available: مبنيّ اليوم (✅) مقابل قادم (🔜). صدقٌ لا منتج وهميّ. */
-export interface ProductStep { label: string; available: boolean }
+/** خطوة منتج في المسار — available: مبنيّ اليوم (✅) مقابل قادم (🔜). صدقٌ لا منتج وهميّ.
+ *  path: وجهة المنتج (بلا ?client — يُضيفه السطح). موجودة للمبنيّ فقط، فيصير زرًّا قابلًا للنقر. */
+export interface ProductStep { label: string; available: boolean; path?: string }
 
 export interface IntakeProtocol {
   statusIcon: string
@@ -22,13 +23,17 @@ export interface IntakeProtocol {
   orgNote: string
 }
 
-const P = (label: string, available = false): ProductStep => ({ label, available })
+const P = (label: string, available = false, path?: string): ProductStep => ({ label, available, path })
 
 // المبنيّ اليوم (✅) — يُطابق ما شُحن فعلًا؛ الباقي 🔜 (لم يُبنَ بعد، انظر تقرير الفجوات).
-const MATURITY = P('تدقيق النضج', true)
-const COST = P('مركز التكاليف', true)
-const CASH = P('توقّع النقدية ١٣ أسبوعًا', true)
-const RESCUE = P('خطة الإنقاذ (RCM)', true)
+// المنتجات الماليّة المبنيّة (نضج/تكاليف/نقدية/إنقاذ) أقسامٌ في ورشة المالية
+// `/manager/deep-analysis` (DeepAnalysisPage→MaturityInApp→FinanceQuantitativeSection)،
+// فوجهتها هي هذه الورشة — فيصير كلٌّ منها زرًّا فعّالًا في بطاقة الاستلام.
+const FIN_WORKSPACE = '/manager/deep-analysis'
+const MATURITY = P('تدقيق النضج', true, FIN_WORKSPACE)
+const COST = P('مركز التكاليف', true, FIN_WORKSPACE)
+const CASH = P('توقّع النقدية ١٣ أسبوعًا', true, FIN_WORKSPACE)
+const RESCUE = P('خطة الإنقاذ (RCM)', true, FIN_WORKSPACE)
 const OWNER = P('تقرير المالك الشهريّ')          // 🔜 المخرج ١٠
 const UNIT = P('اقتصاديات الوحدة')                // 🔜 المخرج ٥
 const NINETY = P('خطة ٩٠ يومًا')                  // 🔜 المخرج ٩
