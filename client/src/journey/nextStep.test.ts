@@ -154,11 +154,21 @@ describe('getNextStep — «لماذا» واعٍ بالبيانات (النقط
 })
 
 describe('getNextStep — توصية TOWS الناعمة (قرار المالك، بعد SWOT)', () => {
-  it('توليف مكتمل + TOWS غير معمولة (MEDIUM) → يقترح TOWS قبل التوجّهات (لا يلزم)', () => {
+  it('توليف مكتمل + TOWS غير معمولة (MEDIUM) → يقترح TOWS قبل التوجّهات (لا يلزم) + قابل للتخطّي', () => {
     const c = { ...NONE, environment: true, synthesis: true }
     const r = getNextStep(base({ path: 'MEDIUM', completions: c, signals: { hasTows: false } }))
     expect(r.toolPath).toBe('/tows')
     expect(r.reason).toContain('اختياريّة')
+    expect(r.skippable).toBe(true)
+    expect(r.skipTo).toBe('/directions') // وجهة التخطّي = الخطوة الحقيقيّة التالية
+  })
+
+  it('تخطّى TOWS (towsSkipped) → يُكتَم الاقتراح ويمضي للتوجّهات', () => {
+    const c = { ...NONE, environment: true, synthesis: true }
+    const r = getNextStep(base({ path: 'MEDIUM', completions: c, signals: { hasTows: false, towsSkipped: true } }))
+    expect(r.stageId).toBe('directions')
+    expect(r.toolPath).not.toBe('/tows')
+    expect(r.skippable).toBeFalsy()
   })
 
   it('TOWS معمولة → لا اقتراح، يمضي للتوجّهات', () => {

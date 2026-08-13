@@ -1,7 +1,8 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useGuidedNext, type GuidedKind } from '@/hooks/useGuidedNext'
+import { skipTows } from '@/journey/towsSkip'
 
 // ─── S3 — بطاقة «الخطوة التالية» أسفل كل أداة استراتيجية ──────────
 // مصدر واحد: تقرأ من useGuidedNext (نفس ما تقرأه القمرة · السايد بار ·
@@ -29,6 +30,7 @@ const KIND_STYLE: Record<GuidedKind, { card: string; badge: string; badgeText: s
 export function NextStepCard({ companyId }: Props) {
   const { loading, next } = useGuidedNext(companyId ?? null)
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   // لا نعرض شيئاً أثناء الجلب أو حين لا وجهة (لا عميل / غير قابلة للنقر).
   if (loading || !next || !next.to) return null
   const s = KIND_STYLE[next.kind]
@@ -36,6 +38,13 @@ export function NextStepCard({ companyId }: Props) {
   // في /manager/dept-pestel). عندها لا نعرض رابطاً دائريّاً «افتحها الآن»
   // لصفحتك نفسها — بل إشارة «أنت هنا، أكمِلها» مع إبقاء سبب الخطوة مفيداً.
   const isHere = next.to.split('?')[0] === pathname
+
+  // زر «تخطّى» للخطوة المقترَحة غير المُلزِمة (TOWS): يكتم التوصية لهذا العميل
+  // وينتقل للخطوة الحقيقيّة التالية — «افتحها الآن أو تخطّى».
+  const onSkip = () => {
+    if (companyId) skipTows(companyId)
+    if (next.skipTo) navigate(next.skipTo)
+  }
 
   return (
     <Card className={s.card}>
@@ -48,18 +57,29 @@ export function NextStepCard({ companyId }: Props) {
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <p className="max-w-md text-xs text-muted-foreground">{next.reason}</p>
-        {isHere ? (
-          <span className="shrink-0 rounded-md border border-dashed px-3 py-1.5 text-sm font-medium text-muted-foreground">
-            ✓ أنت في هذه الأداة — أكمِلها واحفظ
-          </span>
-        ) : (
-          <Link
-            to={next.to}
-            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium shadow-sm hover:opacity-90 ${s.btn}`}
-          >
-            افتحها الآن ←
-          </Link>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {next.skippable && next.skipTo && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            >
+              تخطّى ←
+            </button>
+          )}
+          {isHere ? (
+            <span className="rounded-md border border-dashed px-3 py-1.5 text-sm font-medium text-muted-foreground">
+              ✓ أنت في هذه الأداة — أكمِلها واحفظ
+            </span>
+          ) : (
+            <Link
+              to={next.to}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium shadow-sm hover:opacity-90 ${s.btn}`}
+            >
+              افتحها الآن ←
+            </Link>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

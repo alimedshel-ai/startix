@@ -1,6 +1,7 @@
 import { auditRouteFor } from '@/journey'
 import { classifyClient, reconcileLevel, type ClientClass, type LevelResolution } from '@/journey/classify'
 import { getNextStep } from '@/journey/nextStep'
+import { isTowsSkipped } from '@/journey/towsSkip'
 import { useCompanyById } from '@/hooks/useCompanyById'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useRescue } from '@/hooks/useRescue'
@@ -28,6 +29,10 @@ export interface GuidedNext {
   to: string | null
   /** للـ locked: كيف تُفتَح. */
   unlockHint?: string
+  /** خطوة مقترَحة غير مُلزِمة (TOWS) — البطاقة تعرض زرّ «تخطّى». */
+  skippable?: boolean
+  /** وجهة التخطّي الكاملة (تتضمّن ?client) — الخطوة الحقيقيّة التالية. */
+  skipTo?: string
 }
 
 // SWOT شقّان: تحليل **داخليّ** يملأ القوّة/الضعف، ومسح **خارجيّ** يملأ
@@ -181,11 +186,14 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
       saudizationStatus: saudization?.status,
       saudizationGap: saudization?.gap,
       hasTows,
+      towsSkipped: isTowsSkipped(companyId),  // تفضيل محليّ يكتم توصية TOWS
     },
   })
   return { loading: false, classification, resolution, analysisPlan, next: {
     kind: r.kind, icon: r.icon, label: r.label, reason: r.reason,
     to: r.toolPath ? `${r.toolPath}${clientQ}` : null,
     unlockHint: r.unlockHint,
+    skippable: r.skippable,
+    skipTo: r.skipTo ? `${r.skipTo}${clientQ}` : undefined,
   } }
 }

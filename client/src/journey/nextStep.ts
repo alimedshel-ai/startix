@@ -30,6 +30,10 @@ export interface NextStepResult {
   reason: string
   /** للـ locked: كيف تُفتَح. */
   unlockHint?: string
+  /** خطوة **مقترَحة** غير مُلزِمة (توصية TOWS الناعمة) — تعرض زرّ «تخطّى». */
+  skippable?: boolean
+  /** وجهة التخطّي (الخطوة الحقيقيّة التالية، بلا ?client) — يُضيفه الغلاف. */
+  skipTo?: string
 }
 
 /** إشارات بيانات اختياريّة — تُثري «لماذا» وتضبط بوّابات الأدوات، بلا تغيير المنطق. */
@@ -49,6 +53,8 @@ export interface NextStepSignals {
   saudizationGap?: number
   /** هل عُمِلت TOWS؟ لتوصية TOWS **الناعمة** بعد SWOT (قرار المالك: تُقترَح لا تُلزَم). */
   hasTows?: boolean
+  /** هل تخطّى المستخدم توصية TOWS لهذا العميل؟ (يُقرأ محليًّا) — يكتمها فلا تعود. */
+  towsSkipped?: boolean
 }
 
 export interface NextStepState {
@@ -168,7 +174,7 @@ export function getNextStep(s: NextStepState): NextStepResult {
   // حدّ ②→(التالي) كي لا تعلق: فور إنجاز المرحلة التالية (أو TOWS) تختفي التوصية.
   const afterSynthesis = stages[stages.indexOf('synthesis') + 1]
   if (
-    s.completions.synthesis && s.signals?.hasTows === false &&
+    s.completions.synthesis && s.signals?.hasTows === false && s.signals?.towsSkipped !== true &&
     firstIncomplete === afterSynthesis && afterSynthesis != null
   ) {
     return {
@@ -176,6 +182,8 @@ export function getNextStep(s: NextStepState): NextStepResult {
       label: 'حوّل SWOT إلى استراتيجيات (TOWS) — مقترحة',
       toolPath: '/tows',
       reason: 'أكملت SWOT — يُنصَح بتحويلها إلى استراتيجيات TOWS قبل الانتقال. اختياريّة: يمكنك تخطّيها للخطوة التالية.',
+      skippable: true,
+      skipTo: toolPathFor(afterSynthesis, s),  // الخطوة الحقيقيّة التالية عند التخطّي
     }
   }
 
