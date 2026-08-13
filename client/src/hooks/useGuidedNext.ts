@@ -89,8 +89,11 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const classification = classifyClient(health)
   // مصالحة المشتقّ (آليّ) مع اختيار المستخدم (يدويّ) → شارة التقادم.
   const resolution = reconcileLevel(classification, user?.strategyPath ?? null)
-  // المسار المُشتقّ يقود المحرّك؛ يسقط على اليدويّ حين لا تدقيق بعد (assess).
-  const path = classification.journeyPath ?? user?.strategyPath ?? 'LONG'
+  // قرار المالك (2026-08-13): المسار **اليدويّ** يقود المحرّك، مطابقةً لمخطّط القمرة
+  // (useJourney يحلّ من نفس strategyPath عبر resolvePath) — فيتّفق السطحان. الطوارئ
+  // تبقى شارة (resolution/طبقة الإنقاذ) لا تختصر المسار. بلا اختيار ⇒ استراتيجيّ (كامل)
+  // مطابقةً لـresolvePath(null)=STRATEGIC، فلا يبقى مصدرا مسارٍ متعارضان.
+  const path = user?.strategyPath ?? 'LONG'
 
   // ─── خطّة التحليل ① — تُحسب مرّةً هنا (المحرّك analysisPlanFor) وتُصدَّر في كل
   //   عودة كي يقرأ السايدبار نفس المصدر بدل قائمة ثابتة موازية. الوجهة تُبنى مرّة
