@@ -27,6 +27,8 @@ export interface NavItem {
   optional?: boolean
   // ⏳ عنصر مخطّط بلا صفحة بعد — يُعرض بادج «⏳» ويوجّه إلى PlaceholderPage.
   placeholder?: boolean
+  // ✓ منجَز — يُضبط ديناميكيّاً حين يُبنى القسم من خطّة التحليل (المحرّك)، لا في الثابت.
+  done?: boolean
 }
 
 export type AccentColor = 'teal' | 'indigo' | 'amber' | 'emerald' | 'rose' | 'violet' | 'sky' | 'orange'

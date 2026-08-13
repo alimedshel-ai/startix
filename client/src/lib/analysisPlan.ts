@@ -143,6 +143,34 @@ export function firstIncompleteAnalysisKey(
   return recommended.find((k) => !isDone(k)) ?? null
 }
 
+// ─── عرض الخطّة كعناصر مرتّبة (الموصى به ثمّ المتقدّم) — للسايدبار/الأسطح ────
+// دالّة نقيّة: تُسطّح الخطّة إلى عناصر تحمل label/icon + حالة الإنجاز + هل هي
+// موصى بها (أساسيّة) أم متقدّمة. لا تبني الوجهة (?client/viaAudit) — ذاك شأن
+// الأسطح (useGuidedNext) كي يبقى هذا نقيًّا. مصدر الترتيب والتصنيف واحد.
+export interface AnalysisPlanItem {
+  key: string
+  label: string
+  icon: string
+  /** مُنجَزة (بحسب isDone الممرَّرة). */
+  done: boolean
+  /** موصى بها (أساسيّة تظهر) أم متقدّمة (تُطوى). */
+  recommended: boolean
+}
+
+export function analysisPlanItems(
+  plan: AnalysisPlan,
+  isDone: (key: string) => boolean,
+): AnalysisPlanItem[] {
+  const toItem = (key: string, recommended: boolean): AnalysisPlanItem => {
+    const t = ANALYSIS_TOOLS[key]
+    return { key, label: t?.label ?? key, icon: t?.icon ?? '•', done: isDone(key), recommended }
+  }
+  return [
+    ...plan.recommended.map((k) => toItem(k, true)),
+    ...plan.advanced.map((k) => toItem(k, false)),
+  ]
+}
+
 // ─── بدائيّة نقيّة مرفوعة (الخطوة ٢) — الموصى به من طبقة **جاهزة** ─────
 // ترفع منطق «الفلترة + رفع القطاع» فوق analysisPlanFor. المسار أ يبنيها من
 // stageOneScore المجمَّد (لا من الصحّة اللحظيّة → لا تأرجح)؛ والقطاع حقل شركة

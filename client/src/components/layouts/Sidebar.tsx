@@ -129,6 +129,27 @@ export function Sidebar() {
     }))
     .filter((s) => s.items.length > 0)
 
+  // ① التشخيص — القسم يقرأ خطّة التحليل من المحرّك (useGuidedNext) بدل القائمة
+  // الثابتة: نفس analysisPlanFor الذي يقوده «التالي لك الآن» و AnalysisWizard —
+  // مصدر الحقيقة الواحد. للمدير المستقل مع عميل مطابق فقط؛ غيره القائمة الثابتة.
+  // الموصى به → essential (يظهر)، المتقدّم → extras (يُطوى)، والمنجَز يحمل ✓.
+  const analysisPlan = guided.analysisPlan
+  if (analysisPlan && isPro && effectiveClientId) {
+    sections = sections.map((s) => {
+      if (s.stageId !== 'environment') return s
+      const planItems: NavItem[] = analysisPlan.items.map((it) => ({
+        to: it.to, label: it.label, icon: it.icon,
+        proOnly: true, essential: it.recommended, done: it.done,
+      }))
+      // مدخل الهَب (معالج التحليل الشامل) يبقى أعلى القسم — نظرة الخطّة كاملةً، بـ?client.
+      const wizard: NavItem = {
+        to: `/manager/analysis-wizard?client=${effectiveClientId}`,
+        label: '🔬 معالج التحليل الشامل', icon: '🪄', proOnly: true, essential: true,
+      }
+      return { ...s, items: [wizard, ...planItems] }
+    })
+  }
+
   // 🎨 وضع «المحفظة» للمدير المستقل — نُخفي المراحل ونُبقي الأقسام غير
   // المرحليّة (العملاء + المالي). المراحل غير مفيدة قبل اختيار عميل.
   if (mode === 'portfolio') {
@@ -577,6 +598,9 @@ function NavItemRow({ item, accent, locked = false }: { item: NavItem; accent: {
           >
             ⏳
           </span>
+        )}
+        {item.done && !item.placeholder && (
+          <span className="text-[11px] font-bold text-emerald-600" title="مُنجَز — من خطّة التحليل">✓</span>
         )}
         {item.optional && !item.placeholder && (
           <span className="text-[9px] text-muted-foreground/70" title="مساندة">◇</span>

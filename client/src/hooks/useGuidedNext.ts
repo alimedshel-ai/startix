@@ -4,7 +4,7 @@ import { getNextStep } from '@/journey/nextStep'
 import { useCompanyById } from '@/hooks/useCompanyById'
 import { useJourneyCompletions } from '@/hooks/useJourneyCompletions'
 import { useRescue } from '@/hooks/useRescue'
-import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, type CompanySize } from '@/lib/analysisPlan'
+import { analysisPlanFor, analysisPlanItems, ANALYSIS_TOOLS, type AnalysisTier, type CompanySize } from '@/lib/analysisPlan'
 import { artifactSatisfies } from '@/lib/journeyStages'
 import { MATURITY_BY_SPECIALTY } from '@/lib/maturityConfigs'
 import { useAuthStore } from '@/store/authStore'
@@ -36,6 +36,29 @@ export interface GuidedNext {
 const INTERNAL_SWOT_BASES = ['DEPT_DEEP_FULL', 'DEPT_DEEP_ANSWERS', 'MATURITY', 'INTERNAL_ENV', 'VALUE_CHAIN', 'CORE_CAPABILITIES', 'ORG_DNA', 'GAP_ANALYSIS']
 const EXTERNAL_SWOT_BASES = ['PESTEL', 'PORTER', 'BENCHMARK', 'STAKEHOLDERS']
 
+// عنصر واحد من خطّة التحليل ① كما يستهلكه أيّ سطح (السايدبار خاصّة): مفتاح
+// الأداة + عرضها + وجهتها الكاملة (?client) + حالة الإنجاز + هل هي موصى بها.
+export interface GuidedAnalysisItem {
+  key: string
+  label: string
+  icon: string
+  /** الوجهة الكاملة (تتضمّن ?client؛ التدقيق عبر auditRouteFor). */
+  to: string
+  done: boolean
+  /** موصى بها (أساسيّة تظهر) أم متقدّمة (تُطوى تحت «إضافية»). */
+  recommended: boolean
+}
+
+// خطّة التحليل ① المحسوبة مرّة في المحرّك ومُصدَّرة للأسطح — كي يقرأ السايدبار
+// نفس المصدر (analysisPlanFor) بدل قائمة ثابتة موازية (مصدر الحقيقة الواحد).
+export interface GuidedAnalysisPlan {
+  tier: AnalysisTier
+  tierLabel: string
+  tierIcon: string
+  /** العناصر مرتّبة: الموصى به أوّلًا ثمّ المتقدّم. */
+  items: GuidedAnalysisItem[]
+}
+
 export interface GuidedResult {
   loading: boolean
   next: GuidedNext | null
@@ -43,6 +66,8 @@ export interface GuidedResult {
   classification: ClientClass | null
   /** مصالحة الآليّ↔اليدويّ + كشف التقادم (شارة «ترقَّ/تنبيه»). */
   resolution: LevelResolution | null
+  /** خطّة التحليل ① (للمدير المستقل مع عميل مطابق) — يقرؤها السايدبار. */
+  analysisPlan: GuidedAnalysisPlan | null
 }
 
 export function useGuidedNext(companyId: string | null): GuidedResult {
@@ -58,7 +83,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const { company, loading: coLoading } = useCompanyById(isPro ? companyId : null)
   const clientQ = companyId ? `?client=${companyId}` : ''
 
-  if (cLoading || rLoading || coLoading) return { loading: true, next: null, classification: null, resolution: null }
+  if (cLoading || rLoading || coLoading) return { loading: true, next: null, classification: null, resolution: null, analysisPlan: null }
 
   // ─── صنّف: المستوى يُشتقّ من الصحّة ويتكيّف (لا اختيار يدويّ ثابت) ───
   const classification = classifyClient(health)
@@ -67,16 +92,45 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   // المسار المُشتقّ يقود المحرّك؛ يسقط على اليدويّ حين لا تدقيق بعد (assess).
   const path = classification.journeyPath ?? user?.strategyPath ?? 'LONG'
 
+  // ─── خطّة التحليل ① — تُحسب مرّةً هنا (المحرّك analysisPlanFor) وتُصدَّر في كل
+  //   عودة كي يقرأ السايدبار نفس المصدر بدل قائمة ثابتة موازية. الوجهة تُبنى مرّة
+  //   (viaAudit → auditRouteFor، وإلّا path) + ?client. الطبقة ١٫٥ تعيد استخدامها.
+  const analysisPlan: GuidedAnalysisPlan | null =
+    isPro && companyId && company?.id === companyId
+      ? (() => {
+          const plan = analysisPlanFor({
+            size: (company.size as CompanySize) ?? 'SMALL',
+            sector: company.sector ?? null,
+            serviceType: company.profile?.serviceType ?? null,
+            healthPct: health.healthPct,
+            dangerZone: health.dangerZone,
+          })
+          // واعٍ بالمحتوى (لا وجوديّ): artifact محفوظ فارغ ({}) لا يُحسب منجَزاً.
+          const isDone = (key: string): boolean => {
+            const t = ANALYSIS_TOOLS[key]
+            if (!t) return true
+            if (t.viaAudit) return health.hasAudit
+            return t.artifactBases.some((b) => artifactSatisfies(nonEmptyArtifactTypes, b))
+          }
+          const items: GuidedAnalysisItem[] = analysisPlanItems(plan, isDone).map((it) => {
+            const t = ANALYSIS_TOOLS[it.key]
+            const base = t?.viaAudit ? auditRouteFor(specialty) ?? '/manager/clients' : t?.path ?? '/manager/clients'
+            return { key: it.key, label: it.label, icon: it.icon, done: it.done, recommended: it.recommended, to: `${base}${clientQ}` }
+          })
+          return { tier: plan.tier, tierLabel: plan.tierLabel, tierIcon: plan.tierIcon, items }
+        })()
+      : null
+
   // ١) الطوارئ أوّلاً — تتجاوز مراحل المسار.
   if (rescue.kind === 'rescue' && rescue.step) {
     const s = rescue.step
-    return { loading: false, classification, resolution, next: {
+    return { loading: false, classification, resolution, analysisPlan, next: {
       kind: 'rescue', icon: '🚨', label: `${s.label} — ${s.tool}`, reason: s.why,
       to: `${s.toolPath}${clientQ}&from=emergency`,
     } }
   }
   if (rescue.kind === 'rescue-done') {
-    return { loading: false, classification, resolution, next: {
+    return { loading: false, classification, resolution, analysisPlan, next: {
       kind: 'reaudit', icon: '🔁',
       label: `أعِد تدقيق الإدارة${criticalPct != null ? ` — الصحّة ما زالت ${criticalPct}٪` : ''}`,
       reason: 'الخروج من المنطقة الحمراء يتأكّد بإعادة التدقيق (≥٤٠٪)، لا بمجرّد فعل خطوات الإنقاذ.',
@@ -88,36 +142,20 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   //   الموصى بها لسياق شركته (حجم × قطاع × صحّة)، نمشي على التسلسل بالترتيب
   //   (تدقيق → عميق → 7S → … → PESTEL) بدل القفز لمتطلّبات SWOT الخارجيّة.
   //   يمنع تناقض «أنهيت ① فأكمل PESTEL» بينما المدير ما زال داخل التحليل.
-  if (isPro && companyId && company?.id === companyId) {
-    const plan = analysisPlanFor({
-      size: (company.size as CompanySize) ?? 'SMALL',
-      sector: company.sector ?? null,
-      serviceType: company.profile?.serviceType ?? null,
-      healthPct: health.healthPct,
-      dangerZone: health.dangerZone,
-    })
-    const isDone = (key: string): boolean => {
-      const t = ANALYSIS_TOOLS[key]
-      if (!t) return true
-      if (t.viaAudit) return health.hasAudit
-      // واعٍ بالمحتوى (لا وجوديّ): artifact محفوظ فارغ ({}) لا يُحسب أداةً منجَزة —
-      // وإلّا تخطّى المحرّك مراحل التحليل وأعلن «انتهى» بعد التدقيق وحده.
-      return t.artifactBases.some((b) => artifactSatisfies(nonEmptyArtifactTypes, b))
-    }
-    const nextKey = firstIncompleteAnalysisKey(plan.recommended, isDone)
-    if (nextKey) {
-      const t = ANALYSIS_TOOLS[nextKey]
-      const to = t.viaAudit ? auditRouteFor(specialty) ?? '/manager/clients' : t.path
-      const idx = plan.recommended.indexOf(nextKey)
-      // فرع «لا صحّة بعد» صريح: بلا تدقيق لا خطّ أساس — الرسالة الموحّدة عبر
-      // كل الأسطح «ابدأ بالتدقيق الأول لبناء خط الأساس»، لا سبب تسلسل عامّ.
-      const noBaseline = t.viaAudit && !health.hasAudit
-      return { loading: false, classification, resolution, next: {
-        kind: 'action', icon: t.icon, label: t.label,
+  if (analysisPlan) {
+    // نفس عناصر الخطّة التي يعرضها السايدبار — «التالي» = أوّل موصى به غير منجَز.
+    const recItems = analysisPlan.items.filter((i) => i.recommended)
+    const nextItem = recItems.find((i) => !i.done)
+    if (nextItem) {
+      const idx = recItems.findIndex((i) => i.key === nextItem.key)
+      // فرع «لا صحّة بعد» صريح: التدقيق (viaAudit) بلا hasAudit = لا خطّ أساس.
+      const noBaseline = ANALYSIS_TOOLS[nextItem.key]?.viaAudit === true && !health.hasAudit
+      return { loading: false, classification, resolution, analysisPlan, next: {
+        kind: 'action', icon: nextItem.icon, label: nextItem.label,
         reason: noBaseline
           ? 'ابدأ بالتدقيق الأول لبناء خط الأساس — بلا صحّة مُقاسة لا توصية ولا إنقاذ.'
-          : `الخطوة ${idx + 1} من ${plan.recommended.length} في تحليل ① (${plan.tierLabel}) — تابِع بالترتيب قبل الانتقال للتوليف.`,
-        to: `${to}${clientQ}`,
+          : `الخطوة ${idx + 1} من ${recItems.length} في تحليل ① (${analysisPlan.tierLabel}) — تابِع بالترتيب قبل الانتقال للتوليف.`,
+        to: nextItem.to,
       } }
     }
   }
@@ -141,7 +179,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
       saudizationGap: saudization?.gap,
     },
   })
-  return { loading: false, classification, resolution, next: {
+  return { loading: false, classification, resolution, analysisPlan, next: {
     kind: r.kind, icon: r.icon, label: r.label, reason: r.reason,
     to: r.toolPath ? `${r.toolPath}${clientQ}` : null,
     unlockHint: r.unlockHint,

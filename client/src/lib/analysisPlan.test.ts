@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { analysisPlanFor, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, recommendedForScore, stageOneComplete } from './analysisPlan'
+import { analysisPlanFor, analysisPlanItems, ANALYSIS_TOOLS, firstIncompleteAnalysisKey, recommendedForScore, stageOneComplete } from './analysisPlan'
 import { artifactSatisfies } from './journeyStages'
 
 describe('analysisPlanFor — المستوى (حجم × صحّة × قطاع)', () => {
@@ -230,5 +230,37 @@ describe('stageOneComplete — الاكتمال المشترك (يُرفَع ف�
     const done = new Set(['INTERNAL_ENV_HR', 'PESTEL_HR', 'MATURITY']) // العمود incl. deep=MATURITY
     expect(stageOneComplete(recommendedForScore(0, 'other'), done, true)).toBe(true)  // المجمَّد ٣ → مكتمل
     expect(stageOneComplete(recommendedForScore(1, 'other'), done, true)).toBe(false) // لو أُعيد حسابه حيّاً (٧) لانفتح — لهذا نجمّد
+  })
+})
+
+// ─── analysisPlanItems — عرض الخطّة كعناصر (للسايدبار) ─────────────
+describe('analysisPlanItems — تسطيح الخطّة إلى عناصر مرتّبة', () => {
+  it('الموصى به أوّلًا (recommended=true) ثمّ المتقدّم (recommended=false) بالترتيب', () => {
+    const plan = analysisPlanFor({ size: 'SMALL', sector: 'other', healthPct: 55 }) // تشغيليّ
+    const items = analysisPlanItems(plan, () => false)
+    // أوّل ٤ = العمود موصى بها، والباقي متقدّم
+    expect(items.slice(0, 4).map((i) => i.key)).toEqual(['audit', 'deep', 's7', 'pestel'])
+    expect(items.slice(0, 4).every((i) => i.recommended)).toBe(true)
+    expect(items.slice(4).every((i) => !i.recommended)).toBe(true)
+    // لا فقدان: ٩ أدوات كاملة
+    expect(items).toHaveLength(9)
+  })
+
+  it('يحمل label/icon من ANALYSIS_TOOLS + حالة done من isDone', () => {
+    const plan = analysisPlanFor({ size: 'SMALL', sector: 'other', healthPct: 55 })
+    const done = new Set(['audit', 's7'])
+    const items = analysisPlanItems(plan, (k) => done.has(k))
+    const audit = items.find((i) => i.key === 'audit')!
+    expect(audit.label).toBe(ANALYSIS_TOOLS.audit.label)
+    expect(audit.icon).toBe(ANALYSIS_TOOLS.audit.icon)
+    expect(audit.done).toBe(true)
+    expect(items.find((i) => i.key === 'deep')!.done).toBe(false)
+  })
+
+  it('كبيرة (استراتيجيّ) → كلّها موصى بها ولا عنصر متقدّم', () => {
+    const plan = analysisPlanFor({ size: 'LARGE', sector: 'other', healthPct: 70 })
+    const items = analysisPlanItems(plan, () => true)
+    expect(items.every((i) => i.recommended)).toBe(true)
+    expect(items.every((i) => i.done)).toBe(true)
   })
 })
