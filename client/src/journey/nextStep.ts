@@ -47,6 +47,8 @@ export interface NextStepSignals {
   saudizationStatus?: SaudizationStatus
   /** إجماليّ فجوة التوطين بعدد الموظفين — لسبب واعٍ بالبيانات. */
   saudizationGap?: number
+  /** هل عُمِلت TOWS؟ لتوصية TOWS **الناعمة** بعد SWOT (قرار المالك: تُقترَح لا تُلزَم). */
+  hasTows?: boolean
 }
 
 export interface NextStepState {
@@ -158,6 +160,22 @@ export function getNextStep(s: NextStepState): NextStepResult {
         label: 'أكمل مسحاً خارجيّاً (PESTEL)',
         toolPath: s.isPro ? '/manager/dept-pestel' : '/pestel',
         reason: 'تحليلك الحاليّ داخليّ (قوّة/ضعف). SWOT يحتاج فرصاً وتهديدات من مسح خارجيّ — أكمِل PESTEL (أو بورتر) أوّلاً.' }
+    }
+  }
+
+  // توصية TOWS الناعمة (قرار المالك 2026-08-13): بعد اكتمال SWOT وقبل مغادرة
+  // التوليف مباشرةً، إن لم تُعمل TOWS نقترحها — **دون بوّابة صلبة**. تظهر فقط عند
+  // حدّ ②→(التالي) كي لا تعلق: فور إنجاز المرحلة التالية (أو TOWS) تختفي التوصية.
+  const afterSynthesis = stages[stages.indexOf('synthesis') + 1]
+  if (
+    s.completions.synthesis && s.signals?.hasTows === false &&
+    firstIncomplete === afterSynthesis && afterSynthesis != null
+  ) {
+    return {
+      kind: 'action', stageId: 'synthesis', icon: '🔄',
+      label: 'حوّل SWOT إلى استراتيجيات (TOWS) — مقترحة',
+      toolPath: '/tows',
+      reason: 'أكملت SWOT — يُنصَح بتحويلها إلى استراتيجيات TOWS قبل الانتقال. اختياريّة: يمكنك تخطّيها للخطوة التالية.',
     }
   }
 

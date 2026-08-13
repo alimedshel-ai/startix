@@ -152,3 +152,32 @@ describe('getNextStep — «لماذا» واعٍ بالبيانات (النقط
     expect(r.reason).toContain('نضج')
   })
 })
+
+describe('getNextStep — توصية TOWS الناعمة (قرار المالك، بعد SWOT)', () => {
+  it('توليف مكتمل + TOWS غير معمولة (MEDIUM) → يقترح TOWS قبل التوجّهات (لا يلزم)', () => {
+    const c = { ...NONE, environment: true, synthesis: true }
+    const r = getNextStep(base({ path: 'MEDIUM', completions: c, signals: { hasTows: false } }))
+    expect(r.toolPath).toBe('/tows')
+    expect(r.reason).toContain('اختياريّة')
+  })
+
+  it('TOWS معمولة → لا اقتراح، يمضي للتوجّهات', () => {
+    const c = { ...NONE, environment: true, synthesis: true }
+    const r = getNextStep(base({ path: 'MEDIUM', completions: c, signals: { hasTows: true } }))
+    expect(r.stageId).toBe('directions')
+    expect(r.toolPath).not.toBe('/tows')
+  })
+
+  it('لا تعلق: تخطّى TOWS وأكمل التوجّهات → لا يعود يقترح TOWS', () => {
+    const c = { ...NONE, environment: true, synthesis: true, directions: true }
+    const r = getNextStep(base({ path: 'MEDIUM', completions: c, signals: { hasTows: false } }))
+    expect(r.toolPath).not.toBe('/tows') // تجاوز الحدّ ②→③ فاختفت التوصية
+    expect(r.stageId).toBe('initiatives')
+  })
+
+  it('بلا إشارة hasTows (غير ممرَّرة) → لا اقتراح (افتراض آمن)', () => {
+    const c = { ...NONE, environment: true, synthesis: true }
+    const r = getNextStep(base({ path: 'MEDIUM', completions: c }))
+    expect(r.stageId).toBe('directions')
+  })
+})

@@ -75,7 +75,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
   const isPro = user?.userType === 'MANAGER' && user?.managerType === 'INDEPENDENT_PRO'
   const specialty = user?.specialtyDeptType ?? null
 
-  const { loading: cLoading, completions, nonEmptyArtifactTypes, saudization } = useJourneyCompletions(companyId)
+  const { loading: cLoading, completions, nonEmptyArtifactTypes, saudization, hasTows } = useJourneyCompletions(companyId)
   const { loading: rLoading, rescue, criticalPct, reauditPath, health } = useRescue(isPro ? companyId : null)
   // بيانات الشركة **بالمعرّف المُمرَّر** لا من الـURL — فتُحسب خطّة التحليل ①
   // للعميل المعروض فعلاً على كل الأسطح (لا لشركة «أولى» عشوائيّة). يُشترط pro
@@ -180,6 +180,7 @@ export function useGuidedNext(companyId: string | null): GuidedResult {
       swotSourcesReady, externalSourceReady, usesDiagnostic,
       saudizationStatus: saudization?.status,
       saudizationGap: saudization?.gap,
+      hasTows,
     },
   })
   return { loading: false, classification, resolution, analysisPlan, next: {

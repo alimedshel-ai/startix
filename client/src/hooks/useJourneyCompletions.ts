@@ -26,6 +26,8 @@ export interface JourneyCompletions {
   /** حالة التوطين المُشتقّة من HR_QUANT.saudization (من نفس حِمل الـartifacts،
    *  بلا طلب إضافيّ). null إن لا مدخلات توطين — فلا إشارة تُرفَع للرحلة. */
   saudization: { status: SaudizationStatus; gap: number } | null
+  /** هل عُمِلت TOWS (أيّ ربع غير فارغ)؟ لتوصية TOWS الناعمة بعد SWOT — لا للاكتمال. */
+  hasTows: boolean
 }
 
 const EMPTY: Record<StageId, boolean> = {
@@ -34,7 +36,7 @@ const EMPTY: Record<StageId, boolean> = {
 }
 
 export function useJourneyCompletions(companyId: string | null): JourneyCompletions {
-  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
+  const [state, setState] = useState<JourneyCompletions>({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null, hasTows: false })
   // مفتاح إعادة الجلب: يُرفَع بعد أي حفظ artifact لنفس الشركة (debounce) فتتقدّم
   // «الخطوة التالية» حيًّا — «بعد الحفظ، بطاقة المحرّك تنقلك». يفتح بوّابة القسم ①.
   const [refreshKey, setRefreshKey] = useState(0)
@@ -55,7 +57,7 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
 
   useEffect(() => {
     if (!companyId) {
-      setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
+      setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null, hasTows: false })
       return
     }
     let alive = true
@@ -93,6 +95,9 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
           (swot.value.strengths?.length ?? 0) > 0 ||
           (swot.value.weaknesses?.length ?? 0) > 0
         )
+        // TOWS: أيّ ربع (so/wo/st/wt) غير فارغ — إشارة توصية ناعمة، لا اكتمال المرحلة.
+        const tows = swot.status === 'fulfilled' ? swot.value?.tows : null
+        const hasTows = !!tows && (['so', 'wo', 'st', 'wt'] as const).some((q) => (tows[q]?.length ?? 0) > 0)
         const hasObjectives = objectives.status === 'fulfilled' && objectives.value.length > 0
         const hasKpis = kpis.status === 'fulfilled' && kpis.value.length > 0
         // تدقيق الإدارة (DeptAuditPage) يُحفَظ في جداول الإدارة لا كـartifact —
@@ -108,9 +113,9 @@ export function useJourneyCompletions(companyId: string | null): JourneyCompleti
           if (stage.id === 'indicators' && hasKpis)  done = true
           completions[stage.id] = done
         }
-        setState({ loading: false, completions, artifactTypes, nonEmptyArtifactTypes, saudization })
+        setState({ loading: false, completions, artifactTypes, nonEmptyArtifactTypes, saudization, hasTows })
       } catch {
-        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null })
+        if (alive) setState({ loading: false, completions: EMPTY, artifactTypes: new Set(), nonEmptyArtifactTypes: new Set(), saudization: null, hasTows: false })
       }
     })()
     return () => { alive = false }
