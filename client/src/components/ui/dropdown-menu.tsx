@@ -51,15 +51,18 @@ function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
   return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
 }
 
+// ملاحظة: Base UI's Menu.GroupLabel يتطلّب أن يكون داخل <Menu.Group> (يقرأ
+// MenuGroupRootContext) وإلّا رمى الخطأ #31 عند فتح القائمة. تسمياتنا مستقلّة (لا
+// تنتمي لمجموعة)، فنُصيّرها كـ div منسّق — يعمل في أيّ مكان بلا اعتماد على سياق المجموعة.
 function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
